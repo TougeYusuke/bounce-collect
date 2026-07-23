@@ -59,6 +59,17 @@ describe('resolveBallCollisions', () => {
     expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(0);
   });
 
+  it('打ち上げ中(flying)の玉は他の玉をすり抜ける', () => {
+    const pool = new BallPool(4);
+    const grid = new SpatialGrid(100, 100, 10);
+    const flyer = pool.spawn(50, 50)!;
+    const other = pool.spawn(53, 50)!;
+    flyer.flying = true;
+    resolveBallCollisions(pool, grid, 5, 1);
+    expect(flyer.x).toBe(50); // どちらも押されない
+    expect(other.x).toBe(53);
+  });
+
   it('眠っている玉同士は、軽く触れている程度なら動かない', () => {
     const pool = new BallPool(4);
     const grid = new SpatialGrid(100, 100, 10);
@@ -137,6 +148,36 @@ describe('updateSleep', () => {
     wake(b);
     expect(b.sleeping).toBe(false);
     expect(b.sleepFrames).toBe(0);
+  });
+});
+
+describe('flying の解除', () => {
+  const opts = {
+    gravity: CONFIG.GRAVITY,
+    damping: CONFIG.DAMPING,
+    radius: CONFIG.BALL_RADIUS,
+    maxSpeed: CONFIG.MAX_SPEED,
+    restitution: CONFIG.WALL_RESTITUTION,
+    iterations: 2,
+    sleepVelocity: CONFIG.SLEEP_VELOCITY,
+    sleepFrames: CONFIG.SLEEP_FRAMES,
+  };
+
+  it('頂点を過ぎて落ち始めたら すり抜けが解除される', () => {
+    const world = { width: 100, height: 800, segments: [] };
+    const pool = new BallPool(1);
+    const grid = new SpatialGrid(world.width, world.height, 10);
+    const b = pool.spawn(50, 600)!;
+    b.py = b.y + 20; // 上向きに打ち上げた状態
+    b.flying = true;
+
+    let released = -1;
+    for (let i = 0; i < 400; i++) {
+      step(pool, grid, world, opts);
+      if (!b.flying) { released = i; break; }
+    }
+    expect(released).toBeGreaterThan(0); // 打ち上げ直後には解除されない
+    expect(b.flying).toBe(false); // いずれ必ず解除される
   });
 });
 

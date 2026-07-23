@@ -12,6 +12,12 @@ export interface Ball {
   jumperMask: number;
   /** ジャンプ台を使った回数 */
   bounce: number;
+  /**
+   * ジャンプ台で打ち上げられて上昇している最中か。
+   * この間は他の玉とぶつからない（落ちてくる玉に叩き落されるのを防ぐ）。
+   * 下降に転じた時点で解除される。
+   */
+  flying: boolean;
   /** 静止が何フレーム続いているか */
   sleepFrames: number;
   /** 計算対象から外れているか（衝突相手としては生きている） */
@@ -27,6 +33,7 @@ export interface SpawnOptions {
   gateMask?: number;
   jumperMask?: number;
   bounce?: number;
+  flying?: boolean;
 }
 
 /**
@@ -52,6 +59,7 @@ export class BallPool {
         gateMask: 0,
         jumperMask: 0,
         bounce: 0,
+        flying: false,
         sleepFrames: 0,
         sleeping: false,
         alive: false,
@@ -73,6 +81,7 @@ export class BallPool {
     b.gateMask = opts?.gateMask ?? 0;
     b.jumperMask = opts?.jumperMask ?? 0;
     b.bounce = opts?.bounce ?? 0;
+    b.flying = opts?.flying ?? false;
     b.sleepFrames = 0;
     b.sleeping = false;
     b.alive = true;

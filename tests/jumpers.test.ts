@@ -80,6 +80,14 @@ describe('applyJumpers', () => {
     expect(b.bounce).toBe(1);
   });
 
+  it('打ち上げられた玉は flying になる（落ちてくる玉に叩き落されないため）', () => {
+    const pool = new BallPool(10);
+    const b = fallingBall(pool);
+    expect(b.flying).toBe(false);
+    applyJumpers(pool, stage, 5);
+    expect(b.flying).toBe(true);
+  });
+
   it('同じ台には1回しか反応しない（2回目以降は素通り）', () => {
     const pool = new BallPool(10);
     const b = fallingBall(pool);

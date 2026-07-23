@@ -86,6 +86,10 @@ export function resolveBallCollisions(
         const distSq = dx * dx + dy * dy;
         if (distSq >= dSq) return;
 
+        // 打ち上げ中の玉はすり抜ける。上に向かって飛んでいる玉が
+        // 落ちてくる玉に当たって叩き落されるのを防ぐ（壁と床には当たる）。
+        if (a.flying || b.flying) return;
+
         let dist = Math.sqrt(distSq);
 
         // 眠っている玉同士: 原則そのまま（積もった山として固定する）。
@@ -220,6 +224,8 @@ export function step(
   pool.forEachActive((b) => {
     if (b.sleeping) return;
     integrate(b, opts.gravity, opts.damping, opts.maxSpeed);
+    // 頂点を過ぎて落ち始めたら、すり抜けを解除して普通の玉に戻す
+    if (b.flying && b.y >= b.py) b.flying = false;
   });
 
   // 2. 玉同士の重なりを解消

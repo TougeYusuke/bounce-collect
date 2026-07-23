@@ -28,6 +28,9 @@ export function applyJumpers(pool: BallPool, stage: Stage, maxBounce: number): v
       b.y = j.y - 1;
       // Verlet では前フレーム位置を下にずらすことが上向きの速度になる
       b.py = b.y + j.power;
+      // 上昇中は他の玉とぶつからない。落ちてくる玉に叩き落されると
+      // せっかく跳ね上げた意味がなくなるため（れいあ指摘）
+      b.flying = true;
       wake(b);
       break; // 1フレームに複数の台で跳ねない
     }

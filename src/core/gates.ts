@@ -90,6 +90,7 @@ export function applyGates(
             gateMask: 0, // ★新品（別のゲートでまた増える）
             jumperMask: 0, // ★新品（ジャンプ台も使える）
             bounce: ball.bounce, // ★継承（跳ね返りの総数を有限に保つ）
+            flying: ball.flying, // ★継承（上昇中に増えた玉も叩き落されない）
           });
           if (!child) break;
           child.px = child.x - vx;
