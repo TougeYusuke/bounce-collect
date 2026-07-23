@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#101820" />
+    <title>玉の性能計測 — bounce-collect</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        height: 100%;
+        overflow: hidden;
+        background: #101820;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      /* 盤面はHUDとコントロールの間に収める（積もった山が隠れないように） */
+      #stage {
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: calc(62px + env(safe-area-inset-top, 0));
+        bottom: calc(214px + env(safe-area-inset-bottom, 0));
+      }
+      #hud {
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        padding: calc(8px + env(safe-area-inset-top, 0)) 14px 10px;
+        font: 600 14px/1.5 system-ui, -apple-system, sans-serif;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(8px);
+        pointer-events: none;
+      }
+      #fps { font-size: 30px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+      #fps.bad { color: #ff8a80; }
+      #fps.mid { color: #ffd54f; }
+      #fps.ok { color: #7ee2b8; }
+      #info { opacity: 0.85; font-size: 13px; }
+      #controls {
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0));
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(8px);
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+      .row2 { grid-column: span 2; }
+      button {
+        min-height: 50px;
+        border: 0;
+        border-radius: 12px;
+        background: #2c74ad;
+        color: #fff;
+        font: 700 16px system-ui, sans-serif;
+      }
+      button.active { background: #13967f; }
+      button:active { opacity: 0.75; }
+      .label {
+        grid-column: 1 / -1;
+        font: 600 12px system-ui, sans-serif;
+        color: #9fb3c4;
+        letter-spacing: 0.08em;
+        margin-top: 2px;
+      }
+      button.bench { grid-column: 1 / -1; background: #b9622b; }
+
+      #overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(8, 14, 20, 0.92);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        z-index: 10;
+      }
+      #overlay[hidden] { display: none; }
+      .panel {
+        width: 100%;
+        max-width: 460px;
+        max-height: 100%;
+        overflow: auto;
+        background: #17222c;
+        border-radius: 16px;
+        padding: 20px;
+        color: #eef4f8;
+        font: 15px/1.6 system-ui, sans-serif;
+      }
+      .panel h2 { font-size: 19px; margin-bottom: 12px; }
+      .panel table { width: 100%; border-collapse: collapse; font-size: 15px; }
+      .panel th, .panel td {
+        padding: 8px 6px;
+        border-bottom: 1px solid #2c3d4c;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .panel th { color: #9fb3c4; font-size: 12px; letter-spacing: 0.06em; }
+      .panel td:first-child, .panel th:first-child { text-align: left; }
+      .panel td.ok { color: #7ee2b8; font-weight: 700; }
+      .panel td.mid { color: #ffd54f; font-weight: 700; }
+      .panel td.bad { color: #ff8a80; font-weight: 700; }
+      .panel .hint { margin-top: 14px; font-size: 13px; color: #9fb3c4; }
+      .panel button { width: 100%; margin-top: 16px; }
+      .prog { font-size: 17px; margin-top: 6px; }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <div id="hud">
+      <div id="fps">-- fps</div>
+      <div id="info">準備中</div>
+    </div>
+    <div id="controls">
+      <div class="label">玉の数</div>
+      <button data-count="500">500</button>
+      <button data-count="1000">1000</button>
+      <button data-count="2000">2000</button>
+      <button data-count="4000">4000</button>
+      <div class="label">描画方式 / 速度</div>
+      <button data-renderer="canvas" class="row2">Canvas</button>
+      <button data-renderer="pixi" class="row2">Pixi</button>
+      <button data-speed="1">1x</button>
+      <button data-speed="2">2x</button>
+      <button data-speed="4">4x</button>
+      <button id="reset">やり直す</button>
+      <button id="bench" class="bench">自動で全部測る（15秒）</button>
+    </div>
+
+    <div id="overlay" hidden>
+      <div class="panel">
+        <h2 id="ov-title">計測中</h2>
+        <div id="ov-body"></div>
+        <button id="ov-close">閉じる</button>
+      </div>
+    </div>
+    <script type="module" src="/src/perf/perfMain.ts"></script>
+  </body>
+</html>
