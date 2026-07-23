@@ -1,7 +1,7 @@
 import type { Ball, BallPool } from './ball';
 import type { SpatialGrid } from './grid';
 import type { World } from './world';
-import { resolveBounds, resolveSegmentCollision } from './world';
+import { closestPointOnSegment, resolveBounds, resolveSegmentCollision } from './world';
 
 /** 上向きに飛ぶ時だけ終端速度を何倍まで許すか（ジャンプ台の打ち上げ用） */
 const UPWARD_SPEED_ALLOWANCE = 6;
@@ -263,4 +263,67 @@ export function step(
     if (b.sleeping) return;
     updateSleep(b, opts.sleepVelocity, opts.sleepFrames);
   });
+}
+
+/**
+ * 支えを失ったまま眠っている玉を起こす。
+ *
+ * 眠りの判定は「動かなくなった瞬間」の局所情報しか見ていないので、
+ * あとから下の玉が回収されて支えが消えても、玉は眠ったまま宙に残る
+ * （実測: 空中や壁際で玉が凍り付いたように止まって見えた＝れいあ指摘の
+ * 「あり得ない止まり方」の一因）。
+ * 毎フレーム全数を調べると重いため、8分割して順繰りに調べる。
+ */
+export function wakeUnsupported(
+  pool: BallPool,
+  grid: SpatialGrid,
+  world: World,
+  radius: number,
+  phase: number,
+): void {
+  const d = radius * 2;
+  const nearSq = d * d * 1.35; // 「触れている」とみなす距離（少し余裕を持つ）
+
+  // 眠りの支えとして認める斜面の最大勾配（≈11度）。
+  // この物理は摩擦ゼロなので、これより急な面の上に玉が「留まり続ける」のは
+  // 本来あり得ない。急な面しか支えが無い玉は眠らせず、ゆっくりでも滑らせ続ける。
+  // これが無いと、緩い斜面（12〜15度）の上で玉が凍り付いて流れが止まる（実測）。
+  const SUPPORT_MAX_GRADE = 0.2;
+
+  for (let i = phase % 8; i < pool.capacity; i += 8) {
+    const b = pool.balls[i];
+    if (!b.alive || !b.sleeping) continue;
+    if (b.y >= world.height - radius - 1) continue; // 床に乗っている
+
+    // 自分より下（半径の7割以上）にいて触れている玉があれば支えられている
+    let supported = false;
+    grid.forEachNeighbor(b.x, b.y, (ni) => {
+      if (supported || ni === i) return;
+      const n = pool.balls[ni];
+      if (!n.alive) return;
+      const dx = n.x - b.x;
+      const dy = n.y - b.y;
+      if (dy > d * 0.35 && dx * dx + dy * dy < nearSq) supported = true;
+    });
+
+    // 玉の支えが無ければ、下側で線分（斜面・板）に触れているかを見る
+    if (!supported) {
+      const reach = radius + 1.5;
+      for (const seg of world.segments) {
+        // 急な面は支えとみなさない（上の SUPPORT_MAX_GRADE 参照）
+        const sdx = Math.abs(seg.x2 - seg.x1);
+        const sdy = Math.abs(seg.y2 - seg.y1);
+        if (sdy > sdx * SUPPORT_MAX_GRADE) continue;
+        const c = closestPointOnSegment(b.x, b.y, seg);
+        const dx = c.x - b.x;
+        const dy = c.y - b.y;
+        if (dy > radius * 0.3 && dx * dx + dy * dy < reach * reach) {
+          supported = true;
+          break;
+        }
+      }
+    }
+
+    if (!supported) wake(b);
+  }
 }

@@ -3,7 +3,7 @@ import { CONFIG } from './config';
 import { applyGates } from './gates';
 import { SpatialGrid } from './grid';
 import { applyJumpers } from './jumpers';
-import { step } from './solver';
+import { step, wake, wakeUnsupported } from './solver';
 import { createFixedStage, stageToWorld, type Stage } from './stage';
 import type { World } from './world';
 
@@ -51,6 +51,10 @@ export class Session {
   private quiet = 0;
   /** 開始してから進んだフレーム数（時間切れの判定に使う） */
   elapsed = 0;
+  /** 最後に回収が起きてからのフレーム数（詰まり検知に使う） */
+  private sinceCollect = 0;
+  private agitateTimer = 0;
+  private agitatePulse = 0;
 
   constructor(stage: Stage = createFixedStage(), opts: SessionOptions = {}) {
     this.stage = stage;
@@ -93,7 +97,46 @@ export class Session {
         dead.push(i);
       }
     });
-    for (const i of dead) this.pool.kill(this.pool.balls[i]);
+    for (const i of dead) {
+      const b = this.pool.balls[i];
+      this.pool.kill(b);
+      // 消えた玉の周りを起こす。支えを失った玉が眠ったまま宙に残らないように
+      this.grid.forEachNeighbor(b.x, b.y, (ni) => {
+        const n = this.pool.balls[ni];
+        if (n.alive && n.sleeping) wake(n);
+      });
+    }
+    if (dead.length > 0) this.sinceCollect = 0;
+  }
+
+  /**
+   * 出口の詰まり崩し（アジテータ）。
+   * 出口の上で玉が組む「アーチ（橋）」は安定していて自然には崩れない。
+   * 実世界のホッパーがバイブレータで崩すのと同じで、回収が途絶えている時だけ
+   * 出口付近の眠り玉を起こし、わずかに横へずらして組み直しを防ぐ。
+   */
+  private agitate(): void {
+    const p = this.stage.agitate;
+    if (!p || CONFIG.AGITATE_INTERVAL <= 0) return;
+    if (this.sinceCollect < 30) return; // 流れている間は触らない
+    this.agitateTimer++;
+    if (this.agitateTimer < CONFIG.AGITATE_INTERVAL) return;
+    this.agitateTimer = 0;
+    this.agitatePulse++;
+
+    const r = CONFIG.BALL_RADIUS * CONFIG.AGITATE_RADIUS;
+    const rSq = r * r;
+    // 毎回同じアーチが組み直されないよう、左右交互にずらす（乱数は使わない）
+    const nudge = this.agitatePulse % 2 === 0 ? 0.8 : -0.8;
+    this.pool.forEachActive((b) => {
+      const dx = b.x - p.x;
+      const dy = b.y - p.y;
+      if (dx * dx + dy * dy > rSq) return;
+      if (b.sleeping) {
+        wake(b);
+        b.x += nudge;
+      }
+    });
   }
 
   private supply(): void {
@@ -117,6 +160,10 @@ export class Session {
       this.collect();
 
       if (this.started) this.elapsed++;
+      this.sinceCollect++;
+      this.agitate();
+      // 支えを失ったまま眠っている玉を起こす（8分割で巡回するので軽い）
+      wakeUnsupported(this.pool, this.grid, this.world, CONFIG.BALL_RADIUS, this.elapsed);
 
       // ⚠️ 終了判定は「盤面が空になったら」ではなく「もう何も動かなくなったら」。
       // 傾斜や板の上で眠って止まる玉が必ず出るので、空になるのを待つと

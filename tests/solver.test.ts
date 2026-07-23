@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { BallPool } from '../src/core/ball';
 import { SpatialGrid } from '../src/core/grid';
-import { integrate, resolveBallCollisions, updateSleep, wake, step } from '../src/core/solver';
+import { integrate, resolveBallCollisions, updateSleep, wake, wakeUnsupported, step } from '../src/core/solver';
 import { CONFIG } from '../src/core/config';
 
 describe('integrate', () => {
@@ -188,6 +188,65 @@ describe('flying の解除', () => {
     }
     expect(released).toBeGreaterThan(0); // 打ち上げ直後には解除されない
     expect(b.flying).toBe(false); // いずれ必ず解除される
+  });
+});
+
+describe('wakeUnsupported（支えを失った眠り玉の救済）', () => {
+  const world = { width: 100, height: 200, segments: [] };
+  function fill(grid: SpatialGrid, pool: BallPool): void {
+    grid.clear();
+    pool.forEachActive((b, i) => grid.insert(i, b.x, b.y));
+  }
+  function sweep(
+    pool: BallPool,
+    grid: SpatialGrid,
+    w: { width: number; height: number; segments: { x1: number; y1: number; x2: number; y2: number }[] } = world,
+  ): void {
+    for (let phase = 0; phase < 8; phase++) wakeUnsupported(pool, grid, w, 5, phase);
+  }
+
+  it('宙に浮いたまま眠っている玉は起こされる', () => {
+    const pool = new BallPool(4);
+    const grid = new SpatialGrid(100, 200, 10);
+    const b = pool.spawn(50, 100)!;
+    b.sleeping = true;
+    fill(grid, pool);
+    sweep(pool, grid);
+    expect(b.sleeping).toBe(false);
+  });
+
+  it('床の上の眠り玉はそのまま', () => {
+    const pool = new BallPool(4);
+    const grid = new SpatialGrid(100, 200, 10);
+    const b = pool.spawn(50, 195)!; // 半径5 = 床に接地
+    b.sleeping = true;
+    fill(grid, pool);
+    sweep(pool, grid);
+    expect(b.sleeping).toBe(true);
+  });
+
+  it('下の玉に支えられた眠り玉はそのまま（支えの無い方だけ起きる）', () => {
+    const pool = new BallPool(4);
+    const grid = new SpatialGrid(100, 200, 10);
+    const top = pool.spawn(50, 100)!;
+    const bottom = pool.spawn(50, 109.5)!;
+    top.sleeping = true;
+    bottom.sleeping = true;
+    fill(grid, pool);
+    sweep(pool, grid);
+    expect(top.sleeping).toBe(true); // 下に玉がある
+    expect(bottom.sleeping).toBe(false); // 宙に浮いている
+  });
+
+  it('斜面（線分）の上の眠り玉はそのまま', () => {
+    const pool = new BallPool(4);
+    const grid = new SpatialGrid(100, 200, 10);
+    const w = { width: 100, height: 200, segments: [{ x1: 0, y1: 110, x2: 100, y2: 120 }] };
+    const b = pool.spawn(50, 110)!; // 線分に接している
+    b.sleeping = true;
+    fill(grid, pool);
+    sweep(pool, grid, w);
+    expect(b.sleeping).toBe(true);
   });
 });
 

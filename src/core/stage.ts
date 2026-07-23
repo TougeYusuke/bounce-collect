@@ -43,6 +43,8 @@ export interface Stage {
   jumpers: Jumper[];
   /** この y より下に落ちた玉を回収してスコアにする */
   collectY: number;
+  /** 出口の位置。詰まり崩し（アジテータ）の中心。無いステージでは揺らさない */
+  agitate?: { x: number; y: number };
 }
 
 export function stageToWorld(stage: Stage): World {
@@ -171,5 +173,6 @@ export function createFixedStage(): Stage {
       { id: 1, x1: w * 0.7, x2: w * 0.94, y: 520, power: CONFIG.JUMP_POWER },
     ],
     collectY: h - 30, // V字の隙間より下。ここを越えた玉がスコアになる
+    agitate: { x: w / 2, y: h - CONFIG.FUNNEL_BOTTOM_MARGIN },
   };
 }
