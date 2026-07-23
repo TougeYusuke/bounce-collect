@@ -3,12 +3,18 @@ import type { SpatialGrid } from './grid';
 import type { World } from './world';
 import { resolveBounds, resolveSegmentCollision } from './world';
 
+/** 上向きに飛ぶ時だけ終端速度を何倍まで許すか（ジャンプ台の打ち上げ用） */
+const UPWARD_SPEED_ALLOWANCE = 6;
+
 /**
  * Verlet積分。速度は「現在位置 - 前フレーム位置」で暗黙に表される。
  *
  * maxSpeed は必須。1フレームの移動量が玉の半径に近づくと、位置補正が追いつかず
  * 玉同士が深くめり込んだまま抜けられなくなる（積もった山が潰れて破綻する）。
- * 終端速度を設けることで、どれだけ高いところから落ちても安全な範囲に収まる。
+ *
+ * ⚠️ ただし上向きだけは緩める。落下と同じ上限をかけると、ジャンプ台で打ち上げても
+ * 20px ほどしか上がらず、上のゲートに永久に届かない（実測で発覚）。
+ * 上方向は積もった玉が無く、すり抜けても実害が小さいので、ここだけ許容する。
  */
 export function integrate(
   ball: Ball,
@@ -19,9 +25,10 @@ export function integrate(
   let vx = (ball.x - ball.px) * damping;
   let vy = (ball.y - ball.py) * damping + gravity;
 
+  const limit = vy < 0 ? maxSpeed * UPWARD_SPEED_ALLOWANCE : maxSpeed;
   const speed = Math.hypot(vx, vy);
-  if (speed > maxSpeed) {
-    const k = maxSpeed / speed;
+  if (speed > limit) {
+    const k = limit / speed;
     vx *= k;
     vy *= k;
   }
@@ -215,7 +222,13 @@ export function step(
 
   // 3. 静的形状と盤面境界で締める
   pool.forEachActive((b) => {
-    if (b.sleeping) return;
+    // 盤面の四辺は眠っている玉にもかける。
+    // 眠り玉同士のめり込み補正で壁の外へ押し出されることがあり、
+    // スキップすると少しずつ盤面からはみ出す。境界チェックだけなので軽い。
+    if (b.sleeping) {
+      resolveBounds(b, world, opts.radius, 0);
+      return;
+    }
     for (let s = 0; s < world.segments.length; s++) {
       resolveSegmentCollision(b, world.segments[s], opts.radius, opts.restitution);
     }

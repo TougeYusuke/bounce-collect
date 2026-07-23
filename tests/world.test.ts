@@ -94,6 +94,12 @@ describe('resolveBounds', () => {
     expect(b.y).toBe(295);
   });
 
+  it('天井を抜けない（ジャンプ台で上に飛ぶため必要）', () => {
+    const b = makeBall(50, 1);
+    resolveBounds(b, world, 5, 0);
+    expect(b.y).toBe(5);
+  });
+
   it('内側にいる玉は動かさない', () => {
     const b = makeBall(100, 150);
     resolveBounds(b, world, 5, 0);

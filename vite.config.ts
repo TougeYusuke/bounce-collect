@@ -14,6 +14,8 @@ export default defineConfig({
         main: `${dir}index.html`,
         // 性能計測デモ（玉のサイズを変えた時に測り直せるよう残しておく）
         perf: `${dir}perf.html`,
+        // 挙動の検証用（1個ずつコマ送りで確かめる）
+        debug: `${dir}debug.html`,
       },
     },
   },

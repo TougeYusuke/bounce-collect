@@ -74,7 +74,7 @@ export function resolveSegmentCollision(
   return true;
 }
 
-/** 盤面の左右端と底で玉を止める */
+/** 盤面の四辺で玉を止める（天井も要る。ジャンプ台で上に飛ぶため） */
 export function resolveBounds(
   ball: Ball,
   world: World,
@@ -90,7 +90,11 @@ export function resolveBounds(
     const vx = ball.x - ball.px;
     if (vx > 0) ball.px = ball.x + vx * restitution;
   }
-  if (ball.y > world.height - radius) {
+  if (ball.y < radius) {
+    ball.y = radius;
+    const vy = ball.y - ball.py;
+    if (vy < 0) ball.py = ball.y + vy * restitution;
+  } else if (ball.y > world.height - radius) {
     ball.y = world.height - radius;
     const vy = ball.y - ball.py;
     if (vy > 0) ball.py = ball.y + vy * restitution;
