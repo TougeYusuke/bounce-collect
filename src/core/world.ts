@@ -6,6 +6,11 @@ export interface Segment {
   y1: number;
   x2: number;
   y2: number;
+  /**
+   * 物理だけに使い、描画しない線。
+   * 板に厚みを持たせる裏当てに使う（描くと板が二重線に見えてしまう）。
+   */
+  hidden?: boolean;
 }
 
 export interface World {

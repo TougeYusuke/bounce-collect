@@ -152,7 +152,10 @@ export class CanvasRenderer implements Renderer {
     ctx.strokeStyle = '#5c4630';
     ctx.lineWidth = Math.max(2, 4 * s);
     ctx.lineCap = 'round';
-    for (const seg of this.world.segments) this.drawSegment(seg, ox, oy, s);
+    for (const seg of this.world.segments) {
+      if (seg.hidden) continue; // 物理用の裏当ては描かない
+      this.drawSegment(seg, ox, oy, s);
+    }
 
     // ゲート・ジャンプ台・コップ（玉より先に描く。逆だと玉に隠れる）
     if (stage) this.drawStage(stage, cupX ?? this.world.width / 2, ox, oy, s);

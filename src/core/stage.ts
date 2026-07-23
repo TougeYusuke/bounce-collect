@@ -101,7 +101,8 @@ function thickWall(x1: number, y1: number, x2: number, y2: number): Segment[] {
   }
   return [
     { x1, y1, x2, y2 },
-    { x1: x1 + nx, y1: y1 + ny, x2: x2 + nx, y2: y2 + ny },
+    // 裏当ては描画しない（描くと板が二重線に見える）
+    { x1: x1 + nx, y1: y1 + ny, x2: x2 + nx, y2: y2 + ny, hidden: true },
   ];
 }
 
@@ -133,10 +134,6 @@ export function createFixedStage(): Stage {
     segments: [
       // 中央の仕切り（玉を左右に散らす）
       { x1: w * 0.5, y1: 250, x2: w * 0.5, y2: 320 },
-      // 斜めの誘導板（外側から中央へ流す）
-      // ⚠️ 傾きを緩くしすぎない。玉が板の上に乗って眠り、そこで止まる。
-      { x1: 0, y1: 386, x2: w * 0.32, y2: 468 },
-      { x1: w, y1: 386, x2: w * 0.68, y2: 468 },
       // V字の漏斗。角度・出口幅は config のツマミで変えられる（§FUNNEL_*）
       ...funnelWalls(),
     ],
