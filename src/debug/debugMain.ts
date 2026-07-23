@@ -102,6 +102,7 @@ function refresh(): void {
 
 function setPreset(p: DebugPreset): void {
   preset = p;
+  setPlaying(false);
   session = makeSession();
   document.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((b) => {
     b.classList.toggle('active', b.dataset.preset === p);
@@ -114,27 +115,36 @@ document.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((b) => {
   b.addEventListener('click', () => setPreset(b.dataset.preset as DebugPreset));
 });
 document.getElementById('reset')!.addEventListener('click', () => {
+  setPlaying(false);
   session = makeSession();
   refresh();
 });
 document.getElementById('drop')!.addEventListener('click', () => {
   dropOne();
+  // 「落とす」と書いてある以上、押したら実際に落ち始めてほしい。
+  // 止めたい時は「停止」、1コマずつ見たい時は停止してから「1フレーム」。
+  setPlaying(true);
   refresh();
 });
 document.getElementById('stepone')!.addEventListener('click', () => {
+  setPlaying(false); // コマ送りしたいので自動再生は止める
   advance(1);
   refresh();
 });
 document.getElementById('step10')!.addEventListener('click', () => {
+  setPlaying(false);
   advance(10);
   refresh();
 });
 const playBtn = document.getElementById('play') as HTMLButtonElement;
-playBtn.addEventListener('click', () => {
-  playing = !playing;
+
+function setPlaying(v: boolean): void {
+  playing = v;
   playBtn.textContent = playing ? '停止' : '再生';
   playBtn.classList.toggle('active', playing);
-});
+}
+
+playBtn.addEventListener('click', () => setPlaying(!playing));
 
 stageEl.addEventListener('pointerdown', (e) => {
   session.setCupX(renderer.toLogicalX(e.clientX));
