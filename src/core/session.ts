@@ -102,7 +102,7 @@ export class Session {
     for (let s = 0; s < substeps; s++) {
       this.supply();
       step(this.pool, this.grid, this.world, STEP_OPTIONS);
-      applyGates(this.pool, this.stage, this.maxBalls);
+      applyGates(this.pool, this.stage, this.maxBalls, CONFIG.BALL_RADIUS * 2);
       applyJumpers(this.pool, this.stage, CONFIG.MAX_BOUNCE);
       this.collect();
 

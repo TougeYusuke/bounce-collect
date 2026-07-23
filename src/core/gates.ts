@@ -29,7 +29,12 @@ export function crossedGate(
  *     → ジャンプ台の往復が必ず有限回で終わる＝勝手にラウンドが終わる
  * どちらか片方を外すと、増えないか永久に終わらないかのどちらかになる。
  */
-export function applyGates(pool: BallPool, stage: Stage, maxBalls: number): number {
+export function applyGates(
+  pool: BallPool,
+  stage: Stage,
+  maxBalls: number,
+  ballDiameter = 10,
+): number {
   let gained = 0;
 
   // 反復中に生まれた玉をその場で再判定しないよう、開始時点の玉だけを対象にする
@@ -63,17 +68,30 @@ export function applyGates(pool: BallPool, stage: Stage, maxBalls: number): numb
         ball.gateMask |= bit;
         const vx = ball.x - ball.px;
         const vy = ball.y - ball.py;
+
+        // ⚠️ 子を親と同じ場所に重ねて生むと、玉同士の押し出しで左右に弾け飛び、
+        // 落下の軌道が不自然になる（れいあ指摘）。
+        // 進行方向に沿って一列に並べれば、重ならず、横にも散らない。
+        const len = Math.hypot(vx, vy);
+        const ux = len > 0.01 ? vx / len : 0;
+        const uy = len > 0.01 ? vy / len : 1; // 止まっていれば下向きとみなす
+        const spacing = ballDiameter;
+
         for (let k = 0; k < extra; k++) {
-          const child = pool.spawn(ball.x, ball.y, {
+          // 進行方向の「前」に並べる。後ろ（通ってきた側）に置くと、
+          // 次のフレームで同じゲートをもう一度またいでしまう。
+          const d = spacing * (k + 1);
+          // ⚠️ 完全な一直線にしないこと。真っ直ぐ並べると、細い仕切りの上などに
+          // そのまま縦に積み上がって崩れず、眠って固まってしまう（実測）。
+          // 進行方向に対して垂直に、交互にわずかずらして不安定にする。
+          const jitter = (k % 2 === 0 ? 1 : -1) * spacing * 0.15;
+          const child = pool.spawn(ball.x + ux * d - uy * jitter, ball.y + uy * d + ux * jitter, {
             weight: ball.weight,
-            gateMask: 0, // ★新品（同じゲートをもう一度通れる）
+            gateMask: 0, // ★新品（別のゲートでまた増える）
             jumperMask: 0, // ★新品（ジャンプ台も使える）
             bounce: ball.bounce, // ★継承（跳ね返りの総数を有限に保つ）
           });
           if (!child) break;
-          // 真上に重ねると押し合って弾け飛ぶので、決定論的に少しずらす
-          child.x += ((k % 3) - 1) * 0.7;
-          child.y += (k % 2) * 0.7;
           child.px = child.x - vx;
           child.py = child.y - vy;
         }
