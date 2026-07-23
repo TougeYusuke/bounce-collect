@@ -9,12 +9,16 @@ const UPWARD_SPEED_ALLOWANCE = 6;
 /**
  * Verlet積分。速度は「現在位置 - 前フレーム位置」で暗黙に表される。
  *
- * maxSpeed は必須。1フレームの移動量が玉の半径に近づくと、位置補正が追いつかず
+ * 速度の上限は必須。1フレームの移動量が玉の半径に近づくと、位置補正が追いつかず
  * 玉同士が深くめり込んだまま抜けられなくなる（積もった山が潰れて破綻する）。
  *
- * ⚠️ ただし上向きだけは緩める。落下と同じ上限をかけると、ジャンプ台で打ち上げても
- * 20px ほどしか上がらず、上のゲートに永久に届かない（実測で発覚）。
- * 上方向は積もった玉が無く、すり抜けても実害が小さいので、ここだけ許容する。
+ * ⚠️ 上限は「速度の大きさ」ではなく **軸ごとに独立して** かけること。
+ * 大きさでかけると、落下が速くなるほど横方向の速度まで巻き添えで削られ、
+ * 玉が途中から真下にしか落ちなくなって動きが不自然になる（れいあ指摘・実測）。
+ *
+ * ⚠️ 上向きだけは上限を緩める。落下と同じ上限だとジャンプ台で打ち上げても
+ * 20px ほどしか上がらず、上のゲートに永久に届かない。
+ * 上方向には積もった玉が無く、すり抜けても実害が小さいのでここだけ許容する。
  */
 export function integrate(
   ball: Ball,
@@ -25,13 +29,14 @@ export function integrate(
   let vx = (ball.x - ball.px) * damping;
   let vy = (ball.y - ball.py) * damping + gravity;
 
-  const limit = vy < 0 ? maxSpeed * UPWARD_SPEED_ALLOWANCE : maxSpeed;
-  const speed = Math.hypot(vx, vy);
-  if (speed > limit) {
-    const k = limit / speed;
-    vx *= k;
-    vy *= k;
-  }
+  // 横: 左右対称に制限（落下速度の影響を受けない）
+  if (vx > maxSpeed) vx = maxSpeed;
+  else if (vx < -maxSpeed) vx = -maxSpeed;
+
+  // 縦: 落ちる側は厳しく、上がる側は緩く
+  const upLimit = maxSpeed * UPWARD_SPEED_ALLOWANCE;
+  if (vy > maxSpeed) vy = maxSpeed;
+  else if (vy < -upLimit) vy = -upLimit;
 
   ball.px = ball.x;
   ball.py = ball.y;

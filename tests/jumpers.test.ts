@@ -6,7 +6,7 @@ import type { Stage } from '../src/core/stage';
 const stage: Stage = {
   segments: [],
   gates: [],
-  jumpers: [{ x1: 100, x2: 200, y: 400, power: 9 }],
+  jumpers: [{ id: 0, x1: 100, x2: 200, y: 400, power: 9 }],
   collectY: 700,
 };
 
@@ -70,8 +70,8 @@ describe('applyJumpers', () => {
     const twoJumpers: Stage = {
       ...stage,
       jumpers: [
-        { x1: 100, x2: 200, y: 400, power: 9 },
-        { x1: 100, x2: 200, y: 402, power: 9 },
+        { id: 0, x1: 100, x2: 200, y: 400, power: 9 },
+        { id: 1, x1: 100, x2: 200, y: 402, power: 9 },
       ],
     };
     const pool = new BallPool(10);
@@ -80,14 +80,49 @@ describe('applyJumpers', () => {
     expect(b.bounce).toBe(1);
   });
 
-  it('跳ね回数の上限があるので、繰り返し落としても必ず反応が止まる', () => {
+  it('同じ台には1回しか反応しない（2回目以降は素通り）', () => {
     const pool = new BallPool(10);
     const b = fallingBall(pool);
     for (let i = 0; i < 50; i++) {
       b.y = 405;
       b.py = 395;
-      applyJumpers(pool, stage, 5);
+      applyJumpers(pool, stage, 99);
     }
+    expect(b.bounce).toBe(1); // 何度落ちてきても1回だけ
+    expect(b.jumperMask).toBe(1);
+  });
+
+  it('別の台なら反応する（台ごとに1回ずつ）', () => {
+    const two = {
+      ...stage,
+      jumpers: [
+        { id: 0, x1: 100, x2: 200, y: 400, power: 9 },
+        { id: 1, x1: 100, x2: 200, y: 600, power: 9 },
+      ],
+    };
+    const pool = new BallPool(10);
+    const b = fallingBall(pool);
+    applyJumpers(pool, two, 99);
+    expect(b.bounce).toBe(1);
+    b.y = 605;
+    b.py = 595;
+    applyJumpers(pool, two, 99);
+    expect(b.bounce).toBe(2);
+    expect(b.jumperMask).toBe(0b11);
+  });
+
+  it('跳ね回数の上限に達したら、未使用の台でも素通りする', () => {
+    const two = {
+      ...stage,
+      jumpers: [
+        { id: 0, x1: 100, x2: 200, y: 400, power: 9 },
+        { id: 1, x1: 100, x2: 200, y: 600, power: 9 },
+      ],
+    };
+    const pool = new BallPool(10);
+    const b = fallingBall(pool, 150, 5); // すでに上限
+    applyJumpers(pool, two, 5);
     expect(b.bounce).toBe(5);
+    expect(b.jumperMask).toBe(0);
   });
 });

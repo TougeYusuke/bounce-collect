@@ -8,6 +8,8 @@ export interface Ball {
   weight: number;
   /** 通過済みゲートのビットマスク（ゲートIDごとに1bit） */
   gateMask: number;
+  /** 使用済みジャンプ台のビットマスク（ジャンプ台IDごとに1bit）。ゲートと同じ扱い */
+  jumperMask: number;
   /** ジャンプ台を使った回数 */
   bounce: number;
   /** 静止が何フレーム続いているか */
@@ -23,6 +25,7 @@ export interface Ball {
 export interface SpawnOptions {
   weight?: number;
   gateMask?: number;
+  jumperMask?: number;
   bounce?: number;
 }
 
@@ -47,6 +50,7 @@ export class BallPool {
         py: 0,
         weight: 1,
         gateMask: 0,
+        jumperMask: 0,
         bounce: 0,
         sleepFrames: 0,
         sleeping: false,
@@ -67,6 +71,7 @@ export class BallPool {
     b.py = y;
     b.weight = opts?.weight ?? 1;
     b.gateMask = opts?.gateMask ?? 0;
+    b.jumperMask = opts?.jumperMask ?? 0;
     b.bounce = opts?.bounce ?? 0;
     b.sleepFrames = 0;
     b.sleeping = false;

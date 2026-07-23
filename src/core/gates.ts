@@ -66,8 +66,9 @@ export function applyGates(pool: BallPool, stage: Stage, maxBalls: number): numb
         for (let k = 0; k < extra; k++) {
           const child = pool.spawn(ball.x, ball.y, {
             weight: ball.weight,
-            gateMask: 0,
-            bounce: ball.bounce, // ★継承
+            gateMask: 0, // ★新品（同じゲートをもう一度通れる）
+            jumperMask: 0, // ★新品（ジャンプ台も使える）
+            bounce: ball.bounce, // ★継承（跳ね返りの総数を有限に保つ）
           });
           if (!child) break;
           // 真上に重ねると押し合って弾け飛ぶので、決定論的に少しずらす
@@ -82,6 +83,7 @@ export function applyGates(pool: BallPool, stage: Stage, maxBalls: number): numb
         // 通ったゲートの印だけ残す（残さないと同じゲートで無限に増える）
         ball.weight *= gate.multiplier;
         ball.gateMask = bit;
+        ball.jumperMask = 0;
       }
     }
   }

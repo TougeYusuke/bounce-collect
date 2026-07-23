@@ -25,8 +25,12 @@ export function isGateActive(gate: Gate): boolean {
   return gate.used < gate.capacity;
 }
 
-/** 触れると上に打ち上げる横バー */
+/**
+ * 触れると上に打ち上げる横バー。
+ * ゲートと同じく「1つの玉につき1回だけ」反応する（id は Ball.jumperMask のビット位置）。
+ */
 export interface Jumper {
+  id: number;
   x1: number;
   x2: number;
   y: number;
@@ -102,8 +106,8 @@ export function createFixedStage(): Stage {
       gate(5, w * 0.35, w * 0.65, 470, 4, 150),
     ],
     jumpers: [
-      { x1: w * 0.06, x2: w * 0.3, y: 520, power: CONFIG.JUMP_POWER },
-      { x1: w * 0.7, x2: w * 0.94, y: 520, power: CONFIG.JUMP_POWER },
+      { id: 0, x1: w * 0.06, x2: w * 0.3, y: 520, power: CONFIG.JUMP_POWER },
+      { id: 1, x1: w * 0.7, x2: w * 0.94, y: 520, power: CONFIG.JUMP_POWER },
     ],
     collectY: h - 30, // V字の隙間より下。ここを越えた玉がスコアになる
   };
