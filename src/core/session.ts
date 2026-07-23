@@ -45,7 +45,7 @@ export class Session {
   finished = false;
   cupX = CONFIG.BOARD_WIDTH / 2;
 
-  private supplyTimer = CONFIG.SUPPLY_INTERVAL; // 開始直後に1個目を出す
+  private supplyTimer: number = CONFIG.SUPPLY_INTERVAL; // 開始直後に1個目を出す
   private quiet = 0;
 
   constructor(stage: Stage = createFixedStage(), opts: SessionOptions = {}) {

@@ -3,7 +3,7 @@ import { crossedGate, applyGates } from '../src/core/gates';
 import { BallPool } from '../src/core/ball';
 import type { Gate, Stage } from '../src/core/stage';
 
-const gate: Gate = { id: 0, x1: 100, x2: 200, y: 300, multiplier: 4 };
+const gate: Gate = { id: 0, x1: 100, x2: 200, y: 300, multiplier: 4, capacity: 1e9, used: 0 };
 
 describe('crossedGate', () => {
   it('上から下へまたいだら通過', () => {
@@ -37,7 +37,7 @@ describe('crossedGate', () => {
 describe('applyGates（増殖ルール）', () => {
   const stage: Stage = {
     segments: [],
-    gates: [{ id: 0, x1: 0, x2: 360, y: 300, multiplier: 4 }],
+    gates: [{ id: 0, x1: 0, x2: 360, y: 300, multiplier: 4, capacity: 1e9, used: 0 }],
     jumpers: [],
     collectY: 700,
   };
@@ -141,7 +141,7 @@ describe('applyGates（増殖ルール）', () => {
   it('x が範囲外の玉は増えない', () => {
     const narrow: Stage = {
       ...stage,
-      gates: [{ id: 0, x1: 0, x2: 50, y: 300, multiplier: 4 }],
+      gates: [{ id: 0, x1: 0, x2: 50, y: 300, multiplier: 4, capacity: 1e9, used: 0 }],
     };
     const pool = new BallPool(100);
     ballCrossing(pool);
@@ -168,6 +168,40 @@ describe('applyGates（増殖ルール）', () => {
     });
   });
 
+  it('使い切ったゲートは素通りする（増殖が永久に止まらないのを防ぐ）', () => {
+    const limited: Stage = {
+      ...stage,
+      gates: [
+        { id: 0, x1: 0, x2: 360, y: 300, multiplier: 4, capacity: 3, used: 0 },
+      ],
+    };
+    const pool = new BallPool(100);
+    ballCrossing(pool, 5); // weight 5 で capacity 3 を超える
+    applyGates(pool, limited, 100);
+    expect(limited.gates[0].used).toBe(5);
+
+    // 2個目は素通りする
+    const before = pool.activeCount;
+    const b2 = pool.spawn(150, 305)!;
+    b2.py = 295;
+    b2.px = 150;
+    applyGates(pool, limited, 100);
+    expect(pool.activeCount).toBe(before + 1); // 生えた1個だけ、増殖なし
+  });
+
+  it('ゲートは通した weight の分だけ消費される', () => {
+    const limited: Stage = {
+      ...stage,
+      gates: [
+        { id: 0, x1: 0, x2: 360, y: 300, multiplier: 2, capacity: 100, used: 0 },
+      ],
+    };
+    const pool = new BallPool(100);
+    ballCrossing(pool, 7);
+    applyGates(pool, limited, 100);
+    expect(limited.gates[0].used).toBe(7);
+  });
+
   /**
    * 1フレームで2つのゲートを跨いだ場合、親は両方で増えるが、
    * その場で生まれた子は「次のフレーム」まで判定されない（同フレーム内では連鎖しない）。
@@ -178,8 +212,8 @@ describe('applyGates（増殖ルール）', () => {
     const two: Stage = {
       ...stage,
       gates: [
-        { id: 0, x1: 0, x2: 360, y: 300, multiplier: 2 },
-        { id: 1, x1: 0, x2: 360, y: 302, multiplier: 2 },
+        { id: 0, x1: 0, x2: 360, y: 300, multiplier: 2, capacity: 1e9, used: 0 },
+        { id: 1, x1: 0, x2: 360, y: 302, multiplier: 2, capacity: 1e9, used: 0 },
       ],
     };
     const pool = new BallPool(100);

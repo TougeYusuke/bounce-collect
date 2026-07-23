@@ -111,6 +111,14 @@ export class PixiRenderer implements Renderer {
     pc.update(); // 配列を直接増やしたので更新が要る
   }
 
+  /** 画面のX座標を盤面の論理X座標に変換する */
+  toLogicalX(clientX: number): number {
+    const rect = this.app?.canvas.getBoundingClientRect();
+    if (!rect || !this.layer) return 0;
+    return (clientX - rect.left - this.layer.x) / this.layer.scale.x;
+  }
+
+  /** stage / cupX は受け取るが描かない（本採用は Canvas2D・こちらは比較用）*/
   draw(pool: BallPool, radius: number): void {
     const app = this.app;
     if (!app || !this.particles) return;

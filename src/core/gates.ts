@@ -1,12 +1,12 @@
 import type { BallPool } from './ball';
-import type { Gate, Stage } from './stage';
+import { isGateActive, type Gate, type Stage } from './stage';
 
 /**
  * 玉が (px,py) から (x,y) に動く間にゲートを横切ったか。
  * 上下どちらの向きでも通過とみなす（ジャンプ台で跳ね上がる時の再通過のため）。
  */
 export function crossedGate(
-  px: number,
+  _px: number,
   py: number,
   x: number,
   y: number,
@@ -39,11 +39,19 @@ export function applyGates(pool: BallPool, stage: Stage, maxBalls: number): numb
   for (const idx of snapshot) {
     const ball = pool.balls[idx];
     if (!ball.alive) continue;
+    // ⚠️ 眠っている玉は判定しない。
+    // 積もった玉がゲートの上に乗ると、微動でまたぐたびに増殖判定が走り、
+    // 盤面が埋まるほど無限に増え続けてラウンドが終わらなくなる（実測）。
+    // 止まっている玉はゲートを「通過」していないので、これが正しい挙動でもある。
+    if (ball.sleeping) continue;
 
     for (const gate of stage.gates) {
+      if (!isGateActive(gate)) continue; // 使い切ったゲートは素通り
       const bit = 1 << gate.id;
       if (ball.gateMask & bit) continue;
       if (!crossedGate(ball.px, ball.py, ball.x, ball.y, gate)) continue;
+
+      gate.used += ball.weight;
 
       const extra = gate.multiplier - 1;
       const room = maxBalls - pool.activeCount;

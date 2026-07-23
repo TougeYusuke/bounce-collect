@@ -1,13 +1,28 @@
 import { CONFIG } from './config';
 import type { Segment, World } from './world';
 
-/** 通ると玉が増える横バー。id は Ball.gateMask のビット位置 */
+/**
+ * 通ると玉が増える横バー。id は Ball.gateMask のビット位置。
+ *
+ * ⚠️ capacity（使用回数の上限）が無いと増殖が永久に止まらない。
+ * 盤面に玉が溜まると、その玉が何度でもゲートを通り続けて増え、
+ * 回収と釣り合った平衡状態になってラウンドが終わらなくなる（実測）。
+ * 使い切ったゲートは無効になり、色が変わる（本家も同じ挙動）。
+ */
 export interface Gate {
   id: number;
   x1: number;
   x2: number;
   y: number;
   multiplier: number;
+  /** 通せる玉の総量（weight換算）。使い切ると無効になる */
+  capacity: number;
+  /** 使った量。capacity 以上で無効 */
+  used: number;
+}
+
+export function isGateActive(gate: Gate): boolean {
+  return gate.used < gate.capacity;
 }
 
 /** 触れると上に打ち上げる横バー */
@@ -41,6 +56,25 @@ export function stageToWorld(stage: Stage): World {
  * 打ち上げられた玉は gateMask が新品なので上のゲートをもう一度全部通れる
  * ＝ここが爆増の源になる（設計書 §2.2 / §2.4）。
  */
+function gate(
+  id: number,
+  x1: number,
+  x2: number,
+  y: number,
+  multiplier: number,
+  capacity: number,
+): Gate {
+  return {
+    id,
+    x1,
+    x2,
+    y,
+    multiplier,
+    capacity: capacity * CONFIG.GATE_CAPACITY_SCALE,
+    used: 0,
+  };
+}
+
 export function createFixedStage(): Stage {
   const w = CONFIG.BOARD_WIDTH;
   const h = CONFIG.BOARD_HEIGHT;
@@ -60,12 +94,12 @@ export function createFixedStage(): Stage {
       { x1: w, y1: h - 150, x2: w * 0.58, y2: h - 70 },
     ],
     gates: [
-      { id: 0, x1: w * 0.05, x2: w * 0.35, y: 180, multiplier: 3 },
-      { id: 1, x1: w * 0.4, x2: w * 0.6, y: 180, multiplier: 4 },
-      { id: 2, x1: w * 0.65, x2: w * 0.95, y: 180, multiplier: 3 },
-      { id: 3, x1: w * 0.08, x2: w * 0.42, y: 330, multiplier: 4 },
-      { id: 4, x1: w * 0.58, x2: w * 0.92, y: 330, multiplier: 2 },
-      { id: 5, x1: w * 0.35, x2: w * 0.65, y: 470, multiplier: 4 },
+      gate(0, w * 0.05, w * 0.35, 180, 3, 40),
+      gate(1, w * 0.4, w * 0.6, 180, 4, 40),
+      gate(2, w * 0.65, w * 0.95, 180, 3, 40),
+      gate(3, w * 0.08, w * 0.42, 330, 4, 90),
+      gate(4, w * 0.58, w * 0.92, 330, 2, 90),
+      gate(5, w * 0.35, w * 0.65, 470, 4, 150),
     ],
     jumpers: [
       { x1: w * 0.06, x2: w * 0.3, y: 520, power: CONFIG.JUMP_POWER },

@@ -1,4 +1,6 @@
 import type { BallPool } from '../core/ball';
+import { CONFIG } from '../core/config';
+import type { Stage } from '../core/stage';
 import type { Segment, World } from '../core/world';
 import type { Renderer } from './types';
 
@@ -77,7 +79,50 @@ export class CanvasRenderer implements Renderer {
     ctx.stroke();
   }
 
-  draw(pool: BallPool, radius: number): void {
+  /** 画面のX座標を盤面の論理X座標に変換する */
+  toLogicalX(clientX: number): number {
+    const rect = this.canvas.getBoundingClientRect();
+    return (clientX - rect.left - this.offsetX) / this.scale;
+  }
+
+  /** ゲート・ジャンプ台・コップ。玉より先、静的形状より後に描く */
+  private drawStage(stage: Stage, cupX: number, ox: number, oy: number, s: number): void {
+    const ctx = this.ctx;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (const g of stage.gates) {
+      const h = 14 * s;
+      ctx.fillStyle = '#3fb98f';
+      ctx.fillRect(ox + g.x1 * s, oy + g.y * s - h / 2, (g.x2 - g.x1) * s, h);
+      ctx.fillStyle = '#08352a';
+      ctx.font = `700 ${Math.max(8, Math.round(11 * s))}px system-ui, sans-serif`;
+      ctx.fillText(`×${g.multiplier}`, ox + ((g.x1 + g.x2) / 2) * s, oy + g.y * s);
+    }
+
+    for (const j of stage.jumpers) {
+      const h = 12 * s;
+      ctx.fillStyle = '#4a9fe0';
+      ctx.fillRect(ox + j.x1 * s, oy + j.y * s - h / 2, (j.x2 - j.x1) * s, h);
+      ctx.fillStyle = '#062a47';
+      ctx.font = `700 ${Math.max(7, Math.round(10 * s))}px system-ui, sans-serif`;
+      ctx.fillText('▲▲▲', ox + ((j.x1 + j.x2) / 2) * s, oy + j.y * s);
+    }
+
+    // コップ（上部・玉の出口）
+    const cw = CONFIG.CUP_WIDTH * s;
+    const cy = oy + CONFIG.BALL_RADIUS * 2.2 * s;
+    ctx.fillStyle = '#e0bd63';
+    ctx.beginPath();
+    ctx.moveTo(ox + cupX * s - cw / 2, cy - 13 * s);
+    ctx.lineTo(ox + cupX * s + cw / 2, cy - 13 * s);
+    ctx.lineTo(ox + cupX * s + cw * 0.28, cy + 11 * s);
+    ctx.lineTo(ox + cupX * s - cw * 0.28, cy + 11 * s);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  draw(pool: BallPool, radius: number, stage?: Stage, cupX?: number): void {
     const dpr = window.devicePixelRatio || 1;
     if (!this.sprite || this.spriteRadius !== radius) {
       this.sprite = this.buildSprite(radius);
@@ -100,6 +145,9 @@ export class CanvasRenderer implements Renderer {
     ctx.lineWidth = Math.max(2, 4 * s);
     ctx.lineCap = 'round';
     for (const seg of this.world.segments) this.drawSegment(seg, ox, oy, s);
+
+    // ゲート・ジャンプ台・コップ（玉より先に描く。逆だと玉に隠れる）
+    if (stage) this.drawStage(stage, cupX ?? this.world.width / 2, ox, oy, s);
 
     // 玉
     const sprite = this.sprite;
