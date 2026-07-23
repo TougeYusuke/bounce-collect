@@ -98,6 +98,31 @@ describe('Session', () => {
     expect(frames).toBeLessThanOrEqual(CONFIG.ROUND_TIME_LIMIT + 200);
   });
 
+  it('漏斗の壁に浅くめり込んだ玉は表面へ戻される（貫通の背止め）', () => {
+    const s = small();
+    const wd = s.stage.wedges![0]; // 左の漏斗壁
+    const midX = (Math.max(0, wd.x1) + wd.x2) / 2;
+    const t = (midX - wd.x1) / (wd.x2 - wd.x1);
+    const surfaceY = wd.y1 + (wd.y2 - wd.y1) * t;
+    const b = s.pool.spawn(midX, surfaceY + 5)!; // 半径7に対して12食い込み(浅い)
+    s.update(1);
+    expect(b.alive).toBe(true);
+    expect(b.y).toBeLessThanOrEqual(surfaceY - 6); // 表面の上に戻っている
+  });
+
+  it('漏斗の壁を深く抜けた玉は消えてスコアになる（見えない場所に残さない）', () => {
+    const s = small();
+    const wd = s.stage.wedges![0];
+    const midX = (Math.max(0, wd.x1) + wd.x2) / 2;
+    const t = (midX - wd.x1) / (wd.x2 - wd.x1);
+    const surfaceY = wd.y1 + (wd.y2 - wd.y1) * t;
+    const before = s.score;
+    const b = s.pool.spawn(midX, surfaceY + 40, { weight: 9 })!; // 完全に壁の中
+    s.update(1);
+    expect(b.alive).toBe(false);
+    expect(s.score).toBe(before + 9);
+  });
+
   it('コップの位置は盤面の内側に収まる', () => {
     const s = new Session();
     s.setCupX(-999);

@@ -15,7 +15,8 @@ const STEP_OPTIONS = {
   restitution: CONFIG.WALL_RESTITUTION,
   iterations: CONFIG.COLLISION_ITERATIONS,
   sleepVelocity: CONFIG.SLEEP_VELOCITY,
-  sleepFrames: CONFIG.SLEEP_FRAMES,
+  // 眠りを切ると玉は常に動き続ける（宙で固まる違和感を無くす・れいあ判断）
+  sleepFrames: CONFIG.SLEEP_ENABLED ? CONFIG.SLEEP_FRAMES : 0,
 };
 
 /** 何も動かなくなってから、終了と判断するまでの猶予 */
@@ -88,6 +89,44 @@ export class Session {
     this.started = true;
   }
 
+  /**
+   * 漏斗の壁を「中身の詰まった台形」として締める（貫通の背止め）。
+   * 線分の衝突だけだと、山の圧力による位置補正が1フレームで線を押し越え、
+   * 玉が壁の中へ抜ける（れいあ指摘・実測）。
+   * 浅くめり込んだ玉は表面へ戻し、深く抜け切った玉はその場で回収する
+   * （どうせ数十px下の回収ラインで回収される玉なので、スコアは失わない）。
+   */
+  private enforceWedges(): void {
+    const wedges = this.stage.wedges;
+    if (!wedges || wedges.length === 0) return;
+    const r = CONFIG.BALL_RADIUS;
+    const deep = r * 2.5;
+    const dead: number[] = [];
+
+    this.pool.forEachActive((b, i) => {
+      for (const wd of wedges) {
+        if (b.x < wd.x1 || b.x > wd.x2) continue;
+        const t = (b.x - wd.x1) / (wd.x2 - wd.x1);
+        const surfaceY = wd.y1 + (wd.y2 - wd.y1) * t;
+        const sink = b.y - (surfaceY - r); // どれだけ面に食い込んでいるか
+        if (sink <= 0) break;
+        if (sink < deep) {
+          b.y = surfaceY - r; // 表面へ戻す
+          if (b.py < b.y) b.py = b.y; // 下向きの速度だけ消す
+        } else {
+          dead.push(i); // 完全に抜けた: 回収に変える
+        }
+        break;
+      }
+    });
+
+    for (const i of dead) {
+      const b = this.pool.balls[i];
+      this.score += b.weight;
+      this.pool.kill(b);
+    }
+  }
+
   /** 回収ラインを越えた玉をスコアに変えて消す */
   collect(): void {
     const dead: number[] = [];
@@ -155,6 +194,7 @@ export class Session {
     for (let s = 0; s < substeps; s++) {
       this.supply();
       step(this.pool, this.grid, this.world, STEP_OPTIONS);
+      this.enforceWedges();
       applyGates(this.pool, this.stage, this.maxBalls, CONFIG.BALL_RADIUS * 2);
       applyJumpers(this.pool, this.stage, CONFIG.MAX_BOUNCE);
       this.collect();

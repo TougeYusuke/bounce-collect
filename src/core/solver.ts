@@ -258,11 +258,13 @@ export function step(
     resolveBounds(b, world, opts.radius, opts.restitution);
   });
 
-  // 4. 静止した玉を眠らせる
-  pool.forEachActive((b) => {
-    if (b.sleeping) return;
-    updateSleep(b, opts.sleepVelocity, opts.sleepFrames);
-  });
+  // 4. 静止した玉を眠らせる（sleepFrames <= 0 なら眠りを使わない）
+  if (opts.sleepFrames > 0) {
+    pool.forEachActive((b) => {
+      if (b.sleeping) return;
+      updateSleep(b, opts.sleepVelocity, opts.sleepFrames);
+    });
+  }
 }
 
 /**

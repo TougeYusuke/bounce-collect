@@ -37,6 +37,17 @@ export interface Jumper {
   power: number;
 }
 
+/**
+ * 中身の詰まった壁（台形）。(x1,y1)-(x2,y2) がその上面で、面より下は塞がっている。
+ * x1 < x2 であること。
+ */
+export interface Wedge {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 export interface Stage {
   segments: Segment[];
   gates: Gate[];
@@ -45,6 +56,12 @@ export interface Stage {
   collectY: number;
   /** 出口の位置。詰まり崩し（アジテータ）の中心。無いステージでは揺らさない */
   agitate?: { x: number; y: number };
+  /**
+   * 中身の詰まった壁。線分の衝突だけだと、山の圧力による位置補正が
+   * 1フレームで線を押し越えて玉が壁の中へ抜ける（実測）。
+   * ここに登録した面の下は「絶対に入れない領域」として毎フレーム締める。
+   */
+  wedges?: Wedge[];
 }
 
 export function stageToWorld(stage: Stage): World {
@@ -81,54 +98,15 @@ function gate(
   };
 }
 
-/** 壁の厚み（玉の半径の何倍ぶん、裏側に線を重ねるか）。1本では圧力で貫通する */
-const WALL_THICKNESS = 3;
-/** 裏当ての線の間隔（玉の半径に対する割合）。詰めるほど貫通しにくい */
-const WALL_LAYER_STEP = 0.5;
-
-/**
- * 板に「本当の厚み」を持たせる。
- *
- * ⚠️ 線分1本だと、落下してくる玉は止められても、山になった玉が下から
- * 押し合う圧力にじわじわ押し越えられて、板の外側へ漏れる（れいあ指摘・実測で
- * 数百個が斜面の外に溜まった）。
- * 受け止める側（玉が来ない裏側）に、玉が越えられない厚みぶん平行線を重ねる。
- * 何個押し込まれても、必ずどれかの線に当たって内側へ戻される。
- */
-function thickWall(x1: number, y1: number, x2: number, y2: number): Segment[] {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len = Math.hypot(dx, dy) || 1;
-  // 線分に垂直な単位ベクトル。受け止める側（下側 = ny>0）へ向ける
-  let ux = -dy / len;
-  let uy = dx / len;
-  if (uy < 0) {
-    ux = -ux;
-    uy = -uy;
-  }
-
-  const out: Segment[] = [{ x1, y1, x2, y2 }]; // 表の1本だけ描く
-  const step = CONFIG.BALL_RADIUS * WALL_LAYER_STEP;
-  const layers = Math.ceil((CONFIG.BALL_RADIUS * WALL_THICKNESS) / step);
-  for (let i = 1; i <= layers; i++) {
-    const d = step * i;
-    out.push({
-      x1: x1 + ux * d,
-      y1: y1 + uy * d,
-      x2: x2 + ux * d,
-      y2: y2 + uy * d,
-      hidden: true, // 裏当ては描かない
-    });
-  }
-  return out;
-}
-
 /**
  * V字の漏斗を作る。
  * ⚠️ 中央を閉じないこと。閉じると玉が底で止まって回収ラインに届かず、
  *    ラウンドが永久に終わらなくなる。出口を空けて落とす。
+ *
+ * 面は「見える線分（滑り応答用）」と「中身の詰まった壁（貫通の背止め）」の
+ * 二重で表す。線分だけだと山の圧力で押し越えられる（実測）。
  */
-function funnelWalls(): Segment[] {
+function buildFunnel(): { segments: Segment[]; wedges: Wedge[] } {
   const w = CONFIG.BOARD_WIDTH;
   const h = CONFIG.BOARD_HEIGHT;
   const bottomY = h - CONFIG.FUNNEL_BOTTOM_MARGIN;
@@ -139,27 +117,40 @@ function funnelWalls(): Segment[] {
   const topY = Math.max(CONFIG.BALL_RADIUS * 6, bottomY - rise);
   const slope = (bottomY - topY) / run;
 
-  // ⚠️ 斜面は盤面の外まで伸ばすこと。
-  // 端を x=0 / x=w でぴったり止めると、壁と斜面の角に玉が押し込まれた時に
-  // 線分の端から下へ抜けてしまい、V字の外側（斜面の裏）に玉が溜まる（実測）。
+  // 斜面は盤面の外まで伸ばす（壁との角に玉が押し込まれた時、線分の端から
+  // 下へ抜けるのを防ぐ）
   const over = CONFIG.BALL_RADIUS * 4;
-  return [
-    ...thickWall(-over, topY - over * slope, w * 0.5 - halfOutlet, bottomY),
-    ...thickWall(w + over, topY - over * slope, w * 0.5 + halfOutlet, bottomY),
-  ];
+  const left: Wedge = {
+    x1: -over,
+    y1: topY - over * slope,
+    x2: w * 0.5 - halfOutlet,
+    y2: bottomY,
+  };
+  const right: Wedge = {
+    x1: w * 0.5 + halfOutlet,
+    y1: bottomY,
+    x2: w + over,
+    y2: topY - over * slope,
+  };
+  return {
+    segments: [left, right], // Wedge と Segment は同じ形なのでそのまま描ける
+    wedges: [left, right],
+  };
 }
 
 export function createFixedStage(): Stage {
   const w = CONFIG.BOARD_WIDTH;
   const h = CONFIG.BOARD_HEIGHT;
+  const funnel = buildFunnel();
 
   return {
     segments: [
       // 中央の仕切り（玉を左右に散らす）
       { x1: w * 0.5, y1: 250, x2: w * 0.5, y2: 320 },
       // V字の漏斗。角度・出口幅は config のツマミで変えられる（§FUNNEL_*）
-      ...funnelWalls(),
+      ...funnel.segments,
     ],
+    wedges: funnel.wedges,
     gates: [
       gate(0, w * 0.05, w * 0.35, 180, 3, 40),
       gate(1, w * 0.4, w * 0.6, 180, 4, 40),
