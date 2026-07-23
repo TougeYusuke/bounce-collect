@@ -16,6 +16,8 @@ export default defineConfig({
         perf: `${dir}perf.html`,
         // 挙動の検証用（1個ずつコマ送りで確かめる）
         debug: `${dir}debug.html`,
+        // 物理エンジン比較（Rapier2Dが緩い斜面で流れるかを測る）
+        rapier: `${dir}rapier.html`,
       },
     },
   },

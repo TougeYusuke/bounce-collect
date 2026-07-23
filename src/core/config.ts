@@ -80,7 +80,7 @@ export const CONFIG = {
    *    （実測: 34度だと30秒たっても終わらなかった）。
    *    どんな値でも ROUND_TIME_LIMIT で必ず終わるようにはしてある。
    */
-  FUNNEL_ANGLE_DEG: 15,
+  FUNNEL_ANGLE_DEG: 40,
   /**
    * 出口の幅（玉何個ぶん）。
    * ここで詰まった玉が上へ押し返され、ゲートをもう一度くぐって増える。
