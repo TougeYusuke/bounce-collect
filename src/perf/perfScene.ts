@@ -56,6 +56,31 @@ export class PerfScene {
   }
 
   /**
+   * 「接している玉のうち、深く食い込んでいるペアの割合」（0〜1）。
+   *
+   * ⚠️ 最も近い1ペアの距離で判定してはいけない。1ペアだけ食い込んでいれば
+   * 山全体が綺麗でも「潰れた」と出てしまう（実測で全ケース誤判定した）。
+   * 割合で見れば外れ値に振り回されない。
+   */
+  get crushRatio(): number {
+    const d = CONFIG.BALL_RADIUS * 2;
+    let touching = 0;
+    let crushed = 0;
+    this.pool.forEachActive((a, ai) => {
+      this.grid.forEachNeighbor(a.x, a.y, (bi) => {
+        if (bi <= ai) return;
+        const b = this.pool.balls[bi];
+        if (!b.alive) return;
+        const dd = Math.hypot(a.x - b.x, a.y - b.y);
+        if (dd >= d * 1.1) return;
+        touching++;
+        if (dd < d * 0.85) crushed++;
+      });
+    });
+    return touching === 0 ? 0 : crushed / touching;
+  }
+
+  /**
    * 生成位置が空いているか。
    * 埋まっているのに生やすと、生まれた瞬間から玉が重なって物理が壊れる。
    */
