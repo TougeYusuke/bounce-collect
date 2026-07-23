@@ -18,7 +18,10 @@ export interface Ball {
    * 下降に転じた時点で解除される。
    */
   flying: boolean;
-  /** 静止が何フレーム続いているか */
+  /** 眠り判定の観測を始めた時点の位置（ここからどれだけ動いたかで判定する） */
+  anchorX: number;
+  anchorY: number;
+  /** 眠り判定の観測を始めてから何フレーム経ったか */
   sleepFrames: number;
   /** 計算対象から外れているか（衝突相手としては生きている） */
   sleeping: boolean;
@@ -60,6 +63,8 @@ export class BallPool {
         jumperMask: 0,
         bounce: 0,
         flying: false,
+        anchorX: 0,
+        anchorY: 0,
         sleepFrames: 0,
         sleeping: false,
         alive: false,
@@ -82,6 +87,8 @@ export class BallPool {
     b.jumperMask = opts?.jumperMask ?? 0;
     b.bounce = opts?.bounce ?? 0;
     b.flying = opts?.flying ?? false;
+    b.anchorX = x;
+    b.anchorY = y;
     b.sleepFrames = 0;
     b.sleeping = false;
     b.alive = true;

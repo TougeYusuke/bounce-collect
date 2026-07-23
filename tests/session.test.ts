@@ -78,6 +78,26 @@ describe('Session', () => {
     expect(s.score).toBeGreaterThan(SMALL.initialBalls);
   });
 
+  it('盤面が詰まって流れが止まっても、時間切れで必ず終わる', () => {
+    // 出口を塞いだ意地悪なステージ（玉が一切下に落ちない）
+    const stuck = createFixedStage();
+    stuck.segments.push({
+      x1: 0,
+      y1: CONFIG.BOARD_HEIGHT - 100,
+      x2: CONFIG.BOARD_WIDTH,
+      y2: CONFIG.BOARD_HEIGHT - 100,
+    });
+    const s = new Session(stuck, { maxBalls: 150, initialBalls: 3 });
+    s.start();
+    let frames = 0;
+    while (!s.finished && frames < CONFIG.ROUND_TIME_LIMIT + 200) {
+      s.update(1);
+      frames++;
+    }
+    expect(s.finished).toBe(true);
+    expect(frames).toBeLessThanOrEqual(CONFIG.ROUND_TIME_LIMIT + 200);
+  });
+
   it('コップの位置は盤面の内側に収まる', () => {
     const s = new Session();
     s.setCupX(-999);

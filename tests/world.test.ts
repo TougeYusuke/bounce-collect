@@ -5,7 +5,7 @@ import type { Ball } from '../src/core/ball';
 function makeBall(x: number, y: number): Ball {
   return {
     x, y, px: x, py: y,
-    weight: 1, gateMask: 0, jumperMask: 0, bounce: 0, flying: false,
+    weight: 1, gateMask: 0, jumperMask: 0, bounce: 0, flying: false, anchorX: x, anchorY: y,
     sleepFrames: 0, sleeping: false, alive: true, index: 0,
   };
 }

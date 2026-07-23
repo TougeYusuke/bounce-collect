@@ -124,7 +124,17 @@ describe('updateSleep', () => {
     const pool = new BallPool(1);
     const b = pool.spawn(50, 50)!;
     for (let i = 0; i < 30; i++) {
-      b.px = b.x - 1; // 毎フレーム速度1で動いている
+      b.x += 1; // 毎フレーム 1px 実際に動いている
+      updateSleep(b, 0.06, 10);
+    }
+    expect(b.sleeping).toBe(false);
+  });
+
+  it('ゆっくりでも滑り続けている玉は眠らない（斜面に張り付くのを防ぐ）', () => {
+    const pool = new BallPool(1);
+    const b = pool.spawn(50, 50)!;
+    for (let i = 0; i < 60; i++) {
+      b.x += 0.2; // しきい値(0.06)より速いが、かなりゆっくり
       updateSleep(b, 0.06, 10);
     }
     expect(b.sleeping).toBe(false);
@@ -133,7 +143,7 @@ describe('updateSleep', () => {
   it('眠った玉は速度がゼロになる', () => {
     const pool = new BallPool(1);
     const b = pool.spawn(50, 50)!;
-    b.px = 49.99; // わずかに動いている
+    b.px = 49.99; // 見かけの速度だけあって、実際にはほぼ動いていない
     for (let i = 0; i < 10; i++) updateSleep(b, 0.06, 10);
     expect(b.sleeping).toBe(true);
     expect(b.px).toBe(b.x);

@@ -49,6 +49,8 @@ export class Session {
 
   private supplyTimer: number = CONFIG.SUPPLY_INTERVAL; // 開始直後に1個目を出す
   private quiet = 0;
+  /** 開始してから進んだフレーム数（時間切れの判定に使う） */
+  elapsed = 0;
 
   constructor(stage: Stage = createFixedStage(), opts: SessionOptions = {}) {
     this.stage = stage;
@@ -114,6 +116,8 @@ export class Session {
       applyJumpers(this.pool, this.stage, CONFIG.MAX_BOUNCE);
       this.collect();
 
+      if (this.started) this.elapsed++;
+
       // ⚠️ 終了判定は「盤面が空になったら」ではなく「もう何も動かなくなったら」。
       // 傾斜や板の上で眠って止まる玉が必ず出るので、空になるのを待つと
       // ラウンドが永久に終わらない（実測: 1個が誘導板に乗って3000フレーム経過）。
@@ -121,7 +125,13 @@ export class Session {
       const settled =
         this.started && this.supplied >= this.initialBalls && this.awakeCount === 0;
       this.quiet = settled ? this.quiet + 1 : 0;
-      if (this.quiet > QUIET_FRAMES) {
+
+      // 時間切れ。盤面が詰まって流れが止まっても待たせ続けない。
+      // 傾斜を緩くすると流れが遅くなり、設定次第では自然には終わらなくなるため、
+      // これを最後の砦として置く（実測: 34度で30秒経っても終わらなかった）。
+      const timeUp = this.started && this.elapsed >= CONFIG.ROUND_TIME_LIMIT;
+
+      if (this.quiet > QUIET_FRAMES || timeUp) {
         // 引っかかって残った玉も回収する（待たせるくらいなら拾わせる）
         this.pool.forEachActive((b) => {
           this.score += b.weight;

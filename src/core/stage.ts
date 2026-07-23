@@ -105,6 +105,26 @@ function thickWall(x1: number, y1: number, x2: number, y2: number): Segment[] {
   ];
 }
 
+/**
+ * V字の漏斗を作る。
+ * ⚠️ 中央を閉じないこと。閉じると玉が底で止まって回収ラインに届かず、
+ *    ラウンドが永久に終わらなくなる。出口を空けて落とす。
+ */
+function funnelWalls(): Segment[] {
+  const w = CONFIG.BOARD_WIDTH;
+  const h = CONFIG.BOARD_HEIGHT;
+  const bottomY = h - CONFIG.FUNNEL_BOTTOM_MARGIN;
+  const halfOutlet = CONFIG.BALL_RADIUS * CONFIG.OUTLET_BALLS;
+  const run = w * 0.5 - halfOutlet; // 端から出口までの横の距離
+  const rise = run * Math.tan((CONFIG.FUNNEL_ANGLE_DEG * Math.PI) / 180);
+  // 盤面の上まで突き抜けないようにしておく
+  const topY = Math.max(CONFIG.BALL_RADIUS * 6, bottomY - rise);
+  return [
+    ...thickWall(0, topY, w * 0.5 - halfOutlet, bottomY),
+    ...thickWall(w, topY, w * 0.5 + halfOutlet, bottomY),
+  ];
+}
+
 export function createFixedStage(): Stage {
   const w = CONFIG.BOARD_WIDTH;
   const h = CONFIG.BOARD_HEIGHT;
@@ -117,15 +137,8 @@ export function createFixedStage(): Stage {
       // ⚠️ 傾きを緩くしすぎない。玉が板の上に乗って眠り、そこで止まる。
       { x1: 0, y1: 386, x2: w * 0.32, y2: 468 },
       { x1: w, y1: 386, x2: w * 0.68, y2: 468 },
-      // V字傾斜（下部・中央へ集める）
-      // ⚠️ 中央を閉じないこと。閉じると玉が底で止まって回収ラインに届かず、
-      //    ラウンドが永久に終わらなくなる。中央に隙間を空けて落とす。
-      // 出口は玉2個ぶんに絞ってある。ここで詰まった玉が上へ押し返され、
-      // 通ってきたゲートをもう一度くぐって増える——それがこのゲームの気持ちよさ。
-      // 広げると流れきってしまい、狭めすぎると詰まったまま終わらなくなる。
-      // ⚠️ 傾きは急に。緩いと玉が斜面の上で支え合って止まり、終わり際に居残る。
-      ...thickWall(0, h - 250, w * 0.46, h - 70),
-      ...thickWall(w, h - 250, w * 0.54, h - 70),
+      // V字の漏斗。角度・出口幅は config のツマミで変えられる（§FUNNEL_*）
+      ...funnelWalls(),
     ],
     gates: [
       gate(0, w * 0.05, w * 0.35, 180, 3, 40),

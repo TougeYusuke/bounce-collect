@@ -50,6 +50,8 @@ const WAKE_OVERLAP_RATIO = 0.12;
 export function wake(ball: Ball): void {
   ball.sleeping = false;
   ball.sleepFrames = 0;
+  ball.anchorX = ball.x;
+  ball.anchorY = ball.y;
 }
 
 /** 玉同士の重なりを位置補正で解消する（反復するほど安定するが重くなる） */
@@ -175,25 +177,35 @@ function cancelNormalVelocity(a: Ball, b: Ball, ux: number, uy: number): void {
   }
 }
 
-/** 静止が続いた玉を眠らせる。眠った玉は積分をスキップできる */
+/**
+ * 動かなくなった玉を眠らせる。眠った玉は積分をスキップできる。
+ *
+ * ⚠️ 判定は「速度」ではなく「一定フレームの間に実際どれだけ動いたか」で行う。
+ * 速度（現在位置 - 前フレーム位置）は玉同士の押し出し補正でブレるため、
+ * 斜面をゆっくり滑っている玉まで静止と誤判定して固めてしまい、
+ * 斜面の途中に玉が張り付いたまま止まる（れいあ指摘の「おかしな止まり方」）。
+ *
+ * velocityThreshold は「1フレームあたりの許容移動量」として扱う
+ * （framesToSleep 倍したものを、その間の移動距離のしきい値にする）。
+ */
 export function updateSleep(
   ball: Ball,
   velocityThreshold: number,
   framesToSleep: number,
 ): void {
-  const vx = ball.x - ball.px;
-  const vy = ball.y - ball.py;
-  if (Math.hypot(vx, vy) < velocityThreshold) {
-    ball.sleepFrames++;
-    if (ball.sleepFrames >= framesToSleep) {
-      ball.sleeping = true;
-      ball.px = ball.x; // 速度を完全に消す
-      ball.py = ball.y;
-    }
-  } else {
-    ball.sleepFrames = 0;
-    ball.sleeping = false;
+  ball.sleepFrames++;
+  if (ball.sleepFrames < framesToSleep) return;
+
+  const moved = Math.hypot(ball.x - ball.anchorX, ball.y - ball.anchorY);
+  if (moved < velocityThreshold * framesToSleep) {
+    ball.sleeping = true;
+    ball.px = ball.x; // 速度を完全に消す
+    ball.py = ball.y;
   }
+  // 次の観測期間へ
+  ball.anchorX = ball.x;
+  ball.anchorY = ball.y;
+  ball.sleepFrames = 0;
 }
 
 export interface StepOptions {
