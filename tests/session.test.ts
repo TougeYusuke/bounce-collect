@@ -16,13 +16,15 @@ describe('Session', () => {
   });
 
   it('供給が進むと玉が盤面に出る', () => {
-    const s = new Session();
+    const s = new Session(createFixedStage(), { maxBalls: 150 });
     for (let i = 0; i < 60; i++) s.update(1);
     expect(s.pool.activeCount).toBeGreaterThan(0);
   });
 
   it('供給される総数は INITIAL_BALLS ぶん', () => {
-    const s = new Session();
+    // 玉の上限だけ絞る（供給数の検証に上限は関係ない）。
+    // 本番の2000個で600フレーム回すと、増殖のぶん重くて CI がタイムアウトする。
+    const s = new Session(createFixedStage(), { maxBalls: 150 });
     for (let i = 0; i < 600; i++) s.update(1);
     expect(s.supplied).toBe(CONFIG.INITIAL_BALLS);
   });
@@ -72,10 +74,10 @@ describe('Session', () => {
   });
 
   it('コップの位置を変えると玉の落ちる場所が変わる', () => {
-    const left = new Session();
+    const left = new Session(createFixedStage(), { maxBalls: 150 });
     left.setCupX(60);
     for (let i = 0; i < 20; i++) left.update(1);
-    const right = new Session();
+    const right = new Session(createFixedStage(), { maxBalls: 150 });
     right.setCupX(300);
     for (let i = 0; i < 20; i++) right.update(1);
 
