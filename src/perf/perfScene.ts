@@ -32,7 +32,7 @@ const STEP_OPTIONS = {
 export class PerfScene {
   readonly world = createPerfWorld();
   readonly pool: BallPool;
-  readonly target: number;
+  target: number;
   private grid: SpatialGrid;
   private spawned = 0;
   private spawnCursor = 0;
@@ -41,6 +41,35 @@ export class PerfScene {
     this.target = target;
     this.pool = new BallPool(target);
     this.grid = new SpatialGrid(this.world.width, this.world.height, CONFIG.BALL_RADIUS * 2);
+  }
+
+  /**
+   * 盤面に詰められるだけ玉を並べて、実際に置けた数を返す。
+   *
+   * 計測のためにある。上から降らせて積もるのを待つと1条件あたり20〜45秒かかるが、
+   * 測りたいのは「大量の玉が同時に動いている状態」なので、最初からその状態を作れば
+   * 数秒で済む。並べた直後は全部が崩れ出すので、本番より厳しい負荷になる（安全側）。
+   */
+  prefill(limit: number): number {
+    this.pool.clear();
+    const r = CONFIG.BALL_RADIUS;
+    const gap = r * 2 + 0.4; // わずかに隙間を空けて、並べた瞬間の重なりをゼロにする
+    const top = r + 2;
+    const bottom = this.world.height - 130; // V字傾斜より上だけを使う
+    let placed = 0;
+    for (let y = bottom; y > top && placed < limit; y -= gap) {
+      for (let x = r + 1; x < this.world.width - r && placed < limit; x += gap) {
+        if (!this.pool.spawn(x, y)) {
+          this.spawned = placed;
+          this.target = placed;
+          return placed;
+        }
+        placed++;
+      }
+    }
+    this.spawned = placed;
+    this.target = placed;
+    return placed;
   }
 
   get spawnedCount(): number {

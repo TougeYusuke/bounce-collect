@@ -21,15 +21,14 @@ let rendererReady = false;
 let benchBusy = false;
 
 const bench = new Bench();
+// 2000 と「限界まで」は盤面の収容量が同じで結果も同じになるため、限界まで の1本に統合した
 const BENCH_CASES: BenchCase[] = [
-  { count: 500, renderer: 'canvas' },
-  { count: 1000, renderer: 'canvas' },
-  { count: 2000, renderer: 'canvas' },
-  { count: 4000, renderer: 'canvas' },
-  { count: 500, renderer: 'pixi' },
-  { count: 1000, renderer: 'pixi' },
-  { count: 2000, renderer: 'pixi' },
-  { count: 4000, renderer: 'pixi' },
+  { count: 500, renderer: 'canvas', label: '500' },
+  { count: 1000, renderer: 'canvas', label: '1000' },
+  { count: 99999, renderer: 'canvas', label: '限界まで' },
+  { count: 500, renderer: 'pixi', label: '500' },
+  { count: 1000, renderer: 'pixi', label: '1000' },
+  { count: 99999, renderer: 'pixi', label: '限界まで' },
 ];
 
 // ── FPS計測：直近60フレームの平均
@@ -75,12 +74,18 @@ function syncButtons(): void {
   });
 }
 
-/** 自動計測の1条件ぶんをセットアップする。準備中は計測を止める */
+/**
+ * 自動計測の1条件ぶんをセットアップする。
+ * 上から降らせず、盤面へ一気に並べる（積もるのを待たないための要）。
+ */
 async function applyCase(c: BenchCase): Promise<void> {
   benchBusy = true;
-  reset(c.count);
+  scene = new PerfScene(Math.min(c.count, 6000));
+  const placed = scene.prefill(c.count);
+  bench.notifyPlaced(placed);
   if (c.renderer !== rendererKind) await setRenderer(c.renderer);
   frameTimes.length = 0;
+  syncButtons();
   benchBusy = false;
 }
 
@@ -91,8 +96,7 @@ function showProgress(): void {
   const c = bench.current;
   ovBody.innerHTML =
     `<div class="prog">${bench.progress}　玉 ${c?.count ?? '-'} / ${c?.renderer === 'pixi' ? 'Pixi' : 'Canvas'}</div>` +
-    `<div class="hint">画面はそのままで大丈夫。終わったら結果の表が出るよ。<br>` +
-    `⚠️ 途中で他のアプリに切り替えると計測が止まるから、このまま見ててね。</div>`;
+    `<div class="hint">20秒くらいで終わるよ。このまま見ててね。</div>`;
 }
 
 function showResults(): void {
@@ -101,8 +105,8 @@ function showResults(): void {
   ovTitle.textContent = '計測おわり';
   ovBody.innerHTML =
     bench.toTableHtml() +
-    `<div class="hint"><b>最悪fps</b>＝玉が落ちている最中の一番重い瞬間。ここが本番の負荷。<br>` +
-    `<b>静止後</b>＝積もり切った後（玉が眠るので軽くなる）。<br>` +
+    `<div class="hint"><b>最低fps</b>＝盤面いっぱいの玉が一斉に崩れている、一番重い瞬間。` +
+    `実際のゲームはこれより軽いので、ここが出ていれば大丈夫。<br>` +
     `この画面をスクショしてリアに渡してね。</div>`;
   try {
     localStorage.setItem('bench-results', JSON.stringify(bench.results));
