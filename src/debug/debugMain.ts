@@ -27,6 +27,7 @@ function makeSession(): Session {
 }
 
 function dropOne(): void {
+  session.start();
   session.pool.spawn(session.cupX, CONFIG.BALL_RADIUS * 4);
 }
 

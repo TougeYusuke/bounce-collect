@@ -140,6 +140,14 @@ export class CanvasRenderer implements Renderer {
     ctx.fillStyle = '#8b6a45';
     ctx.fillRect(ox, oy, this.world.width * s, this.world.height * s);
 
+    // 以降は盤面の内側だけに描く。
+    // 板に厚みを持たせる補助線は盤面の外へはみ出すことがあり、そのまま描くと
+    // 盤面の外に斜線が飛び出して見える。
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(ox, oy, this.world.width * s, this.world.height * s);
+    ctx.clip();
+
     // 静的形状
     ctx.strokeStyle = '#5c4630';
     ctx.lineWidth = Math.max(2, 4 * s);
@@ -155,6 +163,8 @@ export class CanvasRenderer implements Renderer {
     pool.forEachActive((b) => {
       ctx.drawImage(sprite, ox + b.x * s - half, oy + b.y * s - half);
     });
+
+    ctx.restore();
   }
 
   destroy(): void {

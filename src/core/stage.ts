@@ -79,6 +79,32 @@ function gate(
   };
 }
 
+/**
+ * 板に厚みを持たせる。
+ *
+ * ⚠️ 線分1本だと厚みがゼロなので、玉が密集して深くめり込んだ時に
+ * 「最も近い点」が反対側になり、板の向こう側へ押し出されてしまう
+ * （実測: V字の左右の端から玉が漏れ出た）。
+ * 玉の直径ぶん離した平行線で挟めば、貫通しても必ずもう一方に当たって戻される。
+ */
+function thickWall(x1: number, y1: number, x2: number, y2: number): Segment[] {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  // 線分に垂直な向きへ、玉の直径ぶんずらした線を足す
+  let nx = (-dy / len) * CONFIG.BALL_RADIUS * 2;
+  let ny = (dx / len) * CONFIG.BALL_RADIUS * 2;
+  // 受け止める側（玉が来ない下側）に足す。上に足すと玉が乗る面がずれてしまう
+  if (ny < 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  return [
+    { x1, y1, x2, y2 },
+    { x1: x1 + nx, y1: y1 + ny, x2: x2 + nx, y2: y2 + ny },
+  ];
+}
+
 export function createFixedStage(): Stage {
   const w = CONFIG.BOARD_WIDTH;
   const h = CONFIG.BOARD_HEIGHT;
@@ -97,8 +123,9 @@ export function createFixedStage(): Stage {
       // 出口は玉2個ぶんに絞ってある。ここで詰まった玉が上へ押し返され、
       // 通ってきたゲートをもう一度くぐって増える——それがこのゲームの気持ちよさ。
       // 広げると流れきってしまい、狭めすぎると詰まったまま終わらなくなる。
-      { x1: 0, y1: h - 190, x2: w * 0.46, y2: h - 70 },
-      { x1: w, y1: h - 190, x2: w * 0.54, y2: h - 70 },
+      // ⚠️ 傾きは急に。緩いと玉が斜面の上で支え合って止まり、終わり際に居残る。
+      ...thickWall(0, h - 250, w * 0.46, h - 70),
+      ...thickWall(w, h - 250, w * 0.54, h - 70),
     ],
     gates: [
       gate(0, w * 0.05, w * 0.35, 180, 3, 40),

@@ -4,6 +4,7 @@ import { CanvasRenderer } from './render/canvasRenderer';
 import { Hud } from './ui/hud';
 
 const stageEl = document.getElementById('stage')!;
+const hintEl = document.getElementById('hint')!;
 const renderer = new CanvasRenderer();
 const hud = new Hud();
 
@@ -19,6 +20,8 @@ function moveCup(clientX: number): void {
 stageEl.addEventListener('pointerdown', (e) => {
   stageEl.setPointerCapture(e.pointerId);
   moveCup(e.clientX);
+  session.start(); // 最初のタップで落ち始める
+  hintEl.textContent = 'なぞってコップを動かす';
 });
 stageEl.addEventListener('pointermove', (e) => {
   // マウスは押している間だけ、指はそのまま追従させる
@@ -30,6 +33,7 @@ function restart(): void {
   session = new Session();
   shownResult = false;
   hud.hideResult();
+  hintEl.textContent = '画面をタップすると始まるよ';
 }
 
 document.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((b) => {

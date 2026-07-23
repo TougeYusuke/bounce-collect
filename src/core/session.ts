@@ -44,6 +44,8 @@ export class Session {
   supplied = 0;
   finished = false;
   cupX = CONFIG.BOARD_WIDTH / 2;
+  /** 最初の入力があるまで玉を出さない（勝手に始まらないように） */
+  started = false;
 
   private supplyTimer: number = CONFIG.SUPPLY_INTERVAL; // 開始直後に1個目を出す
   private quiet = 0;
@@ -75,6 +77,11 @@ export class Session {
     this.cupX = Math.min(CONFIG.BOARD_WIDTH - m, Math.max(m, x));
   }
 
+  /** 最初のタップで落とし始める */
+  start(): void {
+    this.started = true;
+  }
+
   /** 回収ラインを越えた玉をスコアに変えて消す */
   collect(): void {
     const dead: number[] = [];
@@ -88,6 +95,7 @@ export class Session {
   }
 
   private supply(): void {
+    if (!this.started) return;
     if (this.supplied >= this.initialBalls) return;
     this.supplyTimer++;
     if (this.supplyTimer < CONFIG.SUPPLY_INTERVAL) return;
@@ -109,7 +117,9 @@ export class Session {
       // ⚠️ 終了判定は「盤面が空になったら」ではなく「もう何も動かなくなったら」。
       // 傾斜や板の上で眠って止まる玉が必ず出るので、空になるのを待つと
       // ラウンドが永久に終わらない（実測: 1個が誘導板に乗って3000フレーム経過）。
-      const settled = this.supplied >= this.initialBalls && this.awakeCount === 0;
+      // 開始前は終了判定を走らせない（タップ待ちの間に終わってしまう）
+      const settled =
+        this.started && this.supplied >= this.initialBalls && this.awakeCount === 0;
       this.quiet = settled ? this.quiet + 1 : 0;
       if (this.quiet > QUIET_FRAMES) {
         // 引っかかって残った玉も回収する（待たせるくらいなら拾わせる）

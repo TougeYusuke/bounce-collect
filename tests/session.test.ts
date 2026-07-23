@@ -6,7 +6,11 @@ import { createFixedStage } from '../src/core/stage';
 // 「終わるか」を見るテストは玉の上限を絞って軽く回す。
 // 本番の2000個で2万フレーム回すと数分かかり、テストとして使い物にならない。
 const SMALL = { maxBalls: 120, initialBalls: 3 };
-const small = () => new Session(createFixedStage(), SMALL);
+const small = () => {
+  const s = new Session(createFixedStage(), SMALL);
+  s.start();
+  return s;
+};
 
 describe('Session', () => {
   it('開始直後はスコア0で、まだ終わっていない', () => {
@@ -15,8 +19,16 @@ describe('Session', () => {
     expect(s.finished).toBe(false);
   });
 
+  it('タップするまでは玉が出ない', () => {
+    const s = new Session(createFixedStage(), { maxBalls: 150 });
+    for (let i = 0; i < 120; i++) s.update(1);
+    expect(s.pool.activeCount).toBe(0);
+    expect(s.finished).toBe(false); // 待っている間に終わってしまわない
+  });
+
   it('供給が進むと玉が盤面に出る', () => {
     const s = new Session(createFixedStage(), { maxBalls: 150 });
+    s.start();
     for (let i = 0; i < 60; i++) s.update(1);
     expect(s.pool.activeCount).toBeGreaterThan(0);
   });
@@ -25,6 +37,7 @@ describe('Session', () => {
     // 玉の上限だけ絞る（供給数の検証に上限は関係ない）。
     // 本番の2000個で600フレーム回すと、増殖のぶん重くて CI がタイムアウトする。
     const s = new Session(createFixedStage(), { maxBalls: 150 });
+    s.start();
     for (let i = 0; i < 600; i++) s.update(1);
     expect(s.supplied).toBe(CONFIG.INITIAL_BALLS);
   });
@@ -75,9 +88,11 @@ describe('Session', () => {
 
   it('コップの位置を変えると玉の落ちる場所が変わる', () => {
     const left = new Session(createFixedStage(), { maxBalls: 150 });
+    left.start();
     left.setCupX(60);
     for (let i = 0; i < 20; i++) left.update(1);
     const right = new Session(createFixedStage(), { maxBalls: 150 });
+    right.start();
     right.setCupX(300);
     for (let i = 0; i < 20; i++) right.update(1);
 
