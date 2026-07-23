@@ -120,9 +120,15 @@ function funnelWalls(): Segment[] {
   const rise = run * Math.tan((CONFIG.FUNNEL_ANGLE_DEG * Math.PI) / 180);
   // 盤面の上まで突き抜けないようにしておく
   const topY = Math.max(CONFIG.BALL_RADIUS * 6, bottomY - rise);
+  const slope = (bottomY - topY) / run;
+
+  // ⚠️ 斜面は盤面の外まで伸ばすこと。
+  // 端を x=0 / x=w でぴったり止めると、壁と斜面の角に玉が押し込まれた時に
+  // 線分の端から下へ抜けてしまい、V字の外側（斜面の裏）に玉が溜まる（実測）。
+  const over = CONFIG.BALL_RADIUS * 4;
   return [
-    ...thickWall(0, topY, w * 0.5 - halfOutlet, bottomY),
-    ...thickWall(w, topY, w * 0.5 + halfOutlet, bottomY),
+    ...thickWall(-over, topY - over * slope, w * 0.5 - halfOutlet, bottomY),
+    ...thickWall(w + over, topY - over * slope, w * 0.5 + halfOutlet, bottomY),
   ];
 }
 

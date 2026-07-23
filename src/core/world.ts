@@ -98,7 +98,9 @@ export function resolveBounds(
   if (ball.y < radius) {
     ball.y = radius;
     const vy = ball.y - ball.py;
-    if (vy < 0) ball.py = ball.y + vy * restitution;
+    // 天井はよく弾ませる。弱いと打ち上がった玉が天井と壁の角に居座って
+    // そのまま眠り、上のほうに玉が張り付いて見える（れいあ指摘）
+    if (vy < 0) ball.py = ball.y + vy * Math.max(restitution, 0.6);
   } else if (ball.y > world.height - radius) {
     ball.y = world.height - radius;
     const vy = ball.y - ball.py;
