@@ -79,31 +79,46 @@ function gate(
   };
 }
 
+/** 壁の厚み（玉の半径の何倍ぶん、裏側に線を重ねるか）。1本では圧力で貫通する */
+const WALL_THICKNESS = 3;
+/** 裏当ての線の間隔（玉の半径に対する割合）。詰めるほど貫通しにくい */
+const WALL_LAYER_STEP = 0.5;
+
 /**
- * 板に厚みを持たせる。
+ * 板に「本当の厚み」を持たせる。
  *
- * ⚠️ 線分1本だと厚みがゼロなので、玉が密集して深くめり込んだ時に
- * 「最も近い点」が反対側になり、板の向こう側へ押し出されてしまう
- * （実測: V字の左右の端から玉が漏れ出た）。
- * 玉の直径ぶん離した平行線で挟めば、貫通しても必ずもう一方に当たって戻される。
+ * ⚠️ 線分1本だと、落下してくる玉は止められても、山になった玉が下から
+ * 押し合う圧力にじわじわ押し越えられて、板の外側へ漏れる（れいあ指摘・実測で
+ * 数百個が斜面の外に溜まった）。
+ * 受け止める側（玉が来ない裏側）に、玉が越えられない厚みぶん平行線を重ねる。
+ * 何個押し込まれても、必ずどれかの線に当たって内側へ戻される。
  */
 function thickWall(x1: number, y1: number, x2: number, y2: number): Segment[] {
   const dx = x2 - x1;
   const dy = y2 - y1;
   const len = Math.hypot(dx, dy) || 1;
-  // 線分に垂直な向きへ、玉の直径ぶんずらした線を足す
-  let nx = (-dy / len) * CONFIG.BALL_RADIUS * 2;
-  let ny = (dx / len) * CONFIG.BALL_RADIUS * 2;
-  // 受け止める側（玉が来ない下側）に足す。上に足すと玉が乗る面がずれてしまう
-  if (ny < 0) {
-    nx = -nx;
-    ny = -ny;
+  // 線分に垂直な単位ベクトル。受け止める側（下側 = ny>0）へ向ける
+  let ux = -dy / len;
+  let uy = dx / len;
+  if (uy < 0) {
+    ux = -ux;
+    uy = -uy;
   }
-  return [
-    { x1, y1, x2, y2 },
-    // 裏当ては描画しない（描くと板が二重線に見える）
-    { x1: x1 + nx, y1: y1 + ny, x2: x2 + nx, y2: y2 + ny, hidden: true },
-  ];
+
+  const out: Segment[] = [{ x1, y1, x2, y2 }]; // 表の1本だけ描く
+  const step = CONFIG.BALL_RADIUS * WALL_LAYER_STEP;
+  const layers = Math.ceil((CONFIG.BALL_RADIUS * WALL_THICKNESS) / step);
+  for (let i = 1; i <= layers; i++) {
+    const d = step * i;
+    out.push({
+      x1: x1 + ux * d,
+      y1: y1 + uy * d,
+      x2: x2 + ux * d,
+      y2: y2 + uy * d,
+      hidden: true, // 裏当ては描かない
+    });
+  }
+  return out;
 }
 
 /**
