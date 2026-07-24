@@ -164,4 +164,10 @@ export const CONFIG = {
   RELEASE_SETTLE_FRAMES: 300,
   /** R1が終わってから、下のバケツが下へ抜けてR2が始まるまでの演出フレーム */
   ROUND_TRANSITION_FRAMES: 45,
+
+  // ── ステージエディタ ──
+  /** 配置の吸着単位（px）。微妙なズレで悩まないため */
+  EDITOR_GRID: 5,
+  /** バーの最小幅。⚠️ 狭すぎると玉が通れない（玉の直径2個ぶん） */
+  EDITOR_MIN_WIDTH: 28,
 } as const;
