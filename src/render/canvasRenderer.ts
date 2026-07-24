@@ -321,6 +321,14 @@ export class CanvasRenderer implements Renderer {
   showBottomBucket = true;
   /** 下バケツを下へずらす量（論理px）。R1→R2 で下へ流れて退場する演出に使う */
   bottomBucketOffsetY = 0;
+  /**
+   * 盤面ごと縦にずらす量（論理px）。
+   * R1→R2 の場面転換で「カメラが下へ降りていく」ように見せるのに使う。
+   * 負で盤面が上へ抜け、正で下から入ってくる。
+   */
+  boardOffsetY = 0;
+  /** 上バケツの横に出す残り玉数。null で非表示 */
+  cupCount: number | null = null;
 
   draw(pool: BallPool, radius: number, stage?: Stage, cupX?: number, cupTilt = 0): void {
     const dpr = window.devicePixelRatio || 1;
@@ -330,7 +338,8 @@ export class CanvasRenderer implements Renderer {
     const ctx = this.ctx;
     const s = this.scale * dpr;
     const ox = this.offsetX * dpr;
-    const oy = this.offsetY * dpr;
+    // 場面転換のスクロールぶんを足す（盤面の中身ごと動く）
+    const oy = this.offsetY * dpr + this.boardOffsetY * s;
     const t = this.material;
     const W = this.world.width;
     const H = this.world.height;
@@ -398,7 +407,20 @@ export class CanvasRenderer implements Renderer {
     });
 
     // 上バケツ（玉より後＝玉がバケツの下から出てくる）。玉を出している間は傾ける
-    this.drawBucket(ctx, ox, oy, s, cupX ?? W / 2, CONFIG.CUP_Y, 1.0, cupTilt);
+    const cx = cupX ?? W / 2;
+    this.drawBucket(ctx, ox, oy, s, cx, CONFIG.CUP_Y, 1.0, cupTilt);
+    // バケツの中に残っている玉の数（バケツの左に置く）
+    if (this.cupCount !== null) {
+      ctx.save();
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.font = `800 ${Math.max(11, Math.round(19 * s))}px ui-rounded, system-ui, sans-serif`;
+      ctx.shadowColor = 'rgba(0,0,0,.85)';
+      ctx.shadowBlur = 6 * s;
+      ctx.fillStyle = SKIN.metal;
+      ctx.fillText(this.cupCount.toLocaleString('ja-JP'), ox + (cx - 34) * s, oy + (CONFIG.CUP_Y + 14) * s);
+      ctx.restore();
+    }
 
     ctx.restore();
 

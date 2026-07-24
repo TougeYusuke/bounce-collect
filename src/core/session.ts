@@ -115,6 +115,24 @@ export class Session {
     );
   }
 
+  /**
+   * 実際に玉を回収する高さ。
+   *
+   * ⚠️ R1は下バケツの口（stage.collectY）で消す＝バケツに入ったように見える。
+   *    R2はバケツが無いので、同じ高さで消すと**盤面の下に空白を残して空中で消えた**
+   *    ように見える（れいあ指摘）。R2は床まで落としてから回収する。
+   */
+  private get collectLine(): number {
+    return this.mode === 'r2'
+      ? CONFIG.BOARD_HEIGHT - CONFIG.BALL_RADIUS
+      : this.stage.collectY;
+  }
+
+  /** コップに残っている玉の数（これから出てくるぶん）。カップの横に出す */
+  get remaining(): number {
+    return Math.max(0, this.supplyBalls - this.supplied);
+  }
+
   /** いま玉を出している最中か（上バケツを傾ける演出に使う） */
   get dispensing(): boolean {
     return this.started && this.supplied < this.initialBalls;
@@ -205,8 +223,9 @@ export class Session {
   /** 回収ラインを越えた玉をスコアに変えて消す。R1・R2とも常に有効 */
   collect(): void {
     const dead: number[] = [];
+    const line = this.collectLine;
     this.pool.forEachActive((b, i) => {
-      if (b.y >= this.stage.collectY) {
+      if (b.y >= line) {
         this.score += b.weight;
         dead.push(i);
       }

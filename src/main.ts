@@ -149,9 +149,22 @@ function loop(): void {
   if (ready) {
     const target = match.session.started ? CUP_POUR_TILT : 0;
     cupTilt += (target - cupTilt) * 0.15;
-    // R1の下バケツは、R2へ移る演出で下へ流れて退場する
-    renderer.showBottomBucket = match.round === 1;
-    renderer.bottomBucketOffsetY = match.transitionProgress * 160;
+    // R1→R2は「カメラが下へ降りていく」場面転換にする。
+    // 前半でR1の盤面（下バケツごと）が上へ抜け、後半で次の盤面が下から入ってくる。
+    const p = match.transitionProgress;
+    if (match.transitioning) {
+      const half = p < 0.5;
+      renderer.boardOffsetY = half
+        ? -(p * 2) * CONFIG.BOARD_HEIGHT // 0 → -720（上へ抜ける）
+        : (1 - (p - 0.5) * 2) * CONFIG.BOARD_HEIGHT; // +720 → 0（下から入る）
+      renderer.showBottomBucket = half; // 前半だけR1のバケツを見せる
+    } else {
+      renderer.boardOffsetY = 0;
+      renderer.showBottomBucket = match.round === 1;
+    }
+    renderer.bottomBucketOffsetY = 0;
+    // コップに残っている玉の数（タップ前と出し切る前だけ意味がある）
+    renderer.cupCount = match.session.remaining > 0 ? match.session.remaining : null;
     renderer.draw(match.session.pool, CONFIG.BALL_RADIUS, match.session.stage, match.cupX, cupTilt);
   }
   hud.setScore(match.displayScore);
