@@ -312,6 +312,9 @@ export class CanvasRenderer implements Renderer {
     }
   }
 
+  /** 下バケツを描くか。R2は「底にバケツが無い」ので消す（フェーズが変わった唯一の視覚的な合図） */
+  showBottomBucket = true;
+
   draw(pool: BallPool, radius: number, stage?: Stage, cupX?: number, cupTilt = 0): void {
     const dpr = window.devicePixelRatio || 1;
     if (!this.sprite || this.spriteRadius !== radius) {
@@ -370,7 +373,9 @@ export class CanvasRenderer implements Renderer {
     if (stage) {
       // 傾斜板 → 下バケツ → 仕切り の順（下バケツは玉より先＝中に溜まって見える）
       this.drawWedges(ctx, stage, ox, oy, s);
-      this.drawBucket(ctx, ox, oy, s, W / 2, stage.collectY, 0.95);
+      if (this.showBottomBucket) {
+        this.drawBucket(ctx, ox, oy, s, W / 2, stage.collectY, 0.95);
+      }
       this.drawDividers(ctx, stage, ox, oy, s);
       this.drawGates(ctx, stage, ox, oy, s);
       this.drawJumpers(ctx, stage, ox, oy, s);

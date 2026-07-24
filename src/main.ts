@@ -1,5 +1,5 @@
 import { CONFIG } from './core/config';
-import { Session } from './core/session';
+import { Match } from './core/match';
 import { CanvasRenderer } from './render/canvasRenderer';
 import { loadArt } from './render/art';
 import { MATERIALS, pickMaterial, type Material } from './render/theme';
@@ -23,7 +23,7 @@ const renderer = new CanvasRenderer();
 const hud = new Hud();
 
 const SPEEDS = [1, 2, 4] as const;
-let session = new Session();
+let match = new Match();
 let material: Material = MATERIALS[0];
 let speed = 1;
 let shownResult = false;
@@ -43,7 +43,7 @@ function today(): string {
 function newRound(): void {
   material = pickMaterial(Math.random);
   renderer.setMaterial(material);
-  session = new Session();
+  match = new Match();
   speed = 1;
   updateSpeedButton();
   shownResult = false;
@@ -53,7 +53,7 @@ function newRound(): void {
 }
 
 function moveCup(clientX: number): void {
-  session.setCupX(renderer.toLogicalX(clientX));
+  match.setCupX(renderer.toLogicalX(clientX));
 }
 
 // ── プレイ中の操作 ──
@@ -61,7 +61,7 @@ stageEl.addEventListener('pointerdown', (e) => {
   if (getScreen() !== 'play') return; // オーバーレイ表示中は盤面を操作しない
   stageEl.setPointerCapture(e.pointerId);
   moveCup(e.clientX);
-  session.start();
+  match.start();
   hintEl.textContent = 'なぞってコップを動かす';
 });
 stageEl.addEventListener('pointermove', (e) => {
@@ -83,7 +83,7 @@ speedBtn.addEventListener('click', () => {
 document.getElementById('restart')!.addEventListener('click', async () => {
   const ok = await confirmDialog(
     'もう一回やる？',
-    `いま出てる ${session.score.toLocaleString('ja-JP')} 点は記録されずに消えるよ。`,
+    `いま出てる ${match.displayScore.toLocaleString('ja-JP')} 点は記録されずに消えるよ。`,
     'やり直す',
   );
   if (ok) newRound();
@@ -139,25 +139,28 @@ window.addEventListener('resize', () => {
 const CUP_POUR_TILT = 1.4; // ラジアン（約80度）
 
 function loop(): void {
-  session.update(speed);
+  match.update(speed);
   if (ready) {
-    const target = session.started ? CUP_POUR_TILT : 0;
+    const target = match.session.started ? CUP_POUR_TILT : 0;
     cupTilt += (target - cupTilt) * 0.15;
-    renderer.draw(session.pool, CONFIG.BALL_RADIUS, session.stage, session.cupX, cupTilt);
+    renderer.showBottomBucket = match.round === 1; // R2は底にバケツが無い
+    renderer.draw(match.session.pool, CONFIG.BALL_RADIUS, match.session.stage, match.cupX, cupTilt);
   }
-  hud.setScore(session.score);
+  hud.setScore(match.displayScore);
+  // R1は積み上げた弾、R2は最終スコア。数字の意味が変わるのでラベルで示す
+  hud.setLabel(match.round === 1 ? 'BALLS' : 'SCORE');
 
-  if (session.finished && !shownResult) {
+  if (match.finished && !shownResult) {
     shownResult = true;
     // ⚠️ トータルはハイスコアの前に加算する（renderResult が加算後の累積を表示するため）
-    addTotal(session.score);
-    const rank = addScore({ score: session.score, date: today(), material: material.name });
-    renderResult(session.score, rank);
+    addTotal(match.finalScore);
+    const rank = addScore({ score: match.finalScore, date: today(), material: material.name });
+    renderResult(match.finalScore, rank);
   }
   requestAnimationFrame(loop);
 }
 
-void renderer.init(stageEl, session.world).then(() =>
+void renderer.init(stageEl, match.session.world).then(() =>
   loadArt([...MATERIALS.map((m) => m.board), 'bucket-wood.png']).then(() => {
     ready = true;
     layoutHud();
