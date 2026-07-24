@@ -106,16 +106,18 @@ describe('applyGates（増殖ルール）', () => {
     });
   });
 
-  it('玉の上限に達していたら、増やす代わりに weight を N 倍にする', () => {
+  it('⚠️ 玉の上限に達していたら、何も起きない（重さは増やさない）', () => {
     const pool = new BallPool(2);
     const b = ballCrossing(pool);
     pool.spawn(0, 0); // 埋めて空きをなくす
     applyGates(pool, stage, 2);
     expect(pool.activeCount).toBe(2); // 増えない
-    expect(b.weight).toBe(4); // 重さで表現される
+    // 以前はここで weight を4倍にしていたが、それが「1個回収で数千点」の正体だった。
+    // スコアは回収した玉の個数なので、盤面に入らなかった玉は存在しない（2026-07-24）
+    expect(b.weight).toBe(1);
   });
 
-  it('⚠️ 飽和して weight 化しても、通過済みの印は消えない（増殖が止まらなくなるため）', () => {
+  it('⚠️ 満杯で増やせなくても、通過済みの印は残る（同じゲートで何度も試さない）', () => {
     const pool = new BallPool(2);
     const b = ballCrossing(pool, 1, 0, 0b1110); // 他のゲートは通過済み
     pool.spawn(0, 0);
@@ -132,12 +134,12 @@ describe('applyGates（増殖ルール）', () => {
     expect(gained).toBe(15); // 5 が 20 になる = +15
   });
 
-  it('飽和時も増えた総 weight は同じ（玉で増えても重さで増えても計上は等しい）', () => {
+  it('⚠️ 満杯で1個も置けなければ、増えた数は0として返る', () => {
     const pool = new BallPool(2);
     ballCrossing(pool, 5);
     pool.spawn(0, 0);
     const gained = applyGates(pool, stage, 2);
-    expect(gained).toBe(15);
+    expect(gained).toBe(0);
   });
 
   it('x が範囲外の玉は増えない', () => {

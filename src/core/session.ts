@@ -216,7 +216,7 @@ export class Session {
 
     for (const i of dead) {
       const b = this.pool.balls[i];
-      this.score += b.weight;
+      this.score += b.weight; // R1は必ず1。R2は引き継いだぶんの個数
       this.collectedBalls++;
       this.pool.kill(b);
     }

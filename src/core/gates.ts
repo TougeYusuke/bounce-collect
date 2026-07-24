@@ -21,7 +21,7 @@ export function crossedGate(
 }
 
 /**
- * 全ての玉にゲート通過を適用する。増えた総 weight を返す。
+ * 全ての玉にゲート通過を適用する。実際に増えた玉の数を返す。
  *
  * ⚠️ ここがゲームの正体（設計書 §2.2）。2つの非対称を必ず守ること:
  *   - gateMask は生まれた玉ではリセット
@@ -29,6 +29,11 @@ export function crossedGate(
  *   - bounce は生まれた玉へ継承
  *     → ジャンプ台の往復が必ず有限回で終わる＝勝手にラウンドが終わる
  * どちらか片方を外すと、増えないか永久に終わらないかのどちらかになる。
+ *
+ * ⚠️ **盤面が満杯なら増えない**（2026-07-24 れいあ裁定）。
+ *    以前は満杯時に「1個の玉の中身（weight）を倍にする」ことで増殖を続けていたが、
+ *    それが「1個回収するたびに数千点入る」の正体だった。
+ *    スコアは**回収した玉の個数**なので、盤面に入らなかった玉は存在しない。
  */
 export function applyGates(
   pool: BallPool,
@@ -80,12 +85,11 @@ export function applyGates(
       if (!crossedGate(ball.px, ball.py, ball.x, ball.y, gate)) continue;
 
       const extra = gate.multiplier - 1;
-      const room = maxBalls - pool.activeCount;
-      // ⚠️ weight を更新する前に計上すること（更新後だと増分が過大になる）
       gained += ball.weight * extra;
 
-      if (room >= extra) {
-        // 空きがある: 実際に玉を生む。生まれた玉は新品（gateMask = 0）
+      {
+        // 盤面に入るぶんだけ実際に玉を生む。生まれた玉は新品（gateMask = 0）。
+        // ⚠️ 盤面が満杯なら**何も起きない**（以前はここで重さを倍にしていた）
         ball.gateMask |= bit;
         const vx = ball.x - ball.px;
         // ⚠️ 生まれた玉を上へ飛ばさない（れいあ指摘）。
@@ -105,6 +109,7 @@ export function applyGates(
 
         let placed = 0;
         for (let k = 0; k < extra; k++) {
+          if (pool.activeCount >= maxBalls) break; // 盤面が満杯ならこれ以上は増えない
           // 進行方向の「前」に並べる。後ろ（通ってきた側）に置くと、
           // 次のフレームで同じゲートをもう一度またいでしまう。
           const d = spacing * (k + 1);
@@ -130,18 +135,10 @@ export function applyGates(
           child.py = child.y - vy;
           placed++;
         }
-        // ⚠️ 置けなかったぶんは親の重さに足す。捨てるとスコアの帳尻が合わない
-        //    （gained では既に extra 個ぶん計上しているため）
-        if (placed < extra) ball.weight += ball.weight * (extra - placed);
-      } else {
-        // 飽和: 玉を増やさず重さで表現する。
-        // ⚠️ 印は**消さない**（`|=`）。以前は `= bit` として新品扱いに戻していたが、
-        //    それだと1個の玉が他のゲートを何度でも通り直せてしまい、増殖が止まらず
-        //    ラウンドが時間切れでしか終わらなくなる（capacity 撤去後に実測・45秒/2377万点）。
-        //    「1つの玉は同じゲートに1回だけ」を最後まで守れば、増える回数はゲート数で頭打ちになる。
-        ball.weight *= gate.multiplier;
-        ball.gateMask |= bit;
-        ball.jumperMask = 0;
+        // ⚠️ 置けなかったぶんは**そのまま増えない**。
+        //    スコアは「回収した玉の個数」なので、盤面に入らなかった玉は存在しない
+        //    （以前は親の重さに足していたが、それが「1個で数千点」の正体だった）
+        gained -= ball.weight * (extra - placed);
       }
     }
   }
