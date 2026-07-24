@@ -22,11 +22,18 @@ const STEP_OPTIONS = {
 /** 何も動かなくなってから、終了と判断するまでの猶予 */
 const QUIET_FRAMES = 45;
 
+/** R1=増やすラウンド ／ R2=溜めて放流するラウンド。違うのは底の挙動だけ */
+export type RoundMode = 'r1' | 'r2';
+
 export interface SessionOptions {
   /** 描画・計算する玉の上限。テストから小さくして軽く回すために外から渡せる */
   maxBalls?: number;
   /** ラウンド開始時の持ち玉 */
   initialBalls?: number;
+  /** 既定 'r1' */
+  mode?: RoundMode;
+  /** r2 のみ: 配る総量（＝R1の回収数）。玉数に収まらないぶんは weight にまとめる */
+  supplyTotal?: number;
 }
 
 /**
@@ -39,6 +46,11 @@ export class Session {
   readonly pool: BallPool;
   readonly maxBalls: number;
   readonly initialBalls: number;
+  readonly mode: RoundMode;
+  /** このラウンドで配る玉数（R1では initialBalls と同じ） */
+  readonly supplyBalls: number;
+  /** 1玉あたりの weight（R1は常に1） */
+  readonly supplyWeight: number;
   private grid: SpatialGrid;
 
   score = 0;
@@ -62,6 +74,16 @@ export class Session {
     this.world = stageToWorld(stage);
     this.maxBalls = opts.maxBalls ?? CONFIG.MAX_BALLS;
     this.initialBalls = opts.initialBalls ?? CONFIG.INITIAL_BALLS;
+    this.mode = opts.mode ?? 'r1';
+    if (this.mode === 'r2') {
+      const total = Math.max(1, Math.floor(opts.supplyTotal ?? 0));
+      this.supplyBalls = Math.min(CONFIG.R2_SUPPLY_BALLS, total);
+      // ⚠️ 切り上げ。切り捨てると供給がR1の結果を下回り、積み上げた実感が消える
+      this.supplyWeight = Math.ceil(total / this.supplyBalls);
+    } else {
+      this.supplyBalls = this.initialBalls;
+      this.supplyWeight = 1;
+    }
     this.pool = new BallPool(this.maxBalls);
     this.grid = new SpatialGrid(
       this.world.width,
@@ -183,14 +205,36 @@ export class Session {
     });
   }
 
+  /**
+   * 玉を出す。
+   *
+   * ⚠️ 供給間隔は短くできない。玉が自分の直径ぶん落ちるのに
+   *    √(直径 / (0.5×GRAVITY)) ≈ 9フレームかかり、それより速く同じ位置に出すと
+   *    生まれた瞬間から玉が重なって物理が壊れる（設計書2026-07-23 §10.2）。
+   *    ⚠️ pool.spawn に位置の埋まりチェックは無い（空きスロット切れでしか失敗しない）。
+   *    止めてくれないので、呼ぶ側が間隔を守ること。
+   *    R2は大量に配る必要があるので、縦ではなく**横に並べて**1回に複数個出す。
+   */
   private supply(): void {
     if (!this.started) return;
-    if (this.supplied >= this.initialBalls) return;
+    if (this.supplied >= this.supplyBalls) return;
     this.supplyTimer++;
-    if (this.supplyTimer < CONFIG.SUPPLY_INTERVAL) return;
+    const interval = this.mode === 'r2' ? CONFIG.R2_SUPPLY_INTERVAL : CONFIG.SUPPLY_INTERVAL;
+    if (this.supplyTimer < interval) return;
     this.supplyTimer = 0;
-    // 上バケツの口の少し下から出す（バケツの位置＝CONFIG.CUP_Y に合わせる）
-    if (this.pool.spawn(this.cupX, CONFIG.CUP_Y + CONFIG.BALL_RADIUS * 2)) this.supplied++;
+
+    const y = CONFIG.CUP_Y + CONFIG.BALL_RADIUS * 2;
+    const perTick = this.mode === 'r2' ? CONFIG.R2_SUPPLY_PER_TICK : 1;
+    const spacing = CONFIG.BALL_RADIUS * 2;
+    const opts = this.mode === 'r2' ? { weight: this.supplyWeight } : undefined;
+
+    for (let i = 0; i < perTick; i++) {
+      if (this.supplied >= this.supplyBalls) break;
+      // cupX を中心に、直径ぶんずつ左右へ振り分けて並べる（0, -1, +1, -2, +2 …）
+      const step = Math.ceil(i / 2) * (i % 2 === 1 ? -1 : 1);
+      const x = this.cupX + step * spacing;
+      if (this.pool.spawn(x, y, opts)) this.supplied++;
+    }
   }
 
   /** substeps を上げると早送りになる（速度スライダー） */
@@ -216,7 +260,7 @@ export class Session {
       // ラウンドが永久に終わらない（実測: 1個が誘導板に乗って3000フレーム経過）。
       // 開始前は終了判定を走らせない（タップ待ちの間に終わってしまう）
       const settled =
-        this.started && this.supplied >= this.initialBalls && this.awakeCount === 0;
+        this.started && this.supplied >= this.supplyBalls && this.awakeCount === 0;
       this.quiet = settled ? this.quiet + 1 : 0;
 
       // 時間切れ。盤面が詰まって流れが止まっても待たせ続けない。
