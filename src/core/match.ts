@@ -2,7 +2,8 @@ import { CONFIG } from './config';
 import { createRng } from './rng';
 import { Session } from './session';
 import { rollStage } from './stageRoll';
-import { DEFAULT_STAGE_DEF, buildStage, type StageDef } from './stageDef';
+import { pickStageDef } from './stages';
+import { buildStage, type StageDef } from './stageDef';
 
 /**
  * 2ラウンドを順に回す層。
@@ -33,7 +34,9 @@ export class Match {
 
   constructor(seed: number = Date.now()) {
     this.seed = seed >>> 0;
-    this.def = rollStage(DEFAULT_STAGE_DEF, createRng(this.seed));
+    // ⚠️ 型を選ぶのも中身を振るのも**同じ乱数**から。種が同じなら丸ごと同じゲームになる
+    const rng = createRng(this.seed);
+    this.def = rollStage(pickStageDef(rng), rng);
     this.session = new Session(buildStage(this.def));
   }
 
