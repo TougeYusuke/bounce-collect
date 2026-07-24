@@ -205,6 +205,14 @@ function loop(): void {
     }
     // コップに残っている玉の数（タップ前と出し切る前だけ意味がある）
     renderer.cupCount = match.session.remaining > 0 ? match.session.remaining : null;
+    // 次に出る玉。⚠️ まだ落ちていないので物理には入れず、口のところに描くだけ
+    renderer.cupBall =
+      match.session.remaining > 0
+        ? {
+            x: match.cupX + CONFIG.CUP_SPAWN_OFFSET_X,
+            y: CONFIG.CUP_Y + CONFIG.CUP_SPAWN_OFFSET_Y,
+          }
+        : null;
     renderer.draw(match.session.pool, CONFIG.BALL_RADIUS, match.session.stage, match.cupX, cupTilt);
   }
   hud.setScore(match.displayScore);

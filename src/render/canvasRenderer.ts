@@ -343,6 +343,11 @@ export class CanvasRenderer implements Renderer {
   boardOffsetY = 0;
   /** 上バケツの横に出す残り玉数。null で非表示 */
   cupCount: number | null = null;
+  /**
+   * 次に出る玉の位置（論理座標）。null で非表示。
+   * ⚠️ 物理には入っていない**見た目だけの玉**。落ちるまではカップに追従して見せるため。
+   */
+  cupBall: { x: number; y: number } | null = null;
   /** デバッグ表示（ジャンプ台の残り回数など）。URLに ?debug=1 で入る */
   showDebug = false;
 
@@ -451,6 +456,16 @@ export class CanvasRenderer implements Renderer {
     // 上バケツ（玉より後＝玉がバケツの下から出てくる）。玉を出している間は傾ける
     const cx = cupX ?? W / 2;
     this.drawBucket(ctx, ox, oy, s, cx, CONFIG.CUP_Y, 1.0, cupTilt);
+
+    // 次に出る玉。⚠️ バケツより**後**に描く＝口のところに乗っていて、
+    //    バケツを動かすと一緒に付いてくるように見える（落ちるまではカップの持ち物・れいあ指定）
+    if (this.cupBall) {
+      ctx.drawImage(
+        sprite,
+        ox + this.cupBall.x * s - half,
+        oy + this.cupBall.y * s - half,
+      );
+    }
     // バケツの中に残っている玉の数（バケツの左に置く）
     if (this.cupCount !== null) {
       ctx.save();

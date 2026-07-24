@@ -324,10 +324,16 @@ export class Session {
     if (this.supplyTimer < this.supplyInterval) return;
     this.supplyTimer = 0;
 
-    // 常に1個ずつ、バケツの中から出す（既定 0 ＝ 絵の内側で湧いて口から出てくる）
-    // ⚠️ 横に並べて複数同時に出さない（1個ずつ流れてくる見た目を保つ）
+    // 常に1個ずつ、バケツの口から出す。
+    // ⚠️ 横に並べて複数同時に出さない（1個ずつ流れてくる見た目を保つ）。
+    //    代わりに**口から右へ流してから落とす**ので、前の玉がどいていて間隔を詰められる。
+    const x = this.cupX + CONFIG.CUP_SPAWN_OFFSET_X;
     const y = CONFIG.CUP_Y + CONFIG.CUP_SPAWN_OFFSET_Y;
-    if (this.pool.spawn(this.cupX, y)) this.supplied++;
+    const b = this.pool.spawn(x, y);
+    if (b) {
+      b.px = b.x - CONFIG.CUP_SPAWN_VX; // Verlet では前フレーム位置を左へ置くと右向きの速度になる
+      this.supplied++;
+    }
   }
 
   /** substeps を上げると早送りになる（速度スライダー） */
