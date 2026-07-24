@@ -184,7 +184,8 @@ export class Session {
     this.supplyTimer++;
     if (this.supplyTimer < CONFIG.SUPPLY_INTERVAL) return;
     this.supplyTimer = 0;
-    if (this.pool.spawn(this.cupX, CONFIG.BALL_RADIUS * 4)) this.supplied++;
+    // 上バケツの口の少し下から出す（バケツの位置＝CONFIG.CUP_Y に合わせる）
+    if (this.pool.spawn(this.cupX, CONFIG.CUP_Y + CONFIG.BALL_RADIUS * 2)) this.supplied++;
   }
 
   /** substeps を上げると早送りになる（速度スライダー） */

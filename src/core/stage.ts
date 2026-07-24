@@ -163,7 +163,7 @@ export function createFixedStage(): Stage {
       { id: 0, x1: w * 0.06, x2: w * 0.3, y: 520, power: CONFIG.JUMP_POWER },
       { id: 1, x1: w * 0.7, x2: w * 0.94, y: 520, power: CONFIG.JUMP_POWER },
     ],
-    collectY: h - 30, // V字の隙間より下。ここを越えた玉がスコアになる
+    collectY: h - 54, // 下バケツの口の中。V字の出口(h-70)の16px下。ここを越えた玉がスコアになる
     agitate: { x: w / 2, y: h - CONFIG.FUNNEL_BOTTOM_MARGIN },
   };
 }
