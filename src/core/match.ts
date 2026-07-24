@@ -77,17 +77,21 @@ export class Match {
     // R1の後の演出中は盤面を進めない（下のバケツが下へ抜けていくのを見せる）
     if (this.transitioning) {
       this.transitionFrames++;
+      // ⚠️ 差し替えるのは**演出のちょうど半分**＝盤面が画面の外へ抜けきった瞬間。
+      //    演出は「前半でR1が上へ抜け、後半で次の盤面が下から入る」構造なので、
+      //    早すぎると抜けていく途中でR2に変わり、遅すぎると入ってきた後に変わる。
+      //    どちらもれいあに「切り替わりが見える」と指摘された（2026-07-24）。
+      if (this.session.mode === 'r1' && this.transitionFrames * 2 >= CONFIG.ROUND_TRANSITION_FRAMES) {
+        // ⚠️ ここで start() しない。R2もR1と同じく**タップされるまで待つ**（れいあ要望）。
+        //    自動で始めると、コップの位置を選ぶ前に玉が落ち始めてしまう。
+        this.session = new Session(buildStage(this.r2Def), {
+          mode: 'r2',
+          supplyTotal: Math.max(1, this.r1Score),
+        });
+      }
       if (this.transitionFrames < CONFIG.ROUND_TRANSITION_FRAMES) return;
       this.transitioning = false;
       this.round = 2;
-      // ⚠️ R2の盤面はここで初めて作る。演出の前に作ると、下バケツが抜けていく間に
-      //    **R2の盤面が裏で見えてしまう**（2026-07-24 れいあ指摘）。
-      // ⚠️ ここで start() しない。R2もR1と同じく**タップされるまで待つ**（れいあ要望）。
-      //    自動で始めると、コップの位置を選ぶ前に玉が落ち始めてしまう。
-      this.session = new Session(buildStage(this.r2Def), {
-        mode: 'r2',
-        supplyTotal: Math.max(1, this.r1Score),
-      });
       return;
     }
 

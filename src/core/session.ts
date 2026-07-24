@@ -175,9 +175,16 @@ export class Session {
     return n;
   }
 
+  /**
+   * バケツの位置。
+   * ⚠️ 受け取るのは「**玉を落としたい場所**」であって、バケツの中心ではない。
+   *    玉は口（`CUP_SPAWN_OFFSET_X` ぶん右）から出るので、その分だけ左へ寄せて置く。
+   *    こうしないと、触った場所より右に玉が落ちる（2026-07-24 れいあ指摘）。
+   */
   setCupX(x: number): void {
     const m = CONFIG.CUP_MARGIN;
-    this.cupX = Math.min(CONFIG.BOARD_WIDTH - m, Math.max(m, x));
+    const center = x - CONFIG.CUP_SPAWN_OFFSET_X;
+    this.cupX = Math.min(CONFIG.BOARD_WIDTH - m, Math.max(m, center));
   }
 
   /** 最初のタップで落とし始める */

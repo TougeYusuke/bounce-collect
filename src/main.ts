@@ -205,16 +205,9 @@ function loop(): void {
     }
     // コップに残っている玉の数（タップ前と出し切る前だけ意味がある）
     renderer.cupCount = match.session.remaining > 0 ? match.session.remaining : null;
-    // 次に出る玉。⚠️ まだ落ちていないので物理には入れず、口のところに描くだけ。
-    //    ⚠️ 落とし始める前と、配り終わった後は出さない（出しっぱなしだと
-    //       「落ちない玉がずっと乗っている」ように見える・2026-07-24 れいあ指摘）
-    renderer.cupBall =
-      match.session.started && match.session.remaining > 0
-        ? {
-            x: match.cupX + CONFIG.CUP_SPAWN_OFFSET_X,
-            y: CONFIG.CUP_Y + CONFIG.CUP_SPAWN_OFFSET_Y,
-          }
-        : null;
+    // ⚠️ 「次に出る玉」は描かない（2026-07-24 れいあ指摘で廃止）。
+    //    出しておくと、玉が落ちている最中もずっと発生位置に玉が居座って見える。
+    //    実際に落ちている玉だけを見せる。
     renderer.draw(match.session.pool, CONFIG.BALL_RADIUS, match.session.stage, match.cupX, cupTilt);
   }
   hud.setScore(match.displayScore);
