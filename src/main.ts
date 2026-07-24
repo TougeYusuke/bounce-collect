@@ -143,7 +143,9 @@ function loop(): void {
   if (ready) {
     const target = match.session.started ? CUP_POUR_TILT : 0;
     cupTilt += (target - cupTilt) * 0.15;
-    renderer.showBottomBucket = match.round === 1; // R2は底にバケツが無い
+    // R1の下バケツは、R2へ移る演出で下へ流れて退場する
+    renderer.showBottomBucket = match.round === 1;
+    renderer.bottomBucketOffsetY = match.transitionProgress * 160;
     renderer.draw(match.session.pool, CONFIG.BALL_RADIUS, match.session.stage, match.cupX, cupTilt);
   }
   hud.setScore(match.displayScore);

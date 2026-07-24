@@ -3,7 +3,7 @@ import { crossedGate, applyGates } from '../src/core/gates';
 import { BallPool } from '../src/core/ball';
 import type { Gate, Stage } from '../src/core/stage';
 
-const gate: Gate = { id: 0, x1: 100, x2: 200, y: 300, multiplier: 4, capacity: 1e9, used: 0 };
+const gate: Gate = { id: 0, x1: 100, x2: 200, y: 300, multiplier: 4};
 
 describe('crossedGate', () => {
   it('上から下へまたいだら通過', () => {
@@ -37,7 +37,7 @@ describe('crossedGate', () => {
 describe('applyGates（増殖ルール）', () => {
   const stage: Stage = {
     segments: [],
-    gates: [{ id: 0, x1: 0, x2: 360, y: 300, multiplier: 4, capacity: 1e9, used: 0 }],
+    gates: [{ id: 0, x1: 0, x2: 360, y: 300, multiplier: 4}],
     jumpers: [],
     collectY: 700,
   };
@@ -115,12 +115,14 @@ describe('applyGates（増殖ルール）', () => {
     expect(b.weight).toBe(4); // 重さで表現される
   });
 
-  it('飽和して weight 化した玉は、そのゲートだけ済みで他は新品に戻る', () => {
+  it('⚠️ 飽和して weight 化しても、通過済みの印は消えない（増殖が止まらなくなるため）', () => {
     const pool = new BallPool(2);
     const b = ballCrossing(pool, 1, 0, 0b1110); // 他のゲートは通過済み
     pool.spawn(0, 0);
     applyGates(pool, stage, 2);
-    expect(b.gateMask).toBe(0b0001); // 通ったゲートのみ立つ
+    // 以前は新品に戻していた（= 0b0001）が、それだと1個の玉が他のゲートを
+    // 何度でも通り直せて、ラウンドが時間切れでしか終わらなくなる（実測）
+    expect(b.gateMask).toBe(0b1111);
   });
 
   it('applyGates は増えた総 weight を返す', () => {
@@ -141,7 +143,7 @@ describe('applyGates（増殖ルール）', () => {
   it('x が範囲外の玉は増えない', () => {
     const narrow: Stage = {
       ...stage,
-      gates: [{ id: 0, x1: 0, x2: 50, y: 300, multiplier: 4, capacity: 1e9, used: 0 }],
+      gates: [{ id: 0, x1: 0, x2: 50, y: 300, multiplier: 4}],
     };
     const pool = new BallPool(100);
     ballCrossing(pool);
@@ -168,38 +170,46 @@ describe('applyGates（増殖ルール）', () => {
     });
   });
 
-  it('使い切ったゲートは素通りする（増殖が永久に止まらないのを防ぐ）', () => {
-    const limited: Stage = {
+  it('ゲートに使用回数の上限は無い（何個でも反応する・2026-07-24）', () => {
+    const one: Stage = {
       ...stage,
-      gates: [
-        { id: 0, x1: 0, x2: 360, y: 300, multiplier: 4, capacity: 3, used: 0 },
-      ],
+      gates: [{ id: 0, x1: 0, x2: 360, y: 300, multiplier: 2 }],
     };
     const pool = new BallPool(100);
-    ballCrossing(pool, 5); // weight 5 で capacity 3 を超える
-    applyGates(pool, limited, 100);
-    expect(limited.gates[0].used).toBe(5);
 
-    // 2個目は素通りする
-    const before = pool.activeCount;
+    // 重い玉を通しても、あとから来た玉がちゃんと反応する
+    ballCrossing(pool, 999);
+    applyGates(pool, one, 100);
+    const afterFirst = pool.activeCount;
+
     const b2 = pool.spawn(150, 305)!;
-    b2.py = 295;
     b2.px = 150;
-    applyGates(pool, limited, 100);
-    expect(pool.activeCount).toBe(before + 1); // 生えた1個だけ、増殖なし
+    b2.py = 295;
+    applyGates(pool, one, 100);
+    // ×2 なので、2個目の玉でもう1個増えている（素通りしていない）
+    expect(pool.activeCount).toBe(afterFirst + 2);
   });
 
-  it('ゲートは通した weight の分だけ消費される', () => {
-    const limited: Stage = {
+  it('1つの玉は同じゲートに1回しか反応しない（gateMask）', () => {
+    const one: Stage = {
       ...stage,
-      gates: [
-        { id: 0, x1: 0, x2: 360, y: 300, multiplier: 2, capacity: 100, used: 0 },
-      ],
+      gates: [{ id: 0, x1: 0, x2: 360, y: 300, multiplier: 2 }],
     };
     const pool = new BallPool(100);
-    ballCrossing(pool, 7);
-    applyGates(pool, limited, 100);
-    expect(limited.gates[0].used).toBe(7);
+    const b = pool.spawn(150, 305)!;
+    b.px = 150;
+    b.py = 295;
+
+    applyGates(pool, one, 100);
+    const afterFirst = pool.activeCount;
+
+    // 同じ玉をもう一度またがせても増えない
+    b.px = 150;
+    b.py = 295;
+    b.x = 150;
+    b.y = 305;
+    applyGates(pool, one, 100);
+    expect(pool.activeCount).toBe(afterFirst);
   });
 
   /**
@@ -212,8 +222,8 @@ describe('applyGates（増殖ルール）', () => {
     const two: Stage = {
       ...stage,
       gates: [
-        { id: 0, x1: 0, x2: 360, y: 300, multiplier: 2, capacity: 1e9, used: 0 },
-        { id: 1, x1: 0, x2: 360, y: 302, multiplier: 2, capacity: 1e9, used: 0 },
+        { id: 0, x1: 0, x2: 360, y: 300, multiplier: 2},
+        { id: 1, x1: 0, x2: 360, y: 302, multiplier: 2},
       ],
     };
     const pool = new BallPool(100);

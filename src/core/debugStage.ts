@@ -8,10 +8,8 @@ function gate(
   x1: number,
   x2: number,
   y: number,
-  multiplier: number,
-  capacity: number,
-): Gate {
-  return { id, x1, x2, y, multiplier, capacity, used: 0 };
+  multiplier: number): Gate {
+  return { id, x1, x2, y, multiplier };
 }
 
 /**
@@ -25,7 +23,7 @@ export function createDebugStage(preset: DebugPreset): Stage {
   if (preset === 'single-gate') {
     return {
       segments: [],
-      gates: [gate(0, w * 0.15, w * 0.85, 260, 2, 1e9)],
+      gates: [gate(0, w * 0.15, w * 0.85, 260, 2)],
       jumpers: [],
       collectY: h - 20,
     };
@@ -35,8 +33,8 @@ export function createDebugStage(preset: DebugPreset): Stage {
     return {
       segments: [],
       gates: [
-        gate(0, w * 0.15, w * 0.85, 220, 2, 1e9),
-        gate(1, w * 0.15, w * 0.85, 400, 2, 1e9),
+        gate(0, w * 0.15, w * 0.85, 220, 2),
+        gate(1, w * 0.15, w * 0.85, 400, 2),
       ],
       jumpers: [],
       collectY: h - 20,
@@ -46,7 +44,7 @@ export function createDebugStage(preset: DebugPreset): Stage {
   // gate-jumper: ゲート1つ + その下にジャンプ台（本番と同じ高低差にする）
   return {
     segments: [],
-    gates: [gate(0, w * 0.15, w * 0.85, 200, 2, 1e9)],
+    gates: [gate(0, w * 0.15, w * 0.85, 200, 2)],
     jumpers: [{ id: 0, x1: w * 0.2, x2: w * 0.8, y: 520, power: CONFIG.JUMP_POWER }],
     collectY: h - 20,
   };

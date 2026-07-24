@@ -88,14 +88,24 @@ function runUntil(s: Session, cond: (s: Session) => boolean): void {
   for (let i = 0; i < CONFIG.ROUND_TIME_LIMIT + 60 && !cond(s); i++) s.update(1);
 }
 
-describe('R2の溜めと放流', () => {
-  it('放流前は玉が落ちてもスコアが増えない', () => {
-    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
+describe('R2の回収と板抜き', () => {
+  it('⚠️ R2も出口から出た玉は最初からスコアになる（溜め込むラウンドではない）', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10 });
     s.start();
-    run(s, 120);
+    // 板が抜けるより前（スコアが RELEASE_SCORE 未満）でも回収される
+    runUntil(s, (x) => x.score > 0);
+    expect(s.score).toBeGreaterThan(0);
+    expect(s.score).toBeLessThan(CONFIG.RELEASE_SCORE);
     expect(s.released).toBe(false);
-    expect(s.score).toBe(0);
-  });
+  }, 60_000);
+
+  it('スコアが RELEASE_SCORE を超えると詰まり防止に板が抜ける', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 400_000 });
+    s.start();
+    runUntil(s, (x) => x.released);
+    expect(s.released).toBe(true);
+    expect(s.score).toBeGreaterThanOrEqual(CONFIG.RELEASE_SCORE);
+  }, 60_000);
 
   it('放流すると傾斜板が物理からも見た目からも消える', () => {
     const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 400_000 });
@@ -123,7 +133,7 @@ describe('R2の溜めと放流', () => {
     runUntil(s, (x) => x.finished);
     expect(s.finished).toBe(true);
     expect(s.score).toBeGreaterThan(0);
-  });
+  }, 60_000);
 
   it('R1は放流の概念を持たない（常にfalse・回収は即スコア）', () => {
     const s = new Session();
@@ -131,5 +141,5 @@ describe('R2の溜めと放流', () => {
     runUntil(s, (x) => x.finished);
     expect(s.released).toBe(false);
     expect(s.score).toBeGreaterThan(0);
-  });
+  }, 60_000);
 });

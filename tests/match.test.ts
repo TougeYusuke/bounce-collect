@@ -24,21 +24,28 @@ describe('Match（2ラウンド）', () => {
     expect(m.session.mode).toBe('r2');
     // 切り上げのぶん、供給の合計はR1の結果以上になる
     expect(m.session.supplyBalls * m.session.supplyWeight).toBeGreaterThanOrEqual(m.r1Score);
-  });
+  }, 60_000);
 
   it('R2はタップを待たずシームレスに始まる', () => {
     const m = new Match();
     m.start();
     runUntil(m, (x) => x.round === 2);
     expect(m.session.started).toBe(true);
-  });
+  }, 60_000);
 
-  it('R2のゲートは使用量0から始まる（capacityがリセットされる）', () => {
+  it('R1が終わると下バケツが下へ抜ける演出を挟む', () => {
     const m = new Match();
     m.start();
-    runUntil(m, (x) => x.round === 2);
-    expect(m.session.stage.gates.every((g) => g.used === 0)).toBe(true);
-  });
+    runUntil(m, (x) => x.transitioning);
+    expect(m.transitioning).toBe(true);
+    expect(m.round).toBe(1); // 演出中はまだR1扱い（下バケツを描くため）
+    expect(m.session.started).toBe(false); // 盤面はまだ動かさない
+
+    // 演出が明けるとR2が動き出す
+    runUntil(m, (x) => !x.transitioning);
+    expect(m.round).toBe(2);
+    expect(m.session.started).toBe(true);
+  }, 60_000);
 
   // 2ラウンド通しは玉が1000個規模で数千フレーム回るため、既定の5秒では足りない
   it('最終スコアはR2の回収（R1は足さない）', () => {

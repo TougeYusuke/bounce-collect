@@ -1,3 +1,4 @@
+import { CONFIG } from './config';
 import { Session } from './session';
 import { createFixedStage } from './stage';
 
@@ -16,9 +17,18 @@ export class Match {
   r1Score = 0;
   finished = false;
   finalScore = 0;
+  /** R1が終わって、下のバケツが下へ抜けていく演出中か */
+  transitioning = false;
+  private transitionFrames = 0;
 
   constructor() {
     this.session = new Session();
+  }
+
+  /** 演出の進み具合（0→1）。下バケツをどれだけ下へずらすかに使う */
+  get transitionProgress(): number {
+    if (!this.transitioning) return 0;
+    return Math.min(1, this.transitionFrames / CONFIG.ROUND_TRANSITION_FRAMES);
   }
 
   start(): void {
@@ -40,19 +50,29 @@ export class Match {
 
   update(substeps: number): void {
     if (this.finished) return;
+
+    // R1の後の演出中は盤面を進めない（下のバケツが下へ抜けていくのを見せる）
+    if (this.transitioning) {
+      this.transitionFrames++;
+      if (this.transitionFrames < CONFIG.ROUND_TRANSITION_FRAMES) return;
+      this.transitioning = false;
+      this.round = 2;
+      this.session.start(); // ここからR2（供給には別途の待ちがある）
+      return;
+    }
+
     this.session.update(substeps);
     if (!this.session.finished) return;
 
     if (this.round === 1) {
       this.r1Score = this.session.score;
-      // ⚠️ 必ず新しい Stage を作る。使い回すとR1で使い切ったゲートの capacity が
-      //    尽きたままになり、R2で全部素通りになる
+      // R2の盤面を作っておく（演出の間は止めたまま・演出明けに start する）
       this.session = new Session(createFixedStage(), {
         mode: 'r2',
         supplyTotal: Math.max(1, this.r1Score),
       });
-      this.round = 2;
-      this.session.start(); // シームレスに続ける（タップを待たない）
+      this.transitioning = true;
+      this.transitionFrames = 0;
       return;
     }
 

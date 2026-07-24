@@ -66,15 +66,7 @@ function refresh(): void {
     `直近の増加 <b>+${lastCount}</b>　跳ねた <b>${lastJump}</b>`;
 
   gatesEl.innerHTML = session.stage.gates
-    .map((g) => {
-      const active = g.used < g.capacity;
-      const cap = g.capacity >= 1e9 ? '∞' : g.capacity.toLocaleString('ja-JP');
-      return (
-        `<div class="stat">ゲート${g.id} ×${g.multiplier}　` +
-        `使用 <b>${g.used.toLocaleString('ja-JP')}</b> / ${cap}　` +
-        `${active ? '有効' : '<span style="color:#ff9f7a">使い切り</span>'}</div>`
-      );
-    })
+    .map((g) => `<div class="stat">ゲート${g.id} ×${g.multiplier}</div>`)
     .join('');
 
   const gateCount = session.stage.gates.length;

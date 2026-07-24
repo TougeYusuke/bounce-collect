@@ -152,9 +152,11 @@ export class CanvasRenderer implements Renderer {
       const px = x;
       const py = y + hh * 0.5; // 回転の軸（バケツの真ん中あたり）
       // ⚠️ 軸で回すと口が横へ逃げて、玉が「胴体の下」から出ているように見える（れいあ指摘）。
-      //    回転後の口が元の位置 (x, y) に戻るぶんだけ全体をずらして、口の真下から出す。
+      //    回転後の口が **玉の湧く位置そのもの** に来るまでずらして、口の中から出ているようにする。
+      //    ずらし量を sin(tilt) に比例させることで、直立時（tilt=0）はズレ0のまま滑らかに移る。
       const half = hh * 0.5;
-      g.translate(-half * Math.sin(tilt), -half * (1 - Math.cos(tilt)));
+      const toSpawn = CONFIG.BALL_RADIUS * 2 * s * Math.sin(tilt);
+      g.translate(-half * Math.sin(tilt), -half * (1 - Math.cos(tilt)) + toSpawn);
       g.translate(px, py);
       g.rotate(tilt);
       g.translate(-px, -py);
@@ -315,8 +317,10 @@ export class CanvasRenderer implements Renderer {
     }
   }
 
-  /** 下バケツを描くか。R2は「底にバケツが無い」ので消す（フェーズが変わった唯一の視覚的な合図） */
+  /** 下バケツを描くか。R2は「底にバケツが無い」ので消す */
   showBottomBucket = true;
+  /** 下バケツを下へずらす量（論理px）。R1→R2 で下へ流れて退場する演出に使う */
+  bottomBucketOffsetY = 0;
 
   draw(pool: BallPool, radius: number, stage?: Stage, cupX?: number, cupTilt = 0): void {
     const dpr = window.devicePixelRatio || 1;
@@ -377,7 +381,7 @@ export class CanvasRenderer implements Renderer {
       // 傾斜板 → 下バケツ → 仕切り の順（下バケツは玉より先＝中に溜まって見える）
       this.drawWedges(ctx, stage, ox, oy, s);
       if (this.showBottomBucket) {
-        this.drawBucket(ctx, ox, oy, s, W / 2, stage.collectY, 0.95);
+        this.drawBucket(ctx, ox, oy, s, W / 2, stage.collectY + this.bottomBucketOffsetY, 0.95);
       }
       this.drawDividers(ctx, stage, ox, oy, s);
       this.drawGates(ctx, stage, ox, oy, s);

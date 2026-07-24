@@ -1,5 +1,5 @@
 import type { BallPool } from './ball';
-import { isGateActive, type Gate, type Stage } from './stage';
+import { type Gate, type Stage } from './stage';
 
 /**
  * 玉が (px,py) から (x,y) に動く間にゲートを横切ったか。
@@ -51,12 +51,10 @@ export function applyGates(
     if (ball.sleeping) continue;
 
     for (const gate of stage.gates) {
-      if (!isGateActive(gate)) continue; // 使い切ったゲートは素通り
+      // 1つの玉につき1回だけ反応する（使用回数の上限は持たない・2026-07-24）
       const bit = 1 << gate.id;
       if (ball.gateMask & bit) continue;
       if (!crossedGate(ball.px, ball.py, ball.x, ball.y, gate)) continue;
-
-      gate.used += ball.weight;
 
       const extra = gate.multiplier - 1;
       const room = maxBalls - pool.activeCount;
@@ -98,10 +96,12 @@ export function applyGates(
         }
       } else {
         // 飽和: 玉を増やさず重さで表現する。
-        // N個のうち N-1 個は新品なので多数決で新品扱いにし、
-        // 通ったゲートの印だけ残す（残さないと同じゲートで無限に増える）
+        // ⚠️ 印は**消さない**（`|=`）。以前は `= bit` として新品扱いに戻していたが、
+        //    それだと1個の玉が他のゲートを何度でも通り直せてしまい、増殖が止まらず
+        //    ラウンドが時間切れでしか終わらなくなる（capacity 撤去後に実測・45秒/2377万点）。
+        //    「1つの玉は同じゲートに1回だけ」を最後まで守れば、増える回数はゲート数で頭打ちになる。
         ball.weight *= gate.multiplier;
-        ball.gateMask = bit;
+        ball.gateMask |= bit;
         ball.jumperMask = 0;
       }
     }

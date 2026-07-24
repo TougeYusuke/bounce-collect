@@ -4,10 +4,11 @@ import type { Segment, World } from './world';
 /**
  * 通ると玉が増える横バー。id は Ball.gateMask のビット位置。
  *
- * ⚠️ capacity（使用回数の上限）が無いと増殖が永久に止まらない。
- * 盤面に玉が溜まると、その玉が何度でもゲートを通り続けて増え、
- * 回収と釣り合った平衡状態になってラウンドが終わらなくなる（実測）。
- * 使い切ったゲートは無効になり、色が変わる（本家も同じ挙動）。
+ * 「1つの玉につき1回だけ反応する」は `Ball.gateMask` が保証する。
+ * ⚠️ 使用回数の上限（capacity）は**持たない**（2026-07-24 れいあ判断で撤去）。
+ *    ジャンプ台と違って「何個まで反応させる」の仕組みは要らない、という整理。
+ *    暴走の歯止めは MAX_BALLS（飽和したら玉を増やさず weight を掛ける）と
+ *    ROUND_TIME_LIMIT、R2は RELEASE_SCORE での板抜きが担う。
  */
 export interface Gate {
   id: number;
@@ -15,14 +16,6 @@ export interface Gate {
   x2: number;
   y: number;
   multiplier: number;
-  /** 通せる玉の総量（weight換算）。使い切ると無効になる */
-  capacity: number;
-  /** 使った量。capacity 以上で無効 */
-  used: number;
-}
-
-export function isGateActive(gate: Gate): boolean {
-  return gate.used < gate.capacity;
 }
 
 /**
@@ -64,19 +57,6 @@ export interface Stage {
   wedges?: Wedge[];
 }
 
-/**
- * 全ゲートの容量を倍率ぶん引き上げる。
- *
- * ⚠️ `Gate.capacity` は **weight 単位**で消費される（`gate.used += ball.weight`）。
- * R2は1玉の weight が数千になるので、そのままだと1玉通っただけで容量を使い切り、
- * ゲートが実質機能しなくなる。1玉あたりの weight を掛けて、
- * 「何個ぶんの玉を通せるか」がR1と揃うようにする。
- */
-export function scaleGateCapacity(stage: Stage, factor: number): void {
-  if (factor <= 1) return;
-  for (const g of stage.gates) g.capacity *= factor;
-}
-
 export function stageToWorld(stage: Stage): World {
   return {
     width: CONFIG.BOARD_WIDTH,
@@ -92,23 +72,8 @@ export function stageToWorld(stage: Stage): World {
  * 打ち上げられた玉は gateMask が新品なので上のゲートをもう一度全部通れる
  * ＝ここが爆増の源になる（設計書 §2.2 / §2.4）。
  */
-function gate(
-  id: number,
-  x1: number,
-  x2: number,
-  y: number,
-  multiplier: number,
-  capacity: number,
-): Gate {
-  return {
-    id,
-    x1,
-    x2,
-    y,
-    multiplier,
-    capacity: capacity * CONFIG.GATE_CAPACITY_SCALE,
-    used: 0,
-  };
+function gate(id: number, x1: number, x2: number, y: number, multiplier: number): Gate {
+  return { id, x1, x2, y, multiplier };
 }
 
 /**
@@ -165,12 +130,12 @@ export function createFixedStage(): Stage {
     ],
     wedges: funnel.wedges,
     gates: [
-      gate(0, w * 0.05, w * 0.35, 180, 3, 40),
-      gate(1, w * 0.4, w * 0.6, 180, 4, 40),
-      gate(2, w * 0.65, w * 0.95, 180, 3, 40),
-      gate(3, w * 0.08, w * 0.42, 330, 4, 90),
-      gate(4, w * 0.58, w * 0.92, 330, 2, 90),
-      gate(5, w * 0.35, w * 0.65, 470, 4, 150),
+      gate(0, w * 0.05, w * 0.35, 180, 3),
+      gate(1, w * 0.4, w * 0.6, 180, 4),
+      gate(2, w * 0.65, w * 0.95, 180, 3),
+      gate(3, w * 0.08, w * 0.42, 330, 4),
+      gate(4, w * 0.58, w * 0.92, 330, 2),
+      gate(5, w * 0.35, w * 0.65, 470, 4),
     ],
     jumpers: [
       { id: 0, x1: w * 0.06, x2: w * 0.3, y: 520, power: CONFIG.JUMP_POWER },
