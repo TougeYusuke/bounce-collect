@@ -364,9 +364,14 @@ export class Session {
     // ⚠️ 横に並べて複数同時に出さない（1個ずつ流れてくる見た目を保つ）。
     //    代わりに**口から右へ流してから落とす**ので、前の玉がどいていて間隔を詰められる。
     const { x, y } = cupSpawnPosition(this.cupX, this.cupTilt);
-    const b = this.pool.spawn(x, y, { rollFrames: CONFIG.CUP_ROLL_FRAMES });
+    // ⚠️ 転がりは **R1だけ**（2026-07-24）。R2は数百〜数千個を配るので、
+    //    全部に横向きの勢いを付けると盤面が右へ偏って放流条件に届かなくなる（実測でテストが落ちた）。
+    //    R1は4個しか配らないので偏りようがなく、見た目のためだけに使える。
+    const rolling = this.mode === 'r1';
+    const b = this.pool.spawn(x, y, { rollFrames: rolling ? CONFIG.CUP_ROLL_FRAMES : 0 });
     if (b) {
-      b.px = b.x - CONFIG.CUP_SPAWN_VX; // Verlet では前フレーム位置を左へ置くと右向きの速度になる
+      // ⚠️ 横の勢いも R1 だけ。R2で全玉に付けると盤面が右へ偏って放流が来ない（実測）
+      b.px = b.x - (rolling ? CONFIG.CUP_SPAWN_VX : 0);
       // ⚠️ テンポよく配っている時ほど強く落とす（れいあ要望 2026-07-24）。
       //    遅いままだと口の下で次の玉に追いつかれて団子になる。
       b.py = b.y - this.dropSpeed;
