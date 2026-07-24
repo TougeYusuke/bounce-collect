@@ -63,11 +63,14 @@ describe('Match（2ラウンド）', () => {
     runUntil(m, (x) => x.transitioning);
     expect(m.transitioning).toBe(true);
     expect(m.round).toBe(1); // 演出中はまだR1扱い（下バケツを描くため）
-    expect(m.session.started).toBe(false); // 盤面はまだ動かさない
+    // ⚠️ 演出中は**R1の盤面をそのまま見せる**。ここでR2に差し替えると、
+    //    下バケツが抜けていく裏でR2の盤面が見えてしまう（2026-07-24 れいあ指摘）
+    expect(m.session.mode).toBe('r1');
 
-    // 演出が明けるとR2に入る（開始はタップ待ち）
+    // 演出が明けて初めてR2の盤面に入れ替わる（開始はタップ待ち）
     runUntil(m, (x) => !x.transitioning);
     expect(m.round).toBe(2);
+    expect(m.session.mode).toBe('r2');
     expect(m.session.started).toBe(false);
   }, 60_000);
 

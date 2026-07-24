@@ -80,8 +80,14 @@ export class Match {
       if (this.transitionFrames < CONFIG.ROUND_TRANSITION_FRAMES) return;
       this.transitioning = false;
       this.round = 2;
+      // ⚠️ R2の盤面はここで初めて作る。演出の前に作ると、下バケツが抜けていく間に
+      //    **R2の盤面が裏で見えてしまう**（2026-07-24 れいあ指摘）。
       // ⚠️ ここで start() しない。R2もR1と同じく**タップされるまで待つ**（れいあ要望）。
       //    自動で始めると、コップの位置を選ぶ前に玉が落ち始めてしまう。
+      this.session = new Session(buildStage(this.r2Def), {
+        mode: 'r2',
+        supplyTotal: Math.max(1, this.r1Score),
+      });
       return;
     }
 
@@ -90,12 +96,7 @@ export class Match {
 
     if (this.round === 1) {
       this.r1Score = this.session.score;
-      // R2の盤面を作っておく（演出の間は止めたまま・演出明けに start する）
-      // ⚠️ R2は別の盤面（れいあ要望）。ここで型ごと差し替わる
-      this.session = new Session(buildStage(this.r2Def), {
-        mode: 'r2',
-        supplyTotal: Math.max(1, this.r1Score),
-      });
+      // ⚠️ R1の盤面を残したまま演出に入る（切り替わりを見せない）
       this.transitioning = true;
       this.transitionFrames = 0;
       return;
