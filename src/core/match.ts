@@ -25,19 +25,27 @@ export class Match {
   private transitionFrames = 0;
 
   /**
-   * このプレイぶんの中身（倍率・跳ね上限）。**開始のたびに抽選する**。
-   * ⚠️ R1とR2で同じものを使う（ラウンドの途中で倍率が変わると別ゲームになる）。
+   * R1の盤面（型＋抽選した中身）。
+   * ⚠️ **R2は別の盤面を引く**（2026-07-24 れいあ要望）。ラウンドごとに景色が変わる。
    */
   readonly def: StageDef;
-  /** 抽選に使った種。⚠️ 同じ種なら同じ中身＝「さっきのをもう一度」が作れる */
+  /** R2の盤面。R1とは独立に抽選する（同じ型を引くこともある） */
+  readonly r2Def: StageDef;
+  /** 抽選に使った種。⚠️ 同じ種なら型も中身も丸ごと同じ＝「さっきのをもう一度」が作れる */
   readonly seed: number;
 
   constructor(seed: number = Date.now()) {
     this.seed = seed >>> 0;
-    // ⚠️ 型を選ぶのも中身を振るのも**同じ乱数**から。種が同じなら丸ごと同じゲームになる
+    // ⚠️ 型を選ぶのも中身を振るのも**同じ乱数**から順に引く。種が同じなら丸ごと同じゲームになる
     const rng = createRng(this.seed);
     this.def = rollStage(pickStageDef(rng), rng);
+    this.r2Def = rollStage(pickStageDef(rng), rng);
     this.session = new Session(buildStage(this.def));
+  }
+
+  /** いま遊んでいるラウンドの盤面（表示に使う） */
+  get currentDef(): StageDef {
+    return this.round === 1 ? this.def : this.r2Def;
   }
 
   /** 演出の進み具合（0→1）。下バケツをどれだけ下へずらすかに使う */
@@ -83,7 +91,8 @@ export class Match {
     if (this.round === 1) {
       this.r1Score = this.session.score;
       // R2の盤面を作っておく（演出の間は止めたまま・演出明けに start する）
-      this.session = new Session(buildStage(this.def), {
+      // ⚠️ R2は別の盤面（れいあ要望）。ここで型ごと差し替わる
+      this.session = new Session(buildStage(this.r2Def), {
         mode: 'r2',
         supplyTotal: Math.max(1, this.r1Score),
       });

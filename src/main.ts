@@ -70,9 +70,11 @@ function updateDebug(): void {
     .join('　');
   // ⚠️ 型と種を出す。型も倍率も毎回抽選なので、これが無いと
   //    「さっきと何が違ったのか」をれいあが自分で確かめられない。
-  const mult = match.def.gates.map((g) => g.multiplier).join('/');
+  // ⚠️ R1とR2は別の盤面なので、いま遊んでいる方を出す
+  const def = match.currentDef;
+  const mult = def.gates.map((g) => g.multiplier).join('/');
   debugEl.textContent =
-    `型 ${match.def.name}　種 ${match.seed}　倍率 ${mult}\n` +
+    `型 ${def.name}　種 ${match.seed}　倍率 ${mult}\n` +
     `R${match.round}${match.transitioning ? '(転換中)' : ''}　` +
     `盤面 ${s.pool.activeCount}　配り ${s.supplied}/${s.supplyBalls}　` +
     `残量 ${s.remaining.toLocaleString('ja-JP')}　${Math.floor(s.elapsed / 60)}秒\n` +

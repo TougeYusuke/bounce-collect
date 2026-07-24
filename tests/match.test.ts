@@ -20,6 +20,15 @@ describe('Match（2ラウンド）', () => {
     expect(m.session.mode).toBe('r1');
   });
 
+  it('⚠️ R1とR2で別の盤面を引く（ラウンドごとに景色が変わる）', () => {
+    // 型が1つしか無い時は同じ型になりうるので、中身が独立に振られていることで見る
+    const m = new Match(SEED);
+    expect(m.r2Def).not.toBe(m.def);
+    expect(m.currentDef).toBe(m.def);
+    // 種が同じなら R2 の盤面も毎回同じ（再現できる）
+    expect(new Match(SEED).r2Def).toEqual(m.r2Def);
+  });
+
   it('R1が終わるとR2が始まり、R1の回収数が供給量になる', () => {
     const m = new Match(SEED);
     m.start();
