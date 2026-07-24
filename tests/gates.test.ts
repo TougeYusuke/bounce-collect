@@ -153,23 +153,32 @@ describe('applyGates（増殖ルール）', () => {
     expect(pool.activeCount).toBe(1);
   });
 
-  it('ジャンプ台で打ち上げられた玉は、下から通っても増える（爆増の源）', () => {
+  it('⚠️ ジャンプ台で打ち上げ中（上昇中）の玉はゲートに反応しない', () => {
     const pool = new BallPool(100);
-    // ⚠️ flying = ジャンプ台で打ち上げ中。これが立っている時だけ上向き通過を認める
+    // flying = ジャンプ台で打ち上げ中。上りでは増やさない（2026-07-24 れいあ指定）
     const b = pool.spawn(150, 295, { gateMask: 0, flying: true })!;
+    b.py = 305; // 下から上へ
+    b.px = 150;
+    applyGates(pool, stage, 100);
+    expect(pool.activeCount).toBe(1);
+  });
+
+  it('押し出されて上がっただけの玉は、下から通れば増える（盛り返しで増やす狙い）', () => {
+    const pool = new BallPool(100);
+    const b = pool.spawn(150, 295, { gateMask: 0 })!; // flying なし
     b.py = 305; // 下から上へ
     b.px = 150;
     applyGates(pool, stage, 100);
     expect(pool.activeCount).toBe(4);
   });
 
-  it('⚠️ 押し出されて上がっただけの玉は、下から通っても増えない', () => {
+  it('打ち上げ後に落ち始めた玉は反応する（flying は上昇中だけのフラグ）', () => {
     const pool = new BallPool(100);
-    const b = pool.spawn(150, 295, { gateMask: 0 })!; // flying なし
-    b.py = 305; // 下から上へ
+    const b = pool.spawn(150, 305, { gateMask: 0 })!; // 頂点を過ぎて flying は解除済み
+    b.py = 295; // 上から下へ
     b.px = 150;
     applyGates(pool, stage, 100);
-    expect(pool.activeCount).toBe(1); // 増えない
+    expect(pool.activeCount).toBe(4);
   });
 
   it('生まれた玉は親と完全に同じ位置には置かれない（重なって爆ぜないように）', () => {
