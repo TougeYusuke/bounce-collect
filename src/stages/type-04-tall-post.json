@@ -2,7 +2,7 @@
   "name": "type-04-tall-post",
   "gates": [
     {
-      "x1": 72,
+      "x1": 8,
       "x2": 255,
       "y": 180,
       "multiplier": 4
@@ -14,20 +14,20 @@
       "multiplier": 3
     },
     {
-      "x1": 76,
+      "x1": 8,
       "x2": 190,
       "y": 330,
       "multiplier": 3
     },
     {
       "x1": 262,
-      "x2": 312,
+      "x2": 352,
       "y": 330,
       "multiplier": 4
     },
     {
       "x1": 8,
-      "x2": 68,
+      "x2": 352,
       "y": 462,
       "multiplier": 4
     }
