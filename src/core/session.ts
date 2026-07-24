@@ -1,5 +1,6 @@
 import { BallPool } from './ball';
 import { CONFIG } from './config';
+import { cupSpawnPosition } from './cupPose';
 import { applyGates } from './gates';
 import { SpatialGrid } from './grid';
 import { applyJumpers } from './jumpers';
@@ -75,6 +76,8 @@ export class Session {
   /** r2: 傾斜板が抜けて放流が始まったか。r1 では常に false */
   released = false;
   cupX = CONFIG.BOARD_WIDTH / 2;
+  /** 描画と揃える、次に出す玉の口の傾き（既にある玉には影響しない） */
+  private cupTilt = 0;
   /** 最初の入力があるまで玉を出さない（勝手に始まらないように） */
   started = false;
 
@@ -201,6 +204,15 @@ export class Session {
     const m = CONFIG.CUP_MARGIN;
     const center = x - CONFIG.CUP_SPAWN_OFFSET_X;
     this.cupX = Math.min(CONFIG.BOARD_WIDTH - m, Math.max(m, center));
+  }
+
+  /**
+   * 描画と同じ傾きを、これから出す玉の座標にだけ渡す。
+   * ⚠️ 傾きで物理力を加えるためではない。画像上の口が動くのに発生点だけ固定だと
+   *    底から玉が出て見えるため、描画と同じ座標変換を使う。生成済みの玉・衝突・重力は変えない。
+   */
+  setCupTilt(tilt: number): void {
+    this.cupTilt = tilt;
   }
 
   /** 最初のタップで落とし始める */
@@ -350,9 +362,8 @@ export class Session {
     // 常に1個ずつ、バケツの口から出す。
     // ⚠️ 横に並べて複数同時に出さない（1個ずつ流れてくる見た目を保つ）。
     //    代わりに**口から右へ流してから落とす**ので、前の玉がどいていて間隔を詰められる。
-    const x = this.cupX + CONFIG.CUP_SPAWN_OFFSET_X;
-    const y = CONFIG.CUP_Y + CONFIG.CUP_SPAWN_OFFSET_Y;
-    const b = this.pool.spawn(x, y);
+    const { x, y } = cupSpawnPosition(this.cupX, this.cupTilt);
+    const b = this.pool.spawn(x, y, { rollFrames: CONFIG.CUP_ROLL_FRAMES });
     if (b) {
       b.px = b.x - CONFIG.CUP_SPAWN_VX; // Verlet では前フレーム位置を左へ置くと右向きの速度になる
       // ⚠️ テンポよく配っている時ほど強く落とす（れいあ要望 2026-07-24）。

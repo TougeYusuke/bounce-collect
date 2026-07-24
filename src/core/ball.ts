@@ -18,6 +18,8 @@ export interface Ball {
    * 下降に転じた時点で解除される。
    */
   flying: boolean;
+  /** カップの中を転がっている残りフレーム。0より大きい間は重力を受けない */
+  rollFrames: number;
   /**
    * 当たり判定の大きさの割合（0〜1）。生まれた直後は小さく、徐々に 1 へ育つ。
    * ⚠️ 密集地帯でゲートが一度に何個も玉を生むと、フル半径だと既存の玉を強く押し出して
@@ -46,6 +48,7 @@ export interface SpawnOptions {
   jumperMask?: number;
   bounce?: number;
   flying?: boolean;
+  rollFrames?: number;
 }
 
 /**
@@ -72,6 +75,7 @@ export class BallPool {
         jumperMask: 0,
         bounce: 0,
         flying: false,
+        rollFrames: 0,
         grow: 1,
         anchorX: 0,
         anchorY: 0,
@@ -97,6 +101,7 @@ export class BallPool {
     b.jumperMask = opts?.jumperMask ?? 0;
     b.bounce = opts?.bounce ?? 0;
     b.flying = opts?.flying ?? false;
+    b.rollFrames = opts?.rollFrames ?? 0;
     b.grow = opts?.grow ?? 1;
     b.anchorX = x;
     b.anchorY = y;

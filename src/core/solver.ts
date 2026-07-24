@@ -27,7 +27,12 @@ export function integrate(
   maxSpeed: number,
 ): void {
   let vx = (ball.x - ball.px) * damping;
-  let vy = (ball.y - ball.py) * damping + gravity;
+  // ⚠️ カップの中を転がっている間は重力を受けない（2026-07-24 れいあ要望）。
+  //    「縁までは横に転がって、そこから落ちる」という普通のボールの動きに見せるため。
+  //    受けないのは重力だけ＝横の減速も衝突も普通に効く。
+  let vy = (ball.y - ball.py) * damping;
+  if (ball.rollFrames > 0) ball.rollFrames--;
+  else vy += gravity;
 
   // 横: 左右対称に制限（落下速度の影響を受けない）
   if (vx > maxSpeed) vx = maxSpeed;

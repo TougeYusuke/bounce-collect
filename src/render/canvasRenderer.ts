@@ -1,5 +1,6 @@
 import type { BallPool } from '../core/ball';
 import { CONFIG } from '../core/config';
+import { cupTiltPivot } from '../core/cupPose';
 import type { Stage } from '../core/stage';
 import type { World } from '../core/world';
 import { getArt } from './art';
@@ -149,12 +150,11 @@ export class CanvasRenderer implements Renderer {
 
     g.save();
     if (tilt !== 0) {
-      // ⚠️ **玉が湧く位置そのものを軸にして回す**。こうすると傾きをどう変えても
-      //    口が玉の出どころから離れない（＝補正計算が要らない）。
-      //    胴の真ん中を軸にして後からズレを打ち消す方式だと、傾きが大きい時に
-      //    補正が効きすぎてバケツが浮き上がった（2026-07-24 実機で確認）。
-      const px = x + CONFIG.CUP_SPAWN_OFFSET_X * s;
-      const py = y + CONFIG.CUP_SPAWN_OFFSET_Y * s;
+      // 口を固定する平行移動は入れず、画像の見た目上の中心でそのまま回す。
+      // 発生点は core/cupPose.ts がこの回転と同じ式で動かすので、バケツを浮かせず口と玉を揃えられる。
+      const pivot = cupTiltPivot(cx, cyTop);
+      const px = ox + pivot.x * s;
+      const py = oy + pivot.y * s;
       g.translate(px, py);
       g.rotate(tilt);
       g.translate(-px, -py);

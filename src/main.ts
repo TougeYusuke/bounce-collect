@@ -183,6 +183,12 @@ const CUP_POUR_TILT = 1.4; // ラジアン（約80度）
 let halfTick = 0;
 
 function loop(): void {
+  if (ready) {
+    const target = match.session.started ? CUP_POUR_TILT : 0;
+    cupTilt += (target - cupTilt) * 0.15;
+    // 先に同期してから物理を進める。これでこのフレームに生まれる玉は、同じフレームに描く口の位置から出る。
+    match.setCupTilt(cupTilt);
+  }
   if (speed < 1) {
     halfTick++;
     if (halfTick % 2 === 0) match.update(1);
@@ -190,8 +196,6 @@ function loop(): void {
     match.update(speed);
   }
   if (ready) {
-    const target = match.session.started ? CUP_POUR_TILT : 0;
-    cupTilt += (target - cupTilt) * 0.15;
     // R1→R2は「カメラが下へ降りていく」場面転換にする。
     // 前半でR1の盤面（下バケツごと）が上へ抜け、後半で次の盤面が下から入ってくる。
     const p = match.transitionProgress;

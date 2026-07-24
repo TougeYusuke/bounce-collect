@@ -62,6 +62,11 @@ export class Match {
     this.session.setCupX(x);
   }
 
+  /** 描画中の傾きと、次に出す玉の口の位置を同期する */
+  setCupTilt(tilt: number): void {
+    this.session.setCupTilt(tilt);
+  }
+
   get cupX(): number {
     return this.session.cupX;
   }
