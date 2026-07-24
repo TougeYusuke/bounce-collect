@@ -102,6 +102,16 @@ export function applyGates(
         // 盤面に入るぶんだけ実際に玉を生む。生まれた玉は新品（gateMask = 0）。
         // ⚠️ 盤面が満杯なら**何も起きない**（以前はここで重さを倍にしていた）
         ball.gateMask |= bit;
+
+        // ⚠️ 水面に入ったように一度勢いを落とす（れいあ提案）。
+        //    入ってきた勢いのまま通り抜けると、増えた玉が唐突に見える。
+        //    ⚠️ 上昇中（ジャンプ台で打ち上げ中）は勢いを殺さない＝跳ね上げの意味が消えるため。
+        if (!ball.flying) {
+          const drag = CONFIG.GATE_DRAG;
+          ball.px = ball.x - (ball.x - ball.px) * drag;
+          ball.py = ball.y - (ball.y - ball.py) * drag;
+        }
+
         // ⚠️ 生まれた玉を上へ飛ばさない（れいあ指摘）。
         //    親が上向きに弾かれている瞬間にゲートを通ると、子まで上へ打ち上がって
         //    上のゲートを再走し、増殖が止まらなくなる。見た目にも不自然。
@@ -139,10 +149,19 @@ export function applyGates(
             flying: ball.flying, // ★継承（上昇中に増えた玉も叩き落されない）
           });
           if (!child) break;
-          // 初速はほぼ持たせない。押し出しで動かすことで「盛り返し」を起こしやすくする。
-          // ⚠️ 上昇中（flying）の親から生まれた子だけは、上向きの勢いを継がせる。
-          child.px = child.x;
-          child.py = ball.flying ? child.y - vy : child.y;
+          if (ball.flying) {
+            // 上昇中の親から生まれた子は、そのまま上向きの勢いを継ぐ（跳ね上げの演出）
+            child.px = child.x;
+            child.py = child.y - vy;
+          } else {
+            // ⚠️ 下方向へ、向きだけ散らす（れいあ指定）。上向きには**しない**。
+            const sx = (hash01(idx * 7919 + k * 104729 + gate.id * 31) * 2 - 1) *
+              CONFIG.SPAWN_SPREAD_X;
+            const sy = CONFIG.SPAWN_DROP_SPEED *
+              (0.5 + hash01(idx * 15485863 + k * 3 + gate.id * 7) * 0.5);
+            child.px = child.x - sx;
+            child.py = child.y - sy;
+          }
           placed++;
         }
         // ⚠️ 置けなかったぶんは**そのまま増えない**。
