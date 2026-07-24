@@ -304,6 +304,8 @@ async function refreshStageList(): Promise<void> {
     box.innerHTML = '<option value="">（開発サーバーでだけ使えるよ）</option>';
     el<HTMLButtonElement>('open').disabled = true;
     el<HTMLButtonElement>('save').disabled = true;
+    // ⚠️ ボタンが押せないだけだと「壊れている」ように見えるので、理由を出す
+    setStatus('公開版では保存できないよ。npm run dev のエディタで開いてね');
   }
 }
 

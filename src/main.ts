@@ -132,10 +132,18 @@ document.getElementById('title-total')!.addEventListener('click', () => {
   renderTotalRanking();
   showScreen('total');
 });
-document.getElementById('title-editor')!.addEventListener('click', async () => {
-  // ステージエディタは次フェーズ。今は入口だけ確保してある
-  await confirmDialog('ステージエディタ', '次のアップデートで作るよ。もう少し待ってね！', 'とじる');
-});
+{
+  const editorBtn = document.getElementById('title-editor')!;
+  if (import.meta.env.DEV) {
+    editorBtn.addEventListener('click', () => {
+      location.href = 'editor.html';
+    });
+  } else {
+    // ⚠️ 公開版から入口を消す。保存は開発サーバーの口（POST /__save-stage）でしか
+    //    できないので、公開版で開くと「保存できないエディタ」になってしまう。
+    editorBtn.hidden = true;
+  }
+}
 
 // タイトルへ戻る（ハイスコアTOP5と添えトータルを描き直してから表示）
 function goToTitle(): void {
