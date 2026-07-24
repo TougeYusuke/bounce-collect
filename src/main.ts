@@ -67,11 +67,16 @@ function updateDebug(): void {
   const jump = s.stage.jumpers
     .map((j, i) => `台${i + 1} 残${Math.max(0, j.capacity - j.used)}/${j.capacity}`)
     .join('　');
+  // ⚠️ スコアは weight の合計。盤面が満杯になると1個で数百〜数千入るので、
+  //    「回収した玉の個数」と「1個あたりの平均」を並べて乖離が見えるようにする。
+  const per = s.collectedBalls > 0 ? Math.round(s.score / s.collectedBalls) : 0;
   debugEl.textContent =
     `R${match.round}${match.transitioning ? '(転換中)' : ''}　` +
-    `玉 ${s.pool.activeCount}　配り ${s.supplied}/${s.supplyBalls}　` +
-    `残量 ${s.remaining.toLocaleString('ja-JP')}　` +
-    `${Math.floor(s.elapsed / 60)}秒　${jump}` +
+    `盤面 ${s.pool.activeCount}　配り ${s.supplied}/${s.supplyBalls}　` +
+    `残量 ${s.remaining.toLocaleString('ja-JP')}　${Math.floor(s.elapsed / 60)}秒\n` +
+    `回収 ${s.collectedBalls.toLocaleString('ja-JP')}個　` +
+    `1個あたり ${per.toLocaleString('ja-JP')}　` +
+    `一番重い玉 ${s.heaviestBall.toLocaleString('ja-JP')}　${jump}` +
     (s.released ? '　板ぬけた' : '');
 }
 

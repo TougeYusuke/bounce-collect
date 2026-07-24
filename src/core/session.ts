@@ -62,6 +62,12 @@ export class Session {
   private grid: SpatialGrid;
 
   score = 0;
+  /**
+   * 実際に回収した**玉の個数**（スコアと違って中身の重さを掛けない）。
+   * ⚠️ スコアは weight の合計なので、盤面が満杯になると1個で数百〜数千入る。
+   *    「玉の数」と「スコア」がどれだけ乖離しているかを見るための数字（デバッグ用）。
+   */
+  collectedBalls = 0;
   supplied = 0;
   finished = false;
   /** r2: 傾斜板が抜けて放流が始まったか。r1 では常に false */
@@ -149,6 +155,15 @@ export class Session {
     return this.started && this.supplied < this.initialBalls;
   }
 
+  /** 盤面で一番重い玉の中身（デバッグ用）。1なら飽和がまだ起きていない */
+  get heaviestBall(): number {
+    let m = 0;
+    this.pool.forEachActive((b) => {
+      if (b.weight > m) m = b.weight;
+    });
+    return m;
+  }
+
   /** 眠っていない（＝まだ何か起きうる）玉の数 */
   get awakeCount(): number {
     let n = 0;
@@ -202,6 +217,7 @@ export class Session {
     for (const i of dead) {
       const b = this.pool.balls[i];
       this.score += b.weight;
+      this.collectedBalls++;
       this.pool.kill(b);
     }
   }
@@ -238,6 +254,7 @@ export class Session {
     this.pool.forEachActive((b, i) => {
       if (b.y >= line) {
         this.score += b.weight;
+        this.collectedBalls++;
         dead.push(i);
       }
     });
@@ -355,6 +372,7 @@ export class Session {
         // 引っかかって残った玉も回収する（待たせるくらいなら拾わせる）
         this.pool.forEachActive((b) => {
           this.score += b.weight;
+          this.collectedBalls++;
         });
         this.pool.clear();
         this.finished = true;
