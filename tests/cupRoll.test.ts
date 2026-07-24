@@ -16,7 +16,8 @@ describe('カップからの転がり', () => {
 
     let rolled = 0; // 縦に落ちずに横へ進んだフレーム数
     let dropStartedAt = -1;
-    for (let i = 0; i < 14; i++) {
+    // ⚠️ 転がりフレーム数より十分長く回す（短いと落下開始を観測する前に終わる）
+    for (let i = 0; i < CONFIG.CUP_ROLL_FRAMES + 10; i++) {
       const py = b.y;
       s.update(1);
       const dy = b.y - py;
