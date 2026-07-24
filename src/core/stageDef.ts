@@ -102,6 +102,51 @@ export function buildStage(def: StageDef): Stage {
   };
 }
 
+/** 数値だけ受け取る（NaN・文字列・undefined は既定値に落とす） */
+function num(v: unknown, fallback = 0): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
+/** 配列の中のオブジェクトだけ取り出す */
+function objects(v: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null);
+}
+
+/**
+ * 外から読み込んだ JSON を StageDef に整える。
+ *
+ * ⚠️ 保存ファイル（`src/stages/*.json`）は手で開いて直せる場所にあるので、
+ *    項目が欠けていても**落とさずに空で埋める**。エディタが開けなくなる方が困る。
+ */
+export function normalizeStageDef(raw: unknown): StageDef {
+  const o = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const name = typeof o.name === 'string' && o.name.trim() ? o.name.trim() : 'untitled';
+
+  return {
+    name,
+    gates: objects(o.gates).map((g) => ({
+      x1: num(g.x1),
+      x2: num(g.x2, CONFIG.BOARD_WIDTH),
+      y: num(g.y),
+      multiplier: num(g.multiplier, 2),
+    })),
+    jumpers: objects(o.jumpers).map((j) => {
+      const capacity = Math.round(num(j.capacity));
+      // 0以下は「指定なし」＝CONFIG の既定値を使う（0で保存すると台が最初から死ぬ）
+      return capacity > 0
+        ? { x1: num(j.x1), x2: num(j.x2, CONFIG.BOARD_WIDTH), y: num(j.y), capacity }
+        : { x1: num(j.x1), x2: num(j.x2, CONFIG.BOARD_WIDTH), y: num(j.y) };
+    }),
+    dividers: objects(o.dividers).map((d) => ({
+      x1: num(d.x1),
+      y1: num(d.y1),
+      x2: num(d.x2),
+      y2: num(d.y2),
+    })),
+  };
+}
+
 const W = CONFIG.BOARD_WIDTH;
 
 /**
@@ -121,13 +166,11 @@ export const DEFAULT_STAGE_DEF: StageDef = {
     { x1: W * 0.35, x2: W * 0.65, y: 470, multiplier: 4 },
   ],
   /**
-   * ⚠️ 中央に置いてはいけない。中央には仕切り棒があって玉が左右へ散るので、
+   * ⚠️ **最下段に1台だけ**（2026-07-24 れいあ裁定。エディタも抽選も1台に絞る）。
+   * ⚠️ 中央だけに置いてはいけない。中央には仕切り棒があって玉が左右へ散るので、
    *    真ん中は素通りゾーンになり**一度も乗らない**（実測：跳ね上限を変えても結果が不変・
-   *    スコア48/玉43個でゲームが成立しなくなる）。玉が実際に落ちてくる左右に置くこと。
+   *    スコア48/玉43個でゲームが成立しなくなる）。だから1台でも**左右にまたがる幅**で置く。
    */
-  jumpers: [
-    { x1: W * 0.06, x2: W * 0.3, y: 520 },
-    { x1: W * 0.7, x2: W * 0.94, y: 520 },
-  ],
+  jumpers: [{ x1: W * 0.06, x2: W * 0.94, y: 520 }],
   dividers: [{ x1: W * 0.5, y1: 250, x2: W * 0.5, y2: 320 }],
 };
