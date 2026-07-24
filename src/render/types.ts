@@ -14,8 +14,9 @@ export interface Renderer {
    * 1フレーム描く。stage を省くと玉と背景だけ（計測デモ用）。
    * ⚠️ メソッドを分けず1本にしてあるのは、背景→ステージ→玉 の順序を
    * 呼び出し側が間違えられないようにするため。
+   * cupTilt は上バケツの傾き（ラジアン）。玉を出している間だけ傾ける演出に使う。
    */
-  draw(pool: BallPool, radius: number, stage?: Stage, cupX?: number): void;
+  draw(pool: BallPool, radius: number, stage?: Stage, cupX?: number, cupTilt?: number): void;
   /** 画面サイズ変更に追従する */
   resize(): void;
   /** 破棄してDOMから取り除く */

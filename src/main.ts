@@ -119,10 +119,14 @@ document.getElementById('total-back')!.addEventListener('click', goToTitle);
 
 window.addEventListener('resize', () => renderer.resize());
 
+// 玉を出している間だけ上バケツを傾ける（注いでいる様子）
+const CUP_POUR_TILT = 1.4; // ラジアン（約80度）
+
 function loop(): void {
   session.update(speed);
   if (ready) {
-    renderer.draw(session.pool, CONFIG.BALL_RADIUS, session.stage, session.cupX);
+    const tilt = session.dispensing ? CUP_POUR_TILT : 0;
+    renderer.draw(session.pool, CONFIG.BALL_RADIUS, session.stage, session.cupX, tilt);
   }
   hud.setScore(session.score);
 

@@ -70,6 +70,11 @@ export class Session {
     );
   }
 
+  /** いま玉を出している最中か（上バケツを傾ける演出に使う） */
+  get dispensing(): boolean {
+    return this.started && this.supplied < this.initialBalls;
+  }
+
   /** 眠っていない（＝まだ何か起きうる）玉の数 */
   get awakeCount(): number {
     let n = 0;

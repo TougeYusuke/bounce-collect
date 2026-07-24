@@ -114,7 +114,10 @@ export class CanvasRenderer implements Renderer {
     g.closePath();
   }
 
-  /** 木のバケツ。cyTop = 口（飲み口）の高さ（論理座標）。上下で共用する */
+  /**
+   * 木のバケツ。cyTop = 口（飲み口）の高さ（論理座標）。上下で共用する。
+   * tilt（ラジアン）を渡すと、口の下あたりを軸に傾ける（玉を注いでいる様子）。
+   */
   private drawBucket(
     g: CanvasRenderingContext2D,
     ox: number,
@@ -123,11 +126,22 @@ export class CanvasRenderer implements Renderer {
     cx: number,
     cyTop: number,
     k: number,
+    tilt = 0,
   ): void {
     const x = ox + cx * s;
     const y = oy + cyTop * s;
     const hw = 27 * k * s;
     const hh = 34 * k * s;
+
+    g.save();
+    if (tilt !== 0) {
+      // 口のふち（注ぎ口側）を軸に傾ける
+      const px = x;
+      const py = y + hh * 0.5;
+      g.translate(px, py);
+      g.rotate(tilt);
+      g.translate(-px, -py);
+    }
 
     const im = getArt('bucket-wood.png');
     if (im) {
@@ -138,6 +152,7 @@ export class CanvasRenderer implements Renderer {
       g.shadowBlur = 12 * s;
       g.shadowOffsetY = 5 * s;
       g.drawImage(im, x - w / 2, y - h * 0.17, w, h);
+      g.restore();
       g.restore();
       return;
     }
@@ -159,6 +174,7 @@ export class CanvasRenderer implements Renderer {
     g.beginPath();
     g.ellipse(x, y, hw * 0.94, hw * 0.27, 0, 0, Math.PI * 2);
     g.fill();
+    g.restore();
   }
 
   /** 傾斜板（中身の詰まった台形）を、下端まで塗らず「厚みのある帯」として描く */
@@ -282,7 +298,7 @@ export class CanvasRenderer implements Renderer {
     }
   }
 
-  draw(pool: BallPool, radius: number, stage?: Stage, cupX?: number): void {
+  draw(pool: BallPool, radius: number, stage?: Stage, cupX?: number, cupTilt = 0): void {
     const dpr = window.devicePixelRatio || 1;
     if (!this.sprite || this.spriteRadius !== radius) {
       this.sprite = this.buildSprite(radius);
@@ -353,8 +369,8 @@ export class CanvasRenderer implements Renderer {
       ctx.drawImage(sprite, ox + b.x * s - half, oy + b.y * s - half);
     });
 
-    // 上バケツ（玉より後＝玉がバケツの下から出てくる）
-    this.drawBucket(ctx, ox, oy, s, cupX ?? W / 2, CONFIG.CUP_Y, 1.0);
+    // 上バケツ（玉より後＝玉がバケツの下から出てくる）。玉を出している間は傾ける
+    this.drawBucket(ctx, ox, oy, s, cupX ?? W / 2, CONFIG.CUP_Y, 1.0, cupTilt);
 
     ctx.restore();
 
