@@ -62,3 +62,54 @@ describe('R2モードの供給', () => {
     expect(s.supplied).toBe(1);
   });
 });
+
+/** 放流するか、時間切れで終わるまで回す */
+function runUntil(s: Session, cond: (s: Session) => boolean): void {
+  for (let i = 0; i < CONFIG.ROUND_TIME_LIMIT + 60 && !cond(s); i++) s.update(1);
+}
+
+describe('R2の溜めと放流', () => {
+  it('放流前は玉が落ちてもスコアが増えない', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
+    s.start();
+    run(s, 120);
+    expect(s.released).toBe(false);
+    expect(s.score).toBe(0);
+  });
+
+  it('放流すると傾斜板が物理からも見た目からも消える', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 400_000 });
+    const wedges = [...(s.stage.wedges ?? [])];
+    expect(wedges.length).toBeGreaterThan(0);
+
+    s.start();
+    runUntil(s, (x) => x.released);
+    expect(s.released).toBe(true);
+    // 物理の背止め
+    expect(s.stage.wedges?.length ?? 0).toBe(0);
+    // ⚠️ 描画と当たり判定が見ている線分側からも消えていること
+    //    （片方だけだと「見えない板に載る」か「見えている板をすり抜ける」になる）
+    for (const w of wedges) {
+      expect(s.stage.segments).not.toContain(w);
+      expect(s.world.segments).not.toContain(w);
+    }
+    // 中央の仕切りは残る（抜くのは傾斜板だけ）
+    expect(s.stage.segments.length).toBeGreaterThan(0);
+  });
+
+  it('放流後は回収がスコアになり、ラウンドが終わる', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 400_000 });
+    s.start();
+    runUntil(s, (x) => x.finished);
+    expect(s.finished).toBe(true);
+    expect(s.score).toBeGreaterThan(0);
+  });
+
+  it('R1は放流の概念を持たない（常にfalse・回収は即スコア）', () => {
+    const s = new Session();
+    s.start();
+    runUntil(s, (x) => x.finished);
+    expect(s.released).toBe(false);
+    expect(s.score).toBeGreaterThan(0);
+  });
+});

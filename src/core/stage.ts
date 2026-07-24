@@ -64,6 +64,19 @@ export interface Stage {
   wedges?: Wedge[];
 }
 
+/**
+ * 全ゲートの容量を倍率ぶん引き上げる。
+ *
+ * ⚠️ `Gate.capacity` は **weight 単位**で消費される（`gate.used += ball.weight`）。
+ * R2は1玉の weight が数千になるので、そのままだと1玉通っただけで容量を使い切り、
+ * ゲートが実質機能しなくなる。1玉あたりの weight を掛けて、
+ * 「何個ぶんの玉を通せるか」がR1と揃うようにする。
+ */
+export function scaleGateCapacity(stage: Stage, factor: number): void {
+  if (factor <= 1) return;
+  for (const g of stage.gates) g.capacity *= factor;
+}
+
 export function stageToWorld(stage: Stage): World {
   return {
     width: CONFIG.BOARD_WIDTH,

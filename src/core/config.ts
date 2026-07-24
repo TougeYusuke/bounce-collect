@@ -148,4 +148,11 @@ export const CONFIG = {
   R2_SUPPLY_INTERVAL: 9,
   /** 盤面がこの割合まで埋まったら傾斜板が消えて放流に移る */
   RELEASE_FILL_RATIO: 0.7,
+  /**
+   * 配り終わってから放流するまでの猶予（フレーム）。
+   * ⚠️ 「動きが止まったら」では判定できない。眠り機能を切ってある（SLEEP_ENABLED:false）ので
+   *    awakeCount は0にならず、しかもR2は回収しないので玉も減らないため。
+   *    盤面が埋まり切らなかった時に必ず放流させるための保険。
+   */
+  RELEASE_SETTLE_FRAMES: 90,
 } as const;

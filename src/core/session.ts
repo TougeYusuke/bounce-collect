@@ -4,7 +4,7 @@ import { applyGates } from './gates';
 import { SpatialGrid } from './grid';
 import { applyJumpers } from './jumpers';
 import { step, wake, wakeUnsupported } from './solver';
-import { createFixedStage, stageToWorld, type Stage } from './stage';
+import { createFixedStage, scaleGateCapacity, stageToWorld, type Stage } from './stage';
 import type { World } from './world';
 
 const STEP_OPTIONS = {
@@ -56,11 +56,15 @@ export class Session {
   score = 0;
   supplied = 0;
   finished = false;
+  /** r2: 傾斜板が抜けて放流が始まったか。r1 では常に false */
+  released = false;
   cupX = CONFIG.BOARD_WIDTH / 2;
   /** 最初の入力があるまで玉を出さない（勝手に始まらないように） */
   started = false;
 
   private supplyTimer: number = CONFIG.SUPPLY_INTERVAL; // 開始直後に1個目を出す
+  /** 配り終わってから進んだフレーム数（R2の放流タイミングに使う） */
+  private sinceSupplyDone = 0;
   private quiet = 0;
   /** 開始してから進んだフレーム数（時間切れの判定に使う） */
   elapsed = 0;
@@ -80,6 +84,9 @@ export class Session {
       this.supplyBalls = Math.min(CONFIG.R2_SUPPLY_BALLS, total);
       // ⚠️ 切り上げ。切り捨てると供給がR1の結果を下回り、積み上げた実感が消える
       this.supplyWeight = Math.ceil(total / this.supplyBalls);
+      // ⚠️ ゲート容量は weight 単位で減る。R2の重い玉だと1個で使い切ってしまうので、
+      //    通せる「玉の個数」がR1と揃うように容量を引き上げる
+      scaleGateCapacity(stage, this.supplyWeight);
     } else {
       this.supplyBalls = this.initialBalls;
       this.supplyWeight = 1;
@@ -129,6 +136,9 @@ export class Session {
     const r = CONFIG.BALL_RADIUS;
     const deep = r * 2.5;
     const dead: number[] = [];
+    // ⚠️ R2の溜め中は、深く食い込んだ玉も回収に変えず必ず面へ押し戻す。
+    // 変えてしまうと「溜めているはずの玉」がスコアに化けて漏れ出す。
+    const holding = this.mode === 'r2' && !this.released;
 
     this.pool.forEachActive((b, i) => {
       for (const wd of wedges) {
@@ -137,7 +147,7 @@ export class Session {
         const surfaceY = wd.y1 + (wd.y2 - wd.y1) * t;
         const sink = b.y - (surfaceY - r); // どれだけ面に食い込んでいるか
         if (sink <= 0) break;
-        if (sink < deep) {
+        if (sink < deep || holding) {
           b.y = surfaceY - r; // 表面へ戻す
           if (b.py < b.y) b.py = b.y; // 下向きの速度だけ消す
         } else {
@@ -154,8 +164,35 @@ export class Session {
     }
   }
 
+  /**
+   * 溜まったら傾斜板を抜いて放流に移る（R2のフィニッシュ）。
+   *
+   * ⚠️ 判定は weight 総和ではなく「玉数」。weight は供給量に比例して青天井なので、
+   *    固定閾値だと配置やR1の出来次第で「即発動」か「永久に未達」に振れる（設計書 §4.4）。
+   */
+  private tryRelease(): void {
+    if (this.mode !== 'r2' || this.released) return;
+    const filled = this.pool.activeCount >= this.maxBalls * CONFIG.RELEASE_FILL_RATIO;
+    // 待たせない保険: 配り終わって一定時間経ったら、溜まり切らなくても流す。
+    // ⚠️ 「動きが止まったら」では判定できない（眠りを切ってあり、R2は回収もしないので
+    //    awakeCount も activeCount も減らない）。経過フレームで見る。
+    const settled = this.sinceSupplyDone >= CONFIG.RELEASE_SETTLE_FRAMES;
+    if (!filled && !settled) return;
+
+    this.released = true;
+    // ⚠️ 物理の背止め（wedges）と、当たり判定＋描画が見ている線分（segments / world.segments）の
+    //    両方から傾斜を取り除くこと。片方だけだと「見えない板に載る」か
+    //    「見えている板をすり抜ける」のどちらかになる。
+    const removed = new Set(this.stage.wedges ?? []);
+    this.stage.wedges = [];
+    this.stage.segments = this.stage.segments.filter((s) => !removed.has(s as never));
+    this.world.segments = this.world.segments.filter((s) => !removed.has(s as never));
+  }
+
   /** 回収ラインを越えた玉をスコアに変えて消す */
   collect(): void {
+    // ⚠️ R2は放流が始まるまで回収しない（溜めるのがこのラウンドの目的）
+    if (this.mode === 'r2' && !this.released) return;
     const dead: number[] = [];
     this.pool.forEachActive((b, i) => {
       if (b.y >= this.stage.collectY) {
@@ -247,9 +284,11 @@ export class Session {
       this.enforceWedges();
       applyGates(this.pool, this.stage, this.maxBalls, CONFIG.BALL_RADIUS * 2);
       applyJumpers(this.pool, this.stage, CONFIG.MAX_BOUNCE);
+      this.tryRelease();
       this.collect();
 
       if (this.started) this.elapsed++;
+      if (this.started && this.supplied >= this.supplyBalls) this.sinceSupplyDone++;
       this.sinceCollect++;
       this.agitate();
       // 支えを失ったまま眠っている玉を起こす（8分割で巡回するので軽い）
