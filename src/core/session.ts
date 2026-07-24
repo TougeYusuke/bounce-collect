@@ -52,10 +52,10 @@ export class Session {
   readonly mode: RoundMode;
   /** このラウンドで配る玉数（R1では initialBalls と同じ） */
   readonly supplyBalls: number;
-  /** 1玉あたりの weight（R1は常に1）。端数ぶんは heavyBalls 個だけ +1 される */
-  readonly supplyWeight: number;
-  /** weight が1つ多い玉の個数（端数の配り先）。R1では0 */
-  readonly heavyBalls: number = 0;
+  /**
+   * ⚠️ 「重い玉」は廃止（2026-07-24 れいあ裁定）。配る玉は R1/R2 とも常に weight 1。
+   *    個数とスコアを常に一致させるため（残数が2以上減る見え方をなくす）。
+   */
   /**
    * 玉を出す間隔（フレーム）。持ち玉の数から決まる。
    * 少なければゆっくり、多ければテンポよく（ただし物理の下限あり）。
@@ -84,7 +84,13 @@ export class Session {
   /** 配り終わってから進んだフレーム数（R2の放流タイミングに使う） */
   private sinceSupplyDone = 0;
   private quiet = 0;
-  /** 開始してから進んだフレーム数（時間切れの判定に使う） */
+  /**
+   * 配り終わったのに回収が1個も進まないまま経ったフレーム数。
+   * ⚠️ ラウンドを切る唯一の保険（時間では切らない・`CONFIG.STALL_LIMIT_FRAMES`）。
+   */
+  private stallFrames = 0;
+  private lastCollected = 0;
+  /** 開始してから進んだフレーム数（表示に使う） */
   elapsed = 0;
   /** 最後に回収が起きてからのフレーム数（詰まり検知に使う） */
   private sinceCollect = 0;
@@ -98,16 +104,13 @@ export class Session {
     this.initialBalls = opts.initialBalls ?? CONFIG.INITIAL_BALLS;
     this.mode = opts.mode ?? 'r1';
     if (this.mode === 'r2') {
-      const total = Math.max(1, Math.floor(opts.supplyTotal ?? 0));
-      this.supplyBalls = Math.min(CONFIG.R2_SUPPLY_BALLS, total);
-      // ⚠️ 端数は「重い玉を何個か混ぜる」形で配り切る。
-      //    全部を切り上げると総量がR1の結果を上回り（208→300）、切り捨てると下回る。
-      //    どちらも「積み上げたぶんがそのまま来ていない」ことになる（れいあ指摘）。
-      this.supplyWeight = Math.floor(total / this.supplyBalls);
-      this.heavyBalls = total - this.supplyWeight * this.supplyBalls;
+      // ⚠️ R1で集めた**個数をそのまま**配る（2026-07-24 れいあ裁定）。
+      //    以前は上限100個に収めて「重い玉」で総量を合わせていたが、
+      //    「1個出したのに残数が2以上減る」ことになり、R1で稼いだぶんが**玉の量として見えない**。
+      //    ここは「R1で稼ぐほどR2に大量の玉が降る」インフレ感が要なので、個数＝スコアで揃える。
+      this.supplyBalls = Math.max(1, Math.floor(opts.supplyTotal ?? 0));
     } else {
       this.supplyBalls = this.initialBalls;
-      this.supplyWeight = 1;
     }
     // 持ち玉が少なければゆっくり、多ければテンポよく出す（総供給時間を一定に寄せる）
     this.supplyInterval = Math.min(
@@ -142,14 +145,11 @@ export class Session {
   }
 
   /**
-   * コップに残っている**総量**（これから出てくるぶんの weight 合計）。カップの横に出す。
-   * ⚠️ 個数ではない。R2は重さでまとめて配るので、個数を出すと
-   *    「R1で208点 → R2のコップに100」と減ったように見える（れいあ指摘）。
+   * コップに残っている**個数**（これから出てくるぶん）。カップの横に出す。
+   * ⚠️ 個数と総量は常に一致する（重い玉を作らないので・2026-07-24）。
    */
   get remaining(): number {
-    const balls = Math.max(0, this.supplyBalls - this.supplied);
-    const heavyLeft = Math.max(0, this.heavyBalls - this.supplied);
-    return balls * this.supplyWeight + heavyLeft;
+    return Math.max(0, this.supplyBalls - this.supplied);
   }
 
   /** いま玉を出している最中か（上バケツを傾ける演出に使う） */
@@ -324,12 +324,10 @@ export class Session {
     if (this.supplyTimer < this.supplyInterval) return;
     this.supplyTimer = 0;
 
-    // 常に1個ずつ、コップの口の真下から出す
-    const y = CONFIG.CUP_Y + CONFIG.BALL_RADIUS * 2;
-    // 端数ぶんは先頭の heavyBalls 個に +1 して配り、総量をぴったり合わせる
-    const w = this.supplyWeight + (this.supplied < this.heavyBalls ? 1 : 0);
-    const opts = this.mode === 'r2' ? { weight: w } : undefined;
-    if (this.pool.spawn(this.cupX, y, opts)) this.supplied++;
+    // 常に1個ずつ、バケツの中から出す（既定 0 ＝ 絵の内側で湧いて口から出てくる）
+    // ⚠️ 横に並べて複数同時に出さない（1個ずつ流れてくる見た目を保つ）
+    const y = CONFIG.CUP_Y + CONFIG.CUP_SPAWN_OFFSET_Y;
+    if (this.pool.spawn(this.cupX, y)) this.supplied++;
   }
 
   /** substeps を上げると早送りになる（速度スライダー） */
@@ -365,12 +363,22 @@ export class Session {
         this.started && this.supplied >= this.supplyBalls && this.awakeCount === 0;
       this.quiet = settled ? this.quiet + 1 : 0;
 
-      // 時間切れ。盤面が詰まって流れが止まっても待たせ続けない。
-      // 傾斜を緩くすると流れが遅くなり、設定次第では自然には終わらなくなるため、
-      // これを最後の砦として置く（実測: 34度で30秒経っても終わらなかった）。
-      const timeUp = this.started && this.elapsed >= CONFIG.ROUND_TIME_LIMIT;
+      // ⚠️ 時間ではラウンドを切らない（2026-07-24 れいあ裁定「時間がかかるのもゲームのうち」）。
+      //    切るのは**完全にはまって進まなくなった時だけ**＝配り終わっているのに
+      //    STALL_LIMIT_FRAMES のあいだ1個も回収されない状態。
+      //    ⚠️ 「動いているか」では見ない。眠りを切ってあるので awakeCount は 0 にならないし、
+      //       アジテータが揺らしている間は動いて見えてしまう。**回収が進んだか**で見る。
+      if (this.collectedBalls !== this.lastCollected) {
+        this.lastCollected = this.collectedBalls;
+        this.stallFrames = 0;
+      } else if (this.started && stalled) {
+        this.stallFrames++;
+      } else {
+        this.stallFrames = 0;
+      }
+      const jammed = this.stallFrames >= CONFIG.STALL_LIMIT_FRAMES;
 
-      if (this.quiet > QUIET_FRAMES || timeUp) {
+      if (this.quiet > QUIET_FRAMES || jammed) {
         // 引っかかって残った玉も回収する（待たせるくらいなら拾わせる）
         this.pool.forEachActive((b) => {
           this.score += b.weight;

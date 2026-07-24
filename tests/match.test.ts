@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/core/config';
 import { Match } from '../src/core/match';
 
+/**
+ * ⚠️ 種を固定する。Match は開始のたびに中身（倍率・跳ね上限）を抽選するので、
+ *    渡さないと毎回違うゲームを測ることになりテストが揺れる。
+ */
+const SEED = 20260724;
+
 /** 条件を満たすか、十分な時間が経つまで回す */
 function runUntil(m: Match, cond: (m: Match) => boolean): void {
   for (let i = 0; i < CONFIG.ROUND_TIME_LIMIT * 3 && !cond(m); i++) m.update(1);
@@ -9,28 +15,27 @@ function runUntil(m: Match, cond: (m: Match) => boolean): void {
 
 describe('Match（2ラウンド）', () => {
   it('R1から始まる', () => {
-    const m = new Match();
+    const m = new Match(SEED);
     expect(m.round).toBe(1);
     expect(m.session.mode).toBe('r1');
   });
 
   it('R1が終わるとR2が始まり、R1の回収数が供給量になる', () => {
-    const m = new Match();
+    const m = new Match(SEED);
     m.start();
     runUntil(m, (x) => x.round === 2);
 
     expect(m.round).toBe(2);
     expect(m.r1Score).toBeGreaterThan(0);
     expect(m.session.mode).toBe('r2');
-    // ⚠️ 端数も含めて**ぴったり**引き継ぐ（多くも少なくもならない）
-    const carried = m.session.supplyBalls * m.session.supplyWeight + m.session.heavyBalls;
-    expect(carried).toBe(m.r1Score);
+    // ⚠️ **個数のまま**ぴったり引き継ぐ（重い玉にまとめない・2026-07-24）
+    expect(m.session.supplyBalls).toBe(m.r1Score);
     // コップの残量表示も同じ値から始まる（個数ではなく中身）
     expect(m.session.remaining).toBe(m.r1Score);
   }, 60_000);
 
   it('⚠️ R2もタップを待つ（自動では落ち始めない）', () => {
-    const m = new Match();
+    const m = new Match(SEED);
     m.start();
     runUntil(m, (x) => x.round === 2);
     // 演出が明けてR2になっても、タップするまでは玉が出ない
@@ -44,7 +49,7 @@ describe('Match（2ラウンド）', () => {
   }, 60_000);
 
   it('R1が終わると下バケツが下へ抜ける演出を挟む', () => {
-    const m = new Match();
+    const m = new Match(SEED);
     m.start();
     runUntil(m, (x) => x.transitioning);
     expect(m.transitioning).toBe(true);
@@ -59,7 +64,7 @@ describe('Match（2ラウンド）', () => {
 
   // 2ラウンド通しは玉が1000個規模で数千フレーム回るため、既定の5秒では足りない
   it('最終スコアはR2の回収（R1は足さない）', () => {
-    const m = new Match();
+    const m = new Match(SEED);
     m.start();
     // R1が終わってR2に入ったら、プレイヤーがもう一度タップする想定
     runUntil(m, (x) => x.round === 2 && !x.transitioning);

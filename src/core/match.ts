@@ -1,6 +1,8 @@
 import { CONFIG } from './config';
+import { createRng } from './rng';
 import { Session } from './session';
-import { createFixedStage } from './stage';
+import { rollStage } from './stageRoll';
+import { DEFAULT_STAGE_DEF, buildStage, type StageDef } from './stageDef';
 
 /**
  * 2ラウンドを順に回す層。
@@ -21,8 +23,18 @@ export class Match {
   transitioning = false;
   private transitionFrames = 0;
 
-  constructor() {
-    this.session = new Session();
+  /**
+   * このプレイぶんの中身（倍率・跳ね上限）。**開始のたびに抽選する**。
+   * ⚠️ R1とR2で同じものを使う（ラウンドの途中で倍率が変わると別ゲームになる）。
+   */
+  readonly def: StageDef;
+  /** 抽選に使った種。⚠️ 同じ種なら同じ中身＝「さっきのをもう一度」が作れる */
+  readonly seed: number;
+
+  constructor(seed: number = Date.now()) {
+    this.seed = seed >>> 0;
+    this.def = rollStage(DEFAULT_STAGE_DEF, createRng(this.seed));
+    this.session = new Session(buildStage(this.def));
   }
 
   /** 演出の進み具合（0→1）。下バケツをどれだけ下へずらすかに使う */
@@ -68,7 +80,7 @@ export class Match {
     if (this.round === 1) {
       this.r1Score = this.session.score;
       // R2の盤面を作っておく（演出の間は止めたまま・演出明けに start する）
-      this.session = new Session(createFixedStage(), {
+      this.session = new Session(buildStage(this.def), {
         mode: 'r2',
         supplyTotal: Math.max(1, this.r1Score),
       });

@@ -13,30 +13,28 @@ describe('R2モードの供給', () => {
     expect(new Session().mode).toBe('r1');
   });
 
-  it('R2は supplyTotal を weight にまとめて配る', () => {
+  it('⚠️ R1で集めた個数をそのまま配る（上限で頭打ちにしない）', () => {
     const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
-    // 配る玉数は上限で頭打ち、weight は切り上げ
-    expect(s.supplyBalls).toBe(CONFIG.R2_SUPPLY_BALLS);
-    expect(s.supplyWeight).toBe(Math.ceil(10_000 / CONFIG.R2_SUPPLY_BALLS));
-    // 供給の合計は元の数以上（切り上げのぶん上回る）
-    expect(s.supplyBalls * s.supplyWeight).toBeGreaterThanOrEqual(10_000);
+    expect(s.supplyBalls).toBe(10_000);
+    // コップの残数も個数そのまま（総量と一致する）
+    expect(s.remaining).toBe(10_000);
   });
 
-  it('供給量が上限より小さいときは weight 1 でその数だけ配る', () => {
+  it('少ないときもその数だけ配る', () => {
     const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 30 });
     expect(s.supplyBalls).toBe(30);
-    expect(s.supplyWeight).toBe(1);
+    expect(s.remaining).toBe(30);
   });
 
-  it('R2で出てくる玉は weight を持っている', () => {
+  it('⚠️ 重い玉は作らない（1個出したら残数はちょうど1減る）', () => {
     const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
     s.start();
-    run(s, CONFIG.R2_START_DELAY_FRAMES + 40);
-    let seen = 0;
+    run(s, CONFIG.R2_START_DELAY_FRAMES + 1);
+    expect(s.supplied).toBe(1);
+    expect(s.remaining).toBe(9_999);
     s.pool.forEachActive((b) => {
-      if (b.weight >= s.supplyWeight) seen++;
+      expect(b.weight).toBe(1);
     });
-    expect(seen).toBeGreaterThan(0);
   });
 
   it('start() するまでは1個も出ない（R2もタップ待ち）', () => {
@@ -124,13 +122,25 @@ describe('R2の回収と板抜き', () => {
     }
     // 中央の仕切りは残る（抜くのは傾斜板だけ）
     expect(s.stage.segments.length).toBeGreaterThan(0);
-  });
+    // ⚠️ 重い玉を廃止して1個1点になったぶん、放流まで回すフレームが増えた（既定5秒では足りない）
+  }, 60_000);
 
-  it('放流後は回収がスコアになり、ラウンドが終わる', () => {
-    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 400_000 });
+  it('配り切ったあとはラウンドが終わる（はまったまま残っても打ち切る）', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 200 });
     s.start();
     runUntil(s, (x) => x.finished);
     expect(s.finished).toBe(true);
+    expect(s.score).toBeGreaterThan(0);
+  }, 60_000);
+
+  it('⚠️ 時間ではなく「回収が進まなくなったか」で打ち切る', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 5 });
+    s.start();
+    runUntil(s, (x) => x.finished);
+    expect(s.finished).toBe(true);
+    // 5個しか配らないので、昔の時間切れ（ROUND_TIME_LIMIT）よりずっと早く終わる
+    expect(s.elapsed).toBeLessThan(CONFIG.ROUND_TIME_LIMIT);
+    // 打ち切り時は残った玉も拾ってスコアにする
     expect(s.score).toBeGreaterThan(0);
   }, 60_000);
 
