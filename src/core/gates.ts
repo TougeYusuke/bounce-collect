@@ -89,6 +89,10 @@ export function applyGates(
     // 止まっている玉はゲートを「通過」していないので、これが正しい挙動でもある。
     if (ball.sleeping) continue;
 
+    // ⚠️ 減速はゲートを全部見終わってから掛ける。ループの中で px/py を書き換えると、
+    //    同じフレームで次のゲートを「またいでいない」と誤判定する（実測で発覚）。
+    let slowDown = false;
+
     for (const gate of stage.gates) {
       // 1つの玉につき1回だけ反応する（使用回数の上限は持たない・2026-07-24）
       const bit = 1 << gate.id;
@@ -102,15 +106,7 @@ export function applyGates(
         // 盤面に入るぶんだけ実際に玉を生む。生まれた玉は新品（gateMask = 0）。
         // ⚠️ 盤面が満杯なら**何も起きない**（以前はここで重さを倍にしていた）
         ball.gateMask |= bit;
-
-        // ⚠️ 水面に入ったように一度勢いを落とす（れいあ提案）。
-        //    入ってきた勢いのまま通り抜けると、増えた玉が唐突に見える。
-        //    ⚠️ 上昇中（ジャンプ台で打ち上げ中）は勢いを殺さない＝跳ね上げの意味が消えるため。
-        if (!ball.flying) {
-          const drag = CONFIG.GATE_DRAG;
-          ball.px = ball.x - (ball.x - ball.px) * drag;
-          ball.py = ball.y - (ball.y - ball.py) * drag;
-        }
+        slowDown = true;
 
         // ⚠️ 生まれた玉を上へ飛ばさない（れいあ指摘）。
         //    親が上向きに弾かれている瞬間にゲートを通ると、子まで上へ打ち上がって
@@ -119,24 +115,24 @@ export function applyGates(
         const rawVy = ball.y - ball.py;
         const vy = ball.flying ? rawVy : Math.max(0, rawVy);
 
-        // ⚠️ 生む場所は「ゲートの判定に触れないギリギリ下」に、ゲートの幅いっぱいへ
-        //    散らして置く（2026-07-24 れいあ提案・検証中）。
-        //    狙い＝押し出されて上へ盛り返した玉がゲートを下から通り直し、
-        //    そこからまた増える形をつくる。跳ね上げほど激しくない「盛り返し」。
+        // ⚠️ 分身は**元の玉の位置から湧かせる**（れいあ指定 2026-07-24）。
+        //    真上には出さず、親のまわりの下半分へわずかにずらして置く。
+        //    ⚠️ 昔「親と同じ場所に重ねると押し出しで弾け飛ぶ」という指摘があったが、
+        //       いまは当たり判定を小さく生む＋混雑チェック＋横に散らす初速で抑えている。
         const radius = ballDiameter / 2;
-        const spawnY = gate.y + radius * CONFIG.SPAWN_BELOW_GATE + 1; // 中心がここなら生成直後はまたいでいない
-        const innerX1 = gate.x1 + radius;
-        const innerX2 = gate.x2 - radius;
-        const span = Math.max(0, innerX2 - innerX1);
+        const offset = radius * CONFIG.SPAWN_OFFSET;
 
         let placed = 0;
         for (let k = 0; k < extra; k++) {
           if (pool.activeCount >= maxBalls) break; // 盤面が満杯ならこれ以上は増えない
           // ⚠️ 乱数は使わない（設計書 §4.4）。同じ状況なら同じ結果になるよう、
-          //    玉と順番から決定論的に散らす。
-          const t = hash01(idx * 2654435761 + k * 40503 + gate.id * 97);
-          const cx = span > 0 ? innerX1 + t * span : (gate.x1 + gate.x2) / 2;
-          const cy = spawnY;
+          //    玉と順番から決定論的に散らす。角度は 0〜π ＝ 下半分だけ（上には湧かせない）。
+          // 下半分（0〜π）に等間隔で並べ、そこへ決定論的な揺らぎを少し足す。
+          // ⚠️ 完全にランダムな角度にすると兄弟が近づいて互いに生成を弾く。
+          const jitter = hash01(idx * 2654435761 + k * 40503 + gate.id * 97) - 0.5;
+          const ang = (Math.PI * (k + 0.5 + jitter * 0.6)) / extra;
+          const cx = ball.x + Math.cos(ang) * offset;
+          const cy = ball.y + Math.sin(ang) * offset;
           if (occupied(cx, cy)) continue; // 混んでいる場所には生まない
           const child = pool.spawn(cx, cy, {
             weight: ball.weight,
@@ -169,6 +165,14 @@ export function applyGates(
         //    （以前は親の重さに足していたが、それが「1個で数千点」の正体だった）
         gained -= ball.weight * (extra - placed);
       }
+    }
+
+    // 水面に入ったように一度勢いを落とす（れいあ提案）。
+    // ⚠️ 上昇中（ジャンプ台で打ち上げ中）は勢いを殺さない＝跳ね上げの意味が消えるため。
+    if (slowDown && !ball.flying) {
+      const drag = CONFIG.GATE_DRAG;
+      ball.px = ball.x - (ball.x - ball.px) * drag;
+      ball.py = ball.y - (ball.y - ball.py) * drag;
     }
   }
   return gained;
