@@ -155,7 +155,7 @@ export class CanvasRenderer implements Renderer {
       //    回転後の口が **玉の湧く位置そのもの** に来るまでずらして、口の中から出ているようにする。
       //    ずらし量を sin(tilt) に比例させることで、直立時（tilt=0）はズレ0のまま滑らかに移る。
       const half = hh * 0.5;
-      const toSpawn = CONFIG.BALL_RADIUS * 2 * s * Math.sin(tilt);
+      const toSpawn = CONFIG.CUP_SPAWN_OFFSET_Y * s * Math.sin(tilt);
       g.translate(-half * Math.sin(tilt), -half * (1 - Math.cos(tilt)) + toSpawn);
       g.translate(px, py);
       g.rotate(tilt);
@@ -411,6 +411,31 @@ export class CanvasRenderer implements Renderer {
       this.drawDividers(ctx, stage, ox, oy, s);
       this.drawGates(ctx, stage, ox, oy, s);
       this.drawJumpers(ctx, stage, ox, oy, s);
+    }
+
+    // 残像（玉より先に描く＝尾が玉の下に潜る）。
+    // ⚠️ 玉ごとに stroke すると1000個で1000回の描画呼び出しになるので、
+    //    1本のパスにまとめて**1回**で塗る。速い玉だけを対象にして本数も抑える。
+    if (CONFIG.TRAIL_ALPHA > 0) {
+      const minSq = CONFIG.TRAIL_MIN_SPEED * CONFIG.TRAIL_MIN_SPEED;
+      ctx.beginPath();
+      pool.forEachActive((b) => {
+        const vx = b.x - b.px;
+        const vy = b.y - b.py;
+        const sq = vx * vx + vy * vy;
+        if (sq < minSq) return;
+        const v = Math.sqrt(sq);
+        const len = Math.min(CONFIG.TRAIL_MAX_LENGTH, v * CONFIG.TRAIL_SCALE);
+        const k = len / v;
+        ctx.moveTo(ox + b.x * s, oy + b.y * s);
+        ctx.lineTo(ox + (b.x - vx * k) * s, oy + (b.y - vy * k) * s);
+      });
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,255,255,${CONFIG.TRAIL_ALPHA})`;
+      ctx.lineWidth = radius * 1.15 * s;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      ctx.restore();
     }
 
     // 玉（落ち影はスプライトに焼き込み済み）
