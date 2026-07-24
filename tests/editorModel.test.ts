@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/core/config';
-import { DEFAULT_STAGE_DEF } from '../src/core/stageDef';
+import { DEFAULT_STAGE_DEF, normalizeStageDef } from '../src/core/stageDef';
 import { EditorModel } from '../src/editor/editorModel';
 
 function model(): EditorModel {
@@ -23,8 +23,8 @@ describe('エディタの選択', () => {
   it('端をつかむと「長さを変える」モードになる', () => {
     const m = model();
     const g = m.def.gates[0];
-    expect(m.grabMode(g.x1 + 1, g.y, { kind: 'gate', index: 0 })).toBe('resize-left');
-    expect(m.grabMode(g.x2 - 1, g.y, { kind: 'gate', index: 0 })).toBe('resize-right');
+    expect(m.grabMode(g.x1 + 1, g.y, { kind: 'gate', index: 0 })).toBe('resize-start');
+    expect(m.grabMode(g.x2 - 1, g.y, { kind: 'gate', index: 0 })).toBe('resize-end');
     expect(m.grabMode((g.x1 + g.x2) / 2, g.y, { kind: 'gate', index: 0 })).toBe('move');
   });
 });
@@ -58,7 +58,7 @@ describe('エディタの移動', () => {
     const m = model();
     m.select({ kind: 'gate', index: 0 });
     const g = m.def.gates[0];
-    m.resizeTo('resize-right', g.x1 + 1);
+    m.resizeTo('resize-end', g.x1 + 1);
     expect(m.def.gates[0].x2 - m.def.gates[0].x1).toBeGreaterThanOrEqual(CONFIG.EDITOR_MIN_WIDTH);
   });
 });
@@ -100,6 +100,192 @@ describe('エディタの追加・削除', () => {
     const m = model();
     m.select({ kind: 'jumper', index: 0 });
     expect(() => m.setMultiplier(10)).not.toThrow();
+  });
+});
+
+describe('ジャンプ台の跳ね上限', () => {
+  it('台ごとに跳ね返せる玉の個数を変えられる', () => {
+    const m = model();
+    m.select({ kind: 'jumper', index: 0 });
+    m.setCapacity(40);
+    expect(m.def.jumpers[0].capacity).toBe(40);
+    expect(m.buildStage().jumpers[0].capacity).toBe(40);
+  });
+
+  it('指定していない台は CONFIG の既定値になる', () => {
+    const m = model();
+    expect(m.def.jumpers[0].capacity).toBeUndefined();
+    expect(m.buildStage().jumpers[0].capacity).toBe(CONFIG.JUMPER_CAPACITY);
+    expect(m.capacityOf({ kind: 'jumper', index: 0 })).toBe(CONFIG.JUMPER_CAPACITY);
+  });
+
+  it('⚠️ 0以下や壊れた値は入らない（0にすると台が最初から死ぬ）', () => {
+    const m = model();
+    m.select({ kind: 'jumper', index: 0 });
+    m.setCapacity(0);
+    expect(m.def.jumpers[0].capacity).toBe(1);
+    m.setCapacity(Number.NaN);
+    expect(m.def.jumpers[0].capacity).toBe(1);
+  });
+
+  it('跳ね上限の変更はゲートには効かない', () => {
+    const m = model();
+    m.select({ kind: 'gate', index: 0 });
+    expect(() => m.setCapacity(40)).not.toThrow();
+    expect(m.capacityOf({ kind: 'gate', index: 0 })).toBeNull();
+  });
+});
+
+describe('ジャンプ台は最下段に1台まで', () => {
+  it('⚠️ 2台目は足せない', () => {
+    const m = model();
+    expect(m.def.jumpers).toHaveLength(1);
+    expect(m.canAddJumper()).toBe(false);
+    m.addJumper();
+    expect(m.def.jumpers).toHaveLength(1);
+  });
+
+  it('消せばまた足せる', () => {
+    const m = model();
+    m.select({ kind: 'jumper', index: 0 });
+    m.deleteSelected();
+    expect(m.canAddJumper()).toBe(true);
+    m.addJumper();
+    expect(m.def.jumpers).toHaveLength(1);
+  });
+
+  it('⚠️ 最下段の帯より上へは動かせない', () => {
+    const m = model();
+    m.select({ kind: 'jumper', index: 0 });
+    m.moveTo(180, 100);
+    expect(m.def.jumpers[0].y).toBeGreaterThanOrEqual(CONFIG.JUMPER_ZONE_TOP);
+  });
+
+  it('ゲートは帯の制限を受けない', () => {
+    const m = model();
+    m.select({ kind: 'gate', index: 0 });
+    m.moveTo(180, 100);
+    expect(m.def.gates[0].y).toBe(100);
+  });
+
+  it('数値を打ち込んでも帯の外へは出せない', () => {
+    const m = model();
+    m.select({ kind: 'jumper', index: 0 });
+    m.def.jumpers[0].y = 50;
+    m.normalizeSelected();
+    expect(m.def.jumpers[0].y).toBe(CONFIG.JUMPER_ZONE_TOP);
+  });
+});
+
+describe('中身の振り直し', () => {
+  it('位置は変わらず、倍率と跳ね上限だけ変わる', () => {
+    const m = model();
+    const before = m.def.gates.map((g) => [g.x1, g.x2, g.y]);
+    m.roll(12345);
+    expect(m.def.gates.map((g) => [g.x1, g.x2, g.y])).toEqual(before);
+    expect(m.def.jumpers[0].capacity).toBeGreaterThanOrEqual(CONFIG.JUMPER_CAPACITY_MIN);
+    expect(m.selected).toBeNull();
+  });
+});
+
+describe('仕切り棒の編集', () => {
+  it('仕切りの上を指すと選べる', () => {
+    const m = model();
+    const d = m.def.dividers[0];
+    expect(m.pick((d.x1 + d.x2) / 2, (d.y1 + d.y2) / 2)).toEqual({ kind: 'divider', index: 0 });
+  });
+
+  it('⚠️ ゲートと重なる所ではゲートが優先される（細い線に取られると掴めない）', () => {
+    const m = model();
+    const d = m.def.dividers[0];
+    m.def.gates[0].y = d.y1 + 10;
+    m.def.gates[0].x1 = d.x1 - 40;
+    m.def.gates[0].x2 = d.x1 + 40;
+    expect(m.pick(d.x1, d.y1 + 10)).toEqual({ kind: 'gate', index: 0 });
+  });
+
+  it('端点をつかむと長さを変えるモードになる', () => {
+    const m = model();
+    const d = m.def.dividers[0];
+    const sel = { kind: 'divider', index: 0 } as const;
+    expect(m.grabMode(d.x1, d.y1 + 2, sel)).toBe('resize-start');
+    expect(m.grabMode(d.x2, d.y2 - 2, sel)).toBe('resize-end');
+    expect(m.grabMode((d.x1 + d.x2) / 2, (d.y1 + d.y2) / 2, sel)).toBe('move');
+  });
+
+  it('端点は縦にも横にも動く（斜めの仕切りが作れる）', () => {
+    const m = model();
+    m.select({ kind: 'divider', index: 0 });
+    m.resizeTo('resize-end', 250, 400);
+    const d = m.def.dividers[0];
+    expect(d.x2).toBe(250);
+    expect(d.y2).toBe(400);
+  });
+
+  it('⚠️ 短すぎる仕切りにはならない（向きを保ったまま最小の長さまで伸びる）', () => {
+    const m = model();
+    m.select({ kind: 'divider', index: 0 });
+    const d = m.def.dividers[0];
+    m.resizeTo('resize-end', d.x1, d.y1 + 1);
+    const len = Math.hypot(d.x2 - d.x1, d.y2 - d.y1);
+    expect(len).toBeGreaterThanOrEqual(CONFIG.EDITOR_MIN_WIDTH);
+  });
+
+  it('動かすと形を保ったまま平行移動する', () => {
+    const m = model();
+    m.select({ kind: 'divider', index: 0 });
+    const before = m.def.dividers[0];
+    const len = Math.hypot(before.x2 - before.x1, before.y2 - before.y1);
+    m.moveTo(120, 400);
+    const after = m.def.dividers[0];
+    expect(Math.hypot(after.x2 - after.x1, after.y2 - after.y1)).toBeCloseTo(len);
+    expect((after.x1 + after.x2) / 2).toBe(120);
+    expect((after.y1 + after.y2) / 2).toBe(400);
+  });
+
+  it('仕切りを足せる・消せる', () => {
+    const m = model();
+    const before = m.def.dividers.length;
+    m.addDivider();
+    expect(m.def.dividers.length).toBe(before + 1);
+    expect(m.selected).toEqual({ kind: 'divider', index: before });
+    m.deleteSelected();
+    expect(m.def.dividers.length).toBe(before);
+    expect(m.selected).toBeNull();
+  });
+
+  it('仕切りは実行時のステージの線分になる', () => {
+    const m = model();
+    m.addDivider();
+    const stage = m.buildStage();
+    // 仕切り + V字漏斗の2枚
+    expect(stage.segments.length).toBe(m.def.dividers.length + 2);
+  });
+});
+
+describe('保存したステージを開く', () => {
+  it('読み込むと中身が入れ替わって選択が外れる', () => {
+    const m = model();
+    m.select({ kind: 'gate', index: 0 });
+    m.load({ name: 'foo', gates: [], jumpers: [], dividers: [] });
+    expect(m.def.name).toBe('foo');
+    expect(m.def.gates).toHaveLength(0);
+    expect(m.selected).toBeNull();
+  });
+
+  it('⚠️ 手で書き換えて欠けたJSONでも落ちない（項目が無ければ空で埋める）', () => {
+    const m = model();
+    m.load(normalizeStageDef({ name: 'broken', gates: [{ x1: 10, x2: 90, y: 100 }] }));
+    expect(m.def.jumpers).toEqual([]);
+    expect(m.def.dividers).toEqual([]);
+    expect(m.def.gates[0].multiplier).toBe(2);
+    expect(() => m.buildStage()).not.toThrow();
+  });
+
+  it('名前が無いJSONでも読める', () => {
+    const def = normalizeStageDef({});
+    expect(typeof def.name).toBe('string');
+    expect(def.gates).toEqual([]);
   });
 });
 

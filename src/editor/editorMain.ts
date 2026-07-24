@@ -2,7 +2,7 @@ import { BallPool } from '../core/ball';
 import { CONFIG } from '../core/config';
 import { Session } from '../core/session';
 import { stageToWorld } from '../core/stage';
-import { DEFAULT_STAGE_DEF, type StageDef } from '../core/stageDef';
+import { DEFAULT_STAGE_DEF, normalizeStageDef, type StageDef } from '../core/stageDef';
 import { loadArt } from '../render/art';
 import { CanvasRenderer } from '../render/canvasRenderer';
 import { MATERIALS } from '../render/theme';
@@ -40,30 +40,56 @@ function draw(): void {
   requestAnimationFrame(draw);
 }
 
-/** 選択中のバーを枠で囲う。renderer には触らず、上から重ねて描く */
+/** 選択中のものを強調する。renderer には触らず、上から重ねて描く */
 function drawSelection(): void {
   const sel = model.selected;
   if (!sel) return;
-  const list = sel.kind === 'gate' ? model.def.gates : model.def.jumpers;
-  const b = list[sel.index];
-  if (!b) return;
 
   const r = renderer.boardRectCss();
   const s = r.width / CONFIG.BOARD_WIDTH;
   const canvas = boardEl.querySelector('canvas') as HTMLCanvasElement;
   const ctx = canvas.getContext('2d')!;
   const dpr = window.devicePixelRatio || 1;
+  const px = (x: number) => (r.left + x * s) * dpr;
+  const py = (y: number) => (r.top + y * s) * dpr;
+
+  // ⚠️ 仕切りは真鍮色で描かれているので、枠まで真鍮だと選択中か分からない（実機で確認）
+  const color = sel.kind === 'divider' ? '#fdf6ec' : '#e6b862';
 
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.strokeStyle = '#e6b862';
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
   ctx.lineWidth = 2 * dpr;
   ctx.setLineDash([6 * dpr, 4 * dpr]);
-  const x = (r.left + b.x1 * s) * dpr;
-  const y = (r.top + b.y * s) * dpr;
-  const w = (b.x2 - b.x1) * s * dpr;
-  const h = 18 * s * dpr;
-  ctx.strokeRect(x - 3 * dpr, y - h / 2, w + 6 * dpr, h);
+
+  if (sel.kind === 'divider') {
+    const d = model.def.dividers[sel.index];
+    if (d) {
+      ctx.lineWidth = 3 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(px(d.x1), py(d.y1));
+      ctx.lineTo(px(d.x2), py(d.y2));
+      ctx.stroke();
+      // 端の点＝つかむと長さと向きが変わる場所
+      ctx.setLineDash([]);
+      for (const [x, y] of [
+        [d.x1, d.y1],
+        [d.x2, d.y2],
+      ]) {
+        ctx.beginPath();
+        ctx.arc(px(x), py(y), 5 * dpr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  } else {
+    const list = sel.kind === 'gate' ? model.def.gates : model.def.jumpers;
+    const b = list[sel.index];
+    if (b) {
+      const h = 18 * s * dpr;
+      ctx.strokeRect(px(b.x1) - 3 * dpr, py(b.y) - h / 2, (b.x2 - b.x1) * s * dpr + 6 * dpr, h);
+    }
+  }
   ctx.restore();
 }
 
@@ -79,7 +105,13 @@ function toLogical(e: PointerEvent): { x: number; y: number } {
 }
 
 boardEl.addEventListener('pointerdown', (e) => {
-  if (session) return; // 試遊中は編集しない
+  // 試遊中はゲーム本体と同じ操作＝つかんだ所へ玉の出口を動かし、触った時点で落ち始める
+  if (session) {
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    session.setCupX(renderer.toLogicalX(e.clientX));
+    session.start();
+    return;
+  }
   const p = toLogical(e);
   const hit = model.pick(p.x, p.y);
   model.select(hit);
@@ -89,11 +121,16 @@ boardEl.addEventListener('pointerdown', (e) => {
 });
 
 boardEl.addEventListener('pointermove', (e) => {
-  if (session || !grab || !model.selected) return;
+  if (session) {
+    if (e.pointerType === 'mouse' && e.buttons === 0) return; // マウスは押している間だけ
+    session.setCupX(renderer.toLogicalX(e.clientX));
+    return;
+  }
+  if (!grab || !model.selected) return;
   if (e.buttons === 0) return;
   const p = toLogical(e);
   if (grab === 'move') model.moveTo(p.x, p.y);
-  else model.resizeTo(grab, p.x);
+  else model.resizeTo(grab, p.x, p.y); // 仕切りは縦にも動くので y も渡す
   rebuild();
   syncPanel();
 });
@@ -104,6 +141,8 @@ window.addEventListener('pointerup', () => {
 
 // ── 右パネル ──
 const MULTIPLIERS = [2, 3, 4, 10];
+/** 跳ね上限のよく使う値。ここを振ってラウンドの長さを探る */
+const CAPACITIES = [50, 100, 200, 400];
 
 function syncPanel(): void {
   const sel = model.selected;
@@ -111,28 +150,67 @@ function syncPanel(): void {
   el<HTMLDivElement>('sel-panel').hidden = !sel;
   el<HTMLButtonElement>('add-gate').disabled = !model.canAddGate();
   el<HTMLButtonElement>('add-jumper').disabled = !model.canAddJumper();
+  el<HTMLButtonElement>('add-divider').disabled = !model.canAddDivider();
   if (!sel) return;
+
+  const isDivider = sel.kind === 'divider';
+  el<HTMLDivElement>('bar-fields').hidden = isDivider;
+  el<HTMLDivElement>('divider-fields').hidden = !isDivider;
+  el<HTMLDivElement>('mult-row').hidden = sel.kind !== 'gate';
+  el<HTMLDivElement>('cap-row').hidden = sel.kind !== 'jumper';
+
+  const label = { gate: 'ゲート', jumper: 'ジャンプ台', divider: '仕切り' }[sel.kind];
+  el<HTMLSpanElement>('sel-kind').textContent = `${label} ${sel.index + 1}`;
+
+  if (isDivider) {
+    const d = model.def.dividers[sel.index];
+    if (!d) return;
+    el<HTMLInputElement>('d-x1').value = String(Math.round(d.x1));
+    el<HTMLInputElement>('d-y1').value = String(Math.round(d.y1));
+    el<HTMLInputElement>('d-x2').value = String(Math.round(d.x2));
+    el<HTMLInputElement>('d-y2').value = String(Math.round(d.y2));
+    return;
+  }
 
   const list = sel.kind === 'gate' ? model.def.gates : model.def.jumpers;
   const b = list[sel.index];
-  el<HTMLSpanElement>('sel-kind').textContent =
-    sel.kind === 'gate' ? `ゲート ${sel.index + 1}` : `ジャンプ台 ${sel.index + 1}`;
+  if (!b) return;
   el<HTMLInputElement>('f-y').value = String(Math.round(b.y));
   el<HTMLInputElement>('f-x1').value = String(Math.round(b.x1));
   el<HTMLInputElement>('f-x2').value = String(Math.round(b.x2));
 
-  // 倍率はゲートだけ
-  el<HTMLDivElement>('mult-row').hidden = sel.kind !== 'gate';
-  const cur = sel.kind === 'gate' ? model.def.gates[sel.index].multiplier : 0;
-  el<HTMLDivElement>('mults').innerHTML = MULTIPLIERS.map(
-    (n) => `<button data-mult="${n}" class="${n === cur ? 'on' : ''}">×${n}</button>`,
-  ).join('');
+  if (sel.kind === 'gate') {
+    const cur = model.def.gates[sel.index].multiplier;
+    el<HTMLDivElement>('mults').innerHTML = MULTIPLIERS.map(
+      (n) => `<button data-mult="${n}" class="${n === cur ? 'on' : ''}">×${n}</button>`,
+    ).join('');
+  } else {
+    const cur = model.capacityOf(sel) ?? CONFIG.JUMPER_CAPACITY;
+    el<HTMLInputElement>('f-cap').value = String(cur);
+    el<HTMLDivElement>('caps').innerHTML = CAPACITIES.map(
+      (n) => `<button data-cap="${n}" class="${n === cur ? 'on' : ''}">${n}</button>`,
+    ).join('');
+  }
 }
 
 el<HTMLDivElement>('mults').addEventListener('click', (e) => {
   const b = (e.target as HTMLElement).closest('button');
   if (!b) return;
   model.setMultiplier(Number(b.dataset.mult));
+  rebuild();
+  syncPanel();
+});
+
+el<HTMLDivElement>('caps').addEventListener('click', (e) => {
+  const b = (e.target as HTMLElement).closest('button');
+  if (!b) return;
+  model.setCapacity(Number(b.dataset.cap));
+  rebuild();
+  syncPanel();
+});
+
+el<HTMLInputElement>('f-cap').addEventListener('change', (e) => {
+  model.setCapacity(Number((e.target as HTMLInputElement).value));
   rebuild();
   syncPanel();
 });
@@ -145,13 +223,39 @@ for (const [id, apply] of [
 ] as const) {
   el<HTMLInputElement>(id).addEventListener('change', (e) => {
     const sel = model.selected;
-    if (!sel) return;
+    if (!sel || sel.kind === 'divider') return;
     const list = sel.kind === 'gate' ? model.def.gates : model.def.jumpers;
     apply(list[sel.index] as never, Number((e.target as HTMLInputElement).value));
+    model.normalizeSelected(); // 打ち込みでも制約を割らせない
     rebuild();
     syncPanel();
   });
 }
+
+for (const [id, key] of [
+  ['d-x1', 'x1'],
+  ['d-y1', 'y1'],
+  ['d-x2', 'x2'],
+  ['d-y2', 'y2'],
+] as const) {
+  el<HTMLInputElement>(id).addEventListener('change', (e) => {
+    const sel = model.selected;
+    if (!sel || sel.kind !== 'divider') return;
+    model.def.dividers[sel.index][key] = Number((e.target as HTMLInputElement).value);
+    model.normalizeSelected();
+    rebuild();
+    syncPanel();
+  });
+}
+
+el<HTMLButtonElement>('roll').addEventListener('click', () => {
+  stopPlay();
+  model.roll(Date.now());
+  rebuild();
+  syncPanel();
+  const caps = model.def.jumpers.map((j) => j.capacity).join('/');
+  setStatus(`中身を振り直したよ（倍率 ${model.def.gates.map((g) => g.multiplier).join('/')}／跳ね上限 ${caps}）`);
+});
 
 el<HTMLButtonElement>('add-gate').addEventListener('click', () => {
   model.addGate();
@@ -163,6 +267,11 @@ el<HTMLButtonElement>('add-jumper').addEventListener('click', () => {
   rebuild();
   syncPanel();
 });
+el<HTMLButtonElement>('add-divider').addEventListener('click', () => {
+  model.addDivider();
+  rebuild();
+  syncPanel();
+});
 el<HTMLButtonElement>('del').addEventListener('click', () => {
   model.deleteSelected();
   rebuild();
@@ -170,13 +279,34 @@ el<HTMLButtonElement>('del').addEventListener('click', () => {
 });
 
 el<HTMLButtonElement>('reset').addEventListener('click', () => {
+  stopPlay();
   model = new EditorModel(structuredClone(DEFAULT_STAGE_DEF));
+  el<HTMLInputElement>('name').value = model.def.name;
   rebuild();
   syncPanel();
-  setStatus('既定のステージを読み直したよ');
+  setStatus('最初の配置に戻したよ');
 });
 
-// ── 保存（開発サーバーがファイルに書く。コピペはさせない）──
+// ── 保存・読み込み（開発サーバーがファイルを扱う。コピペはさせない）──
+async function refreshStageList(): Promise<void> {
+  const box = el<HTMLSelectElement>('open-name');
+  try {
+    const res = await fetch('/__stages');
+    const names: string[] = (await res.json())?.stages ?? [];
+    const keep = box.value;
+    box.innerHTML = names.length
+      ? names.map((n) => `<option value="${n}">${n}</option>`).join('')
+      : '<option value="">（保存はまだ無いよ）</option>';
+    if (names.includes(keep)) box.value = keep;
+    el<HTMLButtonElement>('open').disabled = names.length === 0;
+  } catch {
+    // 開発サーバー以外（ビルド版）で開いた時はここに来る。保存・読み込みは使えない
+    box.innerHTML = '<option value="">（開発サーバーでだけ使えるよ）</option>';
+    el<HTMLButtonElement>('open').disabled = true;
+    el<HTMLButtonElement>('save').disabled = true;
+  }
+}
+
 el<HTMLButtonElement>('save').addEventListener('click', async () => {
   const def: StageDef = { ...model.def, name: el<HTMLInputElement>('name').value.trim() };
   try {
@@ -186,25 +316,61 @@ el<HTMLButtonElement>('save').addEventListener('click', async () => {
       body: JSON.stringify(def),
     });
     const body = await res.json().catch(() => ({}));
-    setStatus(res.ok ? `保存したよ → ${body.file}` : `保存できなかった: ${body.error ?? res.status}`);
+    if (res.ok) {
+      model.def.name = def.name;
+      setStatus(`保存したよ → ${body.file}`);
+      await refreshStageList();
+      el<HTMLSelectElement>('open-name').value = def.name;
+    } else {
+      setStatus(`保存できなかった: ${body.error ?? res.status}`);
+    }
   } catch (e) {
     setStatus(`保存できなかった: ${String(e)}`);
   }
 });
 
+el<HTMLButtonElement>('open').addEventListener('click', async () => {
+  const name = el<HTMLSelectElement>('open-name').value;
+  if (!name) return;
+  try {
+    const res = await fetch(`/__stages?name=${encodeURIComponent(name)}`);
+    if (!res.ok) {
+      setStatus(`開けなかった: ${res.status}`);
+      return;
+    }
+    stopPlay();
+    // ⚠️ 手で直したJSONでも落ちないように整えてから入れる
+    model.load(normalizeStageDef(await res.json()));
+    el<HTMLInputElement>('name').value = model.def.name;
+    rebuild();
+    syncPanel();
+    setStatus(`${name} を開いたよ`);
+  } catch (e) {
+    setStatus(`開けなかった: ${String(e)}`);
+  }
+});
+
 // ── 試し撃ち ──
-el<HTMLButtonElement>('play').addEventListener('click', () => {
+function stopPlay(): void {
+  if (!session) return;
+  session = null;
   const btn = el<HTMLButtonElement>('play');
+  btn.textContent = '試遊する';
+  btn.classList.remove('on');
+}
+
+el<HTMLButtonElement>('play').addEventListener('click', () => {
   if (session) {
-    session = null;
-    btn.textContent = '試遊する';
-    btn.classList.remove('on');
+    stopPlay();
     return;
   }
+  const btn = el<HTMLButtonElement>('play');
+  // ⚠️ ここでは start() しない。ゲーム本体と同じで、盤面を触った所から落ち始める
+  //    ＝出口の位置を決めてから始められるようにするため（配置の良し悪しはここで変わる）
   session = new Session(model.buildStage());
-  session.start();
   btn.textContent = '編集に戻る';
   btn.classList.add('on');
+  setStatus('盤面をドラッグすると出口が動くよ。触ったところから落ち始める');
 });
 
 // 試遊中は毎フレーム進める
@@ -217,6 +383,7 @@ void renderer.init(boardEl, stageToWorld(stage)).then(() =>
   loadArt([...MATERIALS.map((m) => m.board), 'bucket-wood.png']).then(() => {
     renderer.setMaterial(MATERIALS[0]);
     syncPanel();
+    void refreshStageList();
     requestAnimationFrame(draw);
   }),
 );

@@ -56,7 +56,7 @@
 
       .field { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
       .field label { width: 62px; font-size: 12px; color: var(--sub); }
-      .field input {
+      .field input, .field select {
         flex: 1; min-width: 0; padding: 8px 10px;
         border: 1px solid var(--line); border-radius: 8px;
         background: #120c07; color: var(--ink); font: 13px inherit;
@@ -82,7 +82,14 @@
         </div>
         <div class="row">
           <button id="save" class="primary">保存</button>
-          <button id="reset">読み直す</button>
+        </div>
+        <div class="field" style="margin-top: 12px">
+          <label for="open-name">開く</label>
+          <select id="open-name"></select>
+        </div>
+        <div class="row">
+          <button id="open">読み込む</button>
+          <button id="reset">最初の配置に戻す</button>
         </div>
         <div id="status"></div>
       </div>
@@ -92,6 +99,20 @@
         <div class="row">
           <button id="add-gate">ゲート追加</button>
           <button id="add-jumper">ジャンプ台追加</button>
+          <button id="add-divider">仕切り追加</button>
+        </div>
+        <div class="hint" style="margin: 10px 0 0">
+          ジャンプ台は最下段に1台まで。
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="t">中身</div>
+        <div class="row">
+          <button id="roll">中身を振り直す</button>
+        </div>
+        <div class="hint" style="margin: 10px 0 0">
+          ゲートの倍率とジャンプ台の跳ね上限は、<strong>本番だと始めるたびに抽選</strong>されるよ。ここでは押した時だけ振り直す（配置を比べる間は動かない）。
         </div>
       </div>
 
@@ -103,22 +124,61 @@
             <label>種類</label>
             <span id="sel-kind"></span>
           </div>
-          <div class="field">
-            <label for="f-y">上下</label>
-            <input id="f-y" type="number" step="5" />
+
+          <div id="bar-fields">
+            <div class="field">
+              <label for="f-y">上下</label>
+              <input id="f-y" type="number" step="5" />
+            </div>
+            <div class="field">
+              <label for="f-x1">左端</label>
+              <input id="f-x1" type="number" step="5" />
+            </div>
+            <div class="field">
+              <label for="f-x2">右端</label>
+              <input id="f-x2" type="number" step="5" />
+            </div>
           </div>
-          <div class="field">
-            <label for="f-x1">左端</label>
-            <input id="f-x1" type="number" step="5" />
+
+          <div id="divider-fields" hidden>
+            <div class="field">
+              <label for="d-x1">上端 X</label>
+              <input id="d-x1" type="number" step="5" />
+            </div>
+            <div class="field">
+              <label for="d-y1">上端 Y</label>
+              <input id="d-y1" type="number" step="5" />
+            </div>
+            <div class="field">
+              <label for="d-x2">下端 X</label>
+              <input id="d-x2" type="number" step="5" />
+            </div>
+            <div class="field">
+              <label for="d-y2">下端 Y</label>
+              <input id="d-y2" type="number" step="5" />
+            </div>
+            <div class="hint" style="margin: 0 0 4px">
+              端の点をドラッグすると斜めにもできるよ。
+            </div>
           </div>
-          <div class="field">
-            <label for="f-x2">右端</label>
-            <input id="f-x2" type="number" step="5" />
-          </div>
+
           <div id="mult-row">
             <div class="t" style="margin: 12px 0 8px">倍率</div>
             <div class="row" id="mults"></div>
           </div>
+
+          <div id="cap-row" hidden>
+            <div class="t" style="margin: 12px 0 8px">跳ね返せる玉の数</div>
+            <div class="row" id="caps"></div>
+            <div class="field" style="margin-top: 8px">
+              <label for="f-cap">上限</label>
+              <input id="f-cap" type="number" step="10" min="1" />
+            </div>
+            <div class="hint" style="margin: 0 0 4px">
+              ラウンドの長さはここで決まる。少ないほど早く終わるよ。
+            </div>
+          </div>
+
           <div class="row" style="margin-top: 12px">
             <button id="del" class="danger">削除</button>
           </div>
@@ -131,7 +191,7 @@
           <button id="play">試遊する</button>
         </div>
         <div class="hint" style="margin: 10px 0 0">
-          いまの配置でR1を回します。もう一度押すと編集に戻ります。
+          いまの配置でR1を回します。盤面をドラッグすると玉の出口が動いて、触ったところから落ち始めるよ。もう一度押すと編集に戻ります。
         </div>
       </div>
     </aside>

@@ -1,16 +1,29 @@
 import { defineConfig, type Plugin } from 'vite';
 import { fileURLToPath } from 'node:url';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const dir = fileURLToPath(new URL('.', import.meta.url));
+const stageDir = join(dir, 'src', 'stages');
+
+/** ⚠️ 名前は英数字・ハイフン・アンダースコアだけ（パスを外に出させない） */
+const SAFE_NAME = /^[A-Za-z0-9_-]+$/;
+
+function sendJson(res: { setHeader: (k: string, v: string) => void; end: (s: string) => void }, body: unknown): void {
+  res.setHeader('content-type', 'application/json');
+  res.end(JSON.stringify(body));
+}
 
 /**
- * ステージエディタの保存口（開発サーバー専用）。
+ * ステージエディタの保存・読み込み口（開発サーバー専用）。
  *
- * ブラウザからはファイルを書けないので、開発サーバーに口を1つ足して
- * `src/stages/<name>.json` へ直接書く。**手でコピペさせないため**。
+ * ブラウザからはファイルを読み書きできないので、開発サーバーに口を足して
+ * `src/stages/<name>.json` を直接扱う。**手でコピペさせないため**。
  * ⚠️ 本番ビルドには入らない（apply: 'serve'）。
+ *
+ * - `POST /__save-stage` … 保存（body = StageDef）
+ * - `GET  /__stages`      … 保存済みの名前一覧
+ * - `GET  /__stages?name=x` … その中身
  */
 function stageSaver(): Plugin {
   return {
@@ -27,23 +40,51 @@ function stageSaver(): Plugin {
         req.on('end', () => {
           try {
             const def = JSON.parse(body);
-            // ⚠️ 名前は英数字・ハイフン・アンダースコアだけ（パスを外に出させない）
             const name = String(def?.name ?? '').trim();
-            if (!/^[A-Za-z0-9_-]+$/.test(name)) {
+            if (!SAFE_NAME.test(name)) {
               res.statusCode = 400;
               return res.end('name は英数字・- ・_ のみです');
             }
-            const outDir = join(dir, 'src', 'stages');
-            mkdirSync(outDir, { recursive: true });
-            const file = join(outDir, `${name}.json`);
+            mkdirSync(stageDir, { recursive: true });
+            const file = join(stageDir, `${name}.json`);
             writeFileSync(file, `${JSON.stringify(def, null, 2)}\n`, 'utf-8');
-            res.setHeader('content-type', 'application/json');
-            res.end(JSON.stringify({ ok: true, file: `src/stages/${name}.json` }));
+            sendJson(res, { ok: true, file: `src/stages/${name}.json` });
           } catch (e) {
             res.statusCode = 400;
             res.end(String(e));
           }
         });
+      });
+
+      server.middlewares.use('/__stages', (req, res) => {
+        if (req.method !== 'GET') {
+          res.statusCode = 405;
+          return res.end('GET only');
+        }
+        const name = new URL(req.url ?? '/', 'http://localhost').searchParams.get('name');
+
+        // 名前の指定なし = 一覧（保存前は空。ディレクトリが無くても落とさない）
+        if (!name) {
+          const names = existsSync(stageDir)
+            ? readdirSync(stageDir)
+                .filter((f) => f.endsWith('.json'))
+                .map((f) => f.slice(0, -'.json'.length))
+                .sort()
+            : [];
+          return sendJson(res, { stages: names });
+        }
+
+        if (!SAFE_NAME.test(name)) {
+          res.statusCode = 400;
+          return res.end('name は英数字・- ・_ のみです');
+        }
+        const file = join(stageDir, `${name}.json`);
+        if (!existsSync(file)) {
+          res.statusCode = 404;
+          return res.end('そのステージは無いよ');
+        }
+        res.setHeader('content-type', 'application/json');
+        res.end(readFileSync(file, 'utf-8'));
       });
     },
   };
