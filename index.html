@@ -202,7 +202,29 @@
         font: 700 11px/1 inherit; letter-spacing: 0.22em; color: var(--sub); margin-bottom: 6px;
       }
       .hs-panel .more { font: 700 12px/1 inherit; letter-spacing: 0; color: var(--accent); }
-      .title-foot { margin-top: 30px; }
+      .total-line {
+        width: 100%; margin-top: 12px;
+        display: flex; align-items: center; gap: 10px;
+        background: transparent; border: 0; cursor: pointer;
+        color: var(--sub); font: 700 12px/1 inherit; letter-spacing: 0.14em;
+        padding: 8px 6px;
+      }
+      .total-line .tl-val {
+        color: var(--ink); font-size: 15px; letter-spacing: -0.01em;
+        font-variant-numeric: tabular-nums;
+      }
+      .total-line .tl-rank { margin-left: auto; color: var(--accent); letter-spacing: 0.06em; }
+      .total-line:active { opacity: 0.7; }
+
+      /* リザルトの添えトータル1行 */
+      .result-total {
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        margin: 16px 0 2px; font: 700 12px/1 inherit; letter-spacing: 0.1em; color: var(--sub);
+      }
+      .result-total .rt-val { color: var(--ink); font-size: 14px; font-variant-numeric: tabular-nums; }
+      .result-total .rt-rank { color: var(--accent); }
+
+      .title-foot { margin-top: 22px; }
       .title-foot button {
         font: 700 13px/1 inherit; letter-spacing: 0.06em; color: var(--sub);
         border: 1px solid var(--panel-line); border-radius: 999px;
@@ -272,6 +294,11 @@
           <div class="t">HIGH SCORE<span class="more">すべて見る ›</span></div>
           <div class="rank-list" id="title-hs-list"></div>
         </div>
+        <button class="total-line" id="title-total">
+          <span class="tl-label">TOTAL</span>
+          <span class="tl-val" id="title-total-val">0</span>
+          <span class="tl-rank" id="title-total-rank">世界 #—</span>
+        </button>
         <div class="title-foot">
           <button id="title-editor">ステージエディタ</button>
         </div>
@@ -286,10 +313,27 @@
         <div id="result-score">0</div>
         <div class="badge" id="result-badge" hidden>NEW RECORD</div>
         <div class="rank-list" id="result-list"></div>
-        <div class="row" style="margin-top: 22px">
+        <div class="result-total">
+          <span>TOTAL</span>
+          <span class="rt-val" id="result-total-val">0</span>
+          <span class="rt-rank" id="result-total-rank">世界 #—</span>
+        </div>
+        <div class="row" style="margin-top: 16px">
           <button class="btn ghost" id="result-title">タイトルへ</button>
           <button class="btn" id="result-retry">もう一回</button>
         </div>
+      </div>
+    </div>
+
+    <!-- トータルランキング（疑似・ローカル） -->
+    <div class="screen" id="screen-total" hidden>
+      <div class="backdrop"></div>
+      <div class="sheet">
+        <div class="head">
+          <button class="back" id="total-back" aria-label="戻る">‹</button>
+          <h2>TOTAL RANKING</h2>
+        </div>
+        <div class="body"><div class="rank-list" id="total-list"></div></div>
       </div>
     </div>
 

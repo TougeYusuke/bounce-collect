@@ -1,15 +1,17 @@
 import { loadScores, type ScoreEntry } from './scores';
+import { getTotal, myTotalRank, totalRanking } from './totals';
 
 /**
  * 画面遷移。表示状態を持つのはここだけに閉じ込める。
  * 'play' は「何も被せない」状態＝全オーバーレイを消すだけ。
  */
-export type ScreenName = 'title' | 'play' | 'result' | 'scores';
+export type ScreenName = 'title' | 'play' | 'result' | 'scores' | 'total';
 
 const IDS: Record<Exclude<ScreenName, 'play'>, string> = {
   title: 'screen-title',
   result: 'screen-result',
   scores: 'screen-scores',
+  total: 'screen-total',
 };
 
 let current: ScreenName = 'title';
@@ -62,6 +64,35 @@ export function renderScoresList(): void {
   el.innerHTML = rankRows(loadScores(), -1, loadScores().length || 1);
 }
 
+/** 「TOTAL 1,234,567」と「世界 #12」を要素にセットする（タイトルとリザルトで共用） */
+function fillTotal(valId: string, rankId: string): void {
+  (document.getElementById(valId) as HTMLElement).textContent =
+    getTotal().toLocaleString('ja-JP');
+  (document.getElementById(rankId) as HTMLElement).textContent = `世界 #${myTotalRank()}`;
+}
+
+/** タイトルの添えトータル行を更新する */
+export function renderTitleTotal(): void {
+  fillTotal('title-total-val', 'title-total-rank');
+}
+
+/** トータルランキング（架空プレイヤー＋自分）を描く */
+export function renderTotalRanking(): void {
+  const rows = totalRanking()
+    .map((r, i) => {
+      const me = r.isMe ? ' me' : '';
+      return (
+        `<div class="rank-row${me}">` +
+        `<div class="no">${i + 1}</div>` +
+        `<div class="v">${r.name}</div>` +
+        `<div class="d" style="font-size:14px">${r.total.toLocaleString('ja-JP')}</div>` +
+        `</div>`
+      );
+    })
+    .join('');
+  (document.getElementById('total-list') as HTMLElement).innerHTML = rows;
+}
+
 /**
  * リザルトを描いて表示する。
  * @param score 今回のスコア
@@ -76,5 +107,7 @@ export function renderResult(score: number, rank: number): void {
     rank,
     5,
   );
+  // 累積スコアはこの時点で加算済み（main の loop 参照）。ここでは表示するだけ
+  fillTotal('result-total-val', 'result-total-rank');
   showScreen('result');
 }

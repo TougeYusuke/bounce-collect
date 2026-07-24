@@ -5,8 +5,17 @@ import { loadArt } from './render/art';
 import { MATERIALS, pickMaterial, type Material } from './render/theme';
 import { confirmDialog } from './ui/dialog';
 import { Hud } from './ui/hud';
-import { getScreen, renderResult, renderScoresList, renderTitleScores, showScreen } from './ui/screens';
+import {
+  getScreen,
+  renderResult,
+  renderScoresList,
+  renderTitleScores,
+  renderTitleTotal,
+  renderTotalRanking,
+  showScreen,
+} from './ui/screens';
 import { addScore } from './ui/scores';
+import { addTotal } from './ui/totals';
 
 const stageEl = document.getElementById('stage')!;
 const hintEl = document.getElementById('hint')!;
@@ -84,23 +93,29 @@ document.getElementById('title-scores')!.addEventListener('click', () => {
   renderScoresList();
   showScreen('scores');
 });
+document.getElementById('title-total')!.addEventListener('click', () => {
+  renderTotalRanking();
+  showScreen('total');
+});
 document.getElementById('title-editor')!.addEventListener('click', async () => {
   // ステージエディタは次フェーズ。今は入口だけ確保してある
   await confirmDialog('ステージエディタ', '次のアップデートで作るよ。もう少し待ってね！', 'とじる');
 });
 
-// ── リザルト ──
-document.getElementById('result-title')!.addEventListener('click', () => {
+// タイトルへ戻る（ハイスコアTOP5と添えトータルを描き直してから表示）
+function goToTitle(): void {
   renderTitleScores();
+  renderTitleTotal();
   showScreen('title');
-});
+}
+
+// ── リザルト ──
+document.getElementById('result-title')!.addEventListener('click', goToTitle);
 document.getElementById('result-retry')!.addEventListener('click', newRound);
 
-// ── ハイスコア一覧 ──
-document.getElementById('scores-back')!.addEventListener('click', () => {
-  renderTitleScores();
-  showScreen('title');
-});
+// ── ハイスコア一覧 ／ トータルランキング（どちらも戻るはタイトルへ） ──
+document.getElementById('scores-back')!.addEventListener('click', goToTitle);
+document.getElementById('total-back')!.addEventListener('click', goToTitle);
 
 window.addEventListener('resize', () => renderer.resize());
 
@@ -113,6 +128,8 @@ function loop(): void {
 
   if (session.finished && !shownResult) {
     shownResult = true;
+    // ⚠️ トータルはハイスコアの前に加算する（renderResult が加算後の累積を表示するため）
+    addTotal(session.score);
     const rank = addScore({ score: session.score, date: today(), material: material.name });
     renderResult(session.score, rank);
   }
@@ -122,8 +139,7 @@ function loop(): void {
 void renderer.init(stageEl, session.world).then(() =>
   loadArt([...MATERIALS.map((m) => m.board), 'bucket-wood.png']).then(() => {
     ready = true;
-    renderTitleScores();
-    showScreen('title');
+    goToTitle();
     requestAnimationFrame(loop);
   }),
 );
