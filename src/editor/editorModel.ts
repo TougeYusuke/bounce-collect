@@ -144,6 +144,22 @@ export class EditorModel {
   }
 
   /**
+   * 選択中のものを相対移動する（十字キー用）。
+   * ⚠️ 制約（盤面内・ジャンプ台の帯）は `moveTo` と同じものが効く。
+   */
+  moveBy(dx: number, dy: number): void {
+    const sel = this.selected;
+    if (!sel) return;
+    if (sel.kind === 'divider') {
+      const d = this.divider(sel);
+      this.moveTo((d.x1 + d.x2) / 2 + dx, (d.y1 + d.y2) / 2 + dy);
+      return;
+    }
+    const b = this.bar(sel);
+    this.moveTo((b.x1 + b.x2) / 2 + dx, b.y + dy);
+  }
+
+  /**
    * 端をドラッグして長さを変える。
    * ⚠️ 最小の長さを割らない（狭いと玉が通れない／短い仕切りは何も仕切らない）。
    * 仕切りは端点が縦にも動くので y も受け取る（バーは y を使わない）。

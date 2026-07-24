@@ -136,6 +136,51 @@ describe('ジャンプ台の跳ね上限', () => {
   });
 });
 
+describe('十字キーでの移動', () => {
+  it('相対に動かせる（吸着したまま）', () => {
+    const m = model();
+    m.select({ kind: 'gate', index: 0 });
+    const cx0 = (m.def.gates[0].x1 + m.def.gates[0].x2) / 2;
+    m.moveBy(CONFIG.EDITOR_GRID, 0);
+
+    // ⚠️ 1回目は「吸着に乗せる」ぶん、ちょうど1目盛りとは限らない
+    //    （既定ステージの座標は盤面幅の比率で決まっていてグリッド上にない）
+    const cx1 = (m.def.gates[0].x1 + m.def.gates[0].x2) / 2;
+    expect(cx1).toBeGreaterThan(cx0 - CONFIG.EDITOR_GRID);
+    expect(cx1 % CONFIG.EDITOR_GRID).toBe(0);
+
+    // 乗ってしまえば、以降はきっちり1目盛りずつ進む
+    m.moveBy(CONFIG.EDITOR_GRID, CONFIG.EDITOR_GRID);
+    const g = m.def.gates[0];
+    expect((g.x1 + g.x2) / 2).toBe(cx1 + CONFIG.EDITOR_GRID);
+    expect(g.y % CONFIG.EDITOR_GRID).toBe(0);
+  });
+
+  it('仕切りは形を保ったまま動く', () => {
+    const m = model();
+    m.select({ kind: 'divider', index: 0 });
+    const d = m.def.dividers[0];
+    const len = Math.hypot(d.x2 - d.x1, d.y2 - d.y1);
+    m.moveBy(-CONFIG.EDITOR_GRID, CONFIG.EDITOR_GRID * 2);
+    const after = m.def.dividers[0];
+    expect(Math.hypot(after.x2 - after.x1, after.y2 - after.y1)).toBeCloseTo(len);
+  });
+
+  it('⚠️ 十字キーでも制約は効く（ジャンプ台は帯から出ない）', () => {
+    const m = model();
+    m.select({ kind: 'jumper', index: 0 });
+    for (let i = 0; i < 40; i++) m.moveBy(0, -CONFIG.EDITOR_GRID);
+    expect(m.def.jumpers[0].y).toBeGreaterThanOrEqual(CONFIG.JUMPER_ZONE_TOP);
+  });
+
+  it('選択していない時は何も起きない', () => {
+    const m = model();
+    const before = structuredClone(m.def);
+    m.moveBy(5, 5);
+    expect(m.def).toEqual(before);
+  });
+});
+
 describe('ジャンプ台は最下段に1台まで', () => {
   it('⚠️ 2台目は足せない', () => {
     const m = model();

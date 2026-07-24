@@ -142,6 +142,29 @@ window.addEventListener('pointerup', () => {
   grab = null;
 });
 
+// ── 十字キーで動かす（細かい詰めはドラッグより速い・れいあ要望 2026-07-24）──
+const ARROWS: Record<string, [number, number]> = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+};
+
+window.addEventListener('keydown', (e) => {
+  if (session || !model.selected) return; // 試遊中と未選択は何もしない
+  // ⚠️ 数値入力や名前欄にいる間は、キーの本来の動き（値の増減・カーソル移動）に任せる
+  const tag = (e.target as HTMLElement)?.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  const dir = ARROWS[e.key];
+  if (!dir) return;
+  e.preventDefault();
+  // 吸着の単位で動かす。Shift を押している間は5目盛りぶんまとめて
+  const stepPx = CONFIG.EDITOR_GRID * (e.shiftKey ? 5 : 1);
+  model.moveBy(dir[0] * stepPx, dir[1] * stepPx);
+  rebuild();
+  syncPanel();
+});
+
 // ── 右パネル ──
 const MULTIPLIERS = [2, 3, 4, 10];
 /** 跳ね上限のよく使う値。ここを振ってラウンドの長さを探る */
