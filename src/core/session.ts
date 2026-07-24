@@ -18,6 +18,8 @@ const STEP_OPTIONS = {
   // 眠りを切ると玉は常に動き続ける（宙で固まる違和感を無くす・れいあ判断）
   sleepFrames: CONFIG.SLEEP_ENABLED ? CONFIG.SLEEP_FRAMES : 0,
   growPerFrame: (1 - CONFIG.SPAWN_GROW_START) / CONFIG.SPAWN_GROW_FRAMES,
+  sideRestitution: CONFIG.WALL_SIDE_RESTITUTION,
+  sidePush: CONFIG.WALL_SIDE_PUSH,
 };
 
 /** 何も動かなくなってから、終了と判断するまでの猶予 */

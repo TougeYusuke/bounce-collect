@@ -85,15 +85,31 @@ export function resolveBounds(
   world: World,
   radius: number,
   restitution: number,
+  /**
+   * 左右の壁の跳ね返り。⚠️ 弱いと壁に貼り付いたまま真下へ落ちる（れいあ指摘）。
+   * 天井と同じく、四辺の中でここだけ強めにする。
+   */
+  sideRestitution = restitution,
+  /**
+   * 壁に触れている落下中の玉を、最低これだけ内側へ離す（px/フレーム）。
+   * ⚠️ 真下に落ちている玉は横向きの速度がほぼ0なので、反転させても跳ねない。
+   *    貼り付きを崩すには、ぶつかった時にわずかな押し出しが要る。
+   *    ⚠️ 積もって止まっている玉には掛けない（掛けると山が横に震える）。
+   */
+  sidePush = 0,
 ): void {
+  // 落下中とみなす速さ（積もって静止しているものを除くため）
+  const falling = ball.y - ball.py > 0.5;
   if (ball.x < radius) {
     ball.x = radius;
     const vx = ball.x - ball.px;
-    if (vx < 0) ball.px = ball.x + vx * restitution;
+    if (vx < 0) ball.px = ball.x + vx * sideRestitution;
+    if (falling && ball.x - ball.px < sidePush) ball.px = ball.x - sidePush;
   } else if (ball.x > world.width - radius) {
     ball.x = world.width - radius;
     const vx = ball.x - ball.px;
-    if (vx > 0) ball.px = ball.x + vx * restitution;
+    if (vx > 0) ball.px = ball.x + vx * sideRestitution;
+    if (falling && ball.x - ball.px > -sidePush) ball.px = ball.x + sidePush;
   }
   if (ball.y < radius) {
     ball.y = radius;

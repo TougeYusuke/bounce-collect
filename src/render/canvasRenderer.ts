@@ -416,10 +416,19 @@ export class CanvasRenderer implements Renderer {
     // 玉（落ち影はスプライトに焼き込み済み）
     const sprite = this.sprite;
     const half = this.spriteHalf;
-    // ⚠️ 見た目は常に通常サイズで描く（れいあ指定）。
-    //    小さくしているのは当たり判定だけ＝生まれた瞬間に周りを押しのけないため。
+    // ⚠️ 見た目は常に通常サイズで描く（れいあ指定）。小さくしているのは当たり判定だけ。
+    //    ただしサイズが変わらないぶん「急に出てきた」感が残るので、生まれたては薄く描いて
+    //    すぐ不透明にする（＝湧いた瞬間だけ馴染ませる・れいあ指摘）。
     pool.forEachActive((b) => {
-      ctx.drawImage(sprite, ox + b.x * s - half, oy + b.y * s - half);
+      const x = ox + b.x * s - half;
+      const y = oy + b.y * s - half;
+      if (b.grow >= 1) {
+        ctx.drawImage(sprite, x, y);
+      } else {
+        ctx.globalAlpha = b.grow;
+        ctx.drawImage(sprite, x, y);
+        ctx.globalAlpha = 1;
+      }
     });
 
     // 上バケツ（玉より後＝玉がバケツの下から出てくる）。玉を出している間は傾ける

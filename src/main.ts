@@ -198,8 +198,8 @@ function loop(): void {
     renderer.draw(match.session.pool, CONFIG.BALL_RADIUS, match.session.stage, match.cupX, cupTilt);
   }
   hud.setScore(match.displayScore);
-  // R1は積み上げた弾、R2は最終スコア。数字の意味が変わるのでラベルで示す
-  hud.setLabel(match.round === 1 ? 'BALLS' : 'SCORE');
+  // R1もR2も「回収した玉の個数」なのでラベルは共通（2026-07-24 スコアの定義を統一）
+  hud.setLabel('SCORE');
   // R2もタップ待ちなので、待っている間はその案内に戻す
   setHint(match.session.started ? 'なぞってコップを動かす' : '画面をタップすると始まるよ');
   updateDebug();

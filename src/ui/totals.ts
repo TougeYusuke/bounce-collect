@@ -13,19 +13,25 @@ export interface Rival {
   total: number;
 }
 
+/**
+ * ⚠️ 値は「1回のプレイで約18,000点」を前提に組んである（2026-07-24 実測）。
+ *    スコアを weight 合計から**回収した玉の個数**に変えた時に桁を作り直した。
+ *    狙い＝1回目で下2人を抜き、そこから1〜2人ずつ上がる。てっぺんは100回ぶん。
+ *    ⚠️ スコアの出方を変えたら、ここも必ず作り直すこと（放置すると永久に最下位になる）。
+ */
 export const RIVALS: Rival[] = [
-  { name: 'Woodmaster', total: 88_000_000 },
-  { name: 'MarbleKing', total: 42_500_000 },
-  { name: 'Cascade', total: 21_000_000 },
-  { name: 'PinballPete', total: 12_400_000 },
-  { name: 'Tumbler', total: 6_800_000 },
-  { name: 'BrassHoop', total: 3_900_000 },
-  { name: 'Knothole', total: 2_100_000 },
-  { name: 'Sawdust', total: 1_200_000 },
-  { name: 'Splinter', total: 620_000 },
-  { name: 'Acorn', total: 310_000 },
-  { name: 'Pebble', total: 140_000 },
-  { name: 'Sprout', total: 45_000 },
+  { name: 'Woodmaster', total: 2_000_000 },
+  { name: 'MarbleKing', total: 1_200_000 },
+  { name: 'Cascade', total: 720_000 },
+  { name: 'PinballPete', total: 430_000 },
+  { name: 'Tumbler', total: 260_000 },
+  { name: 'BrassHoop', total: 155_000 },
+  { name: 'Knothole', total: 92_000 },
+  { name: 'Sawdust', total: 55_000 },
+  { name: 'Splinter', total: 33_000 },
+  { name: 'Acorn', total: 20_000 },
+  { name: 'Pebble', total: 11_000 },
+  { name: 'Sprout', total: 5_000 },
 ];
 
 const KEY = 'marble-mill.total';

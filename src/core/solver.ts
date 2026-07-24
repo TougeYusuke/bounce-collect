@@ -224,6 +224,10 @@ export interface StepOptions {
   sleepFrames: number;
   /** 1フレームで当たり判定がどれだけ育つか。省くと成長なし（計測デモなど） */
   growPerFrame?: number;
+  /** 左右の壁の跳ね返り。省くと restitution と同じ */
+  sideRestitution?: number;
+  /** 左右の壁に触れた落下中の玉を内側へ離す量。省くと押し出さない */
+  sidePush?: number;
 }
 
 /**
@@ -264,7 +268,7 @@ export function step(
     for (let s = 0; s < world.segments.length; s++) {
       resolveSegmentCollision(b, world.segments[s], opts.radius, opts.restitution);
     }
-    resolveBounds(b, world, opts.radius, opts.restitution);
+    resolveBounds(b, world, opts.radius, opts.restitution, opts.sideRestitution, opts.sidePush);
   });
 
   // 4. 静止した玉を眠らせる（sleepFrames <= 0 なら眠りを使わない）
