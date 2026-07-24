@@ -265,8 +265,14 @@ export function step(
       resolveBounds(b, world, opts.radius, 0);
       return;
     }
-    for (let s = 0; s < world.segments.length; s++) {
-      resolveSegmentCollision(b, world.segments[s], opts.radius, opts.restitution);
+    // ⚠️ 打ち上げられた玉（flying）は仕切りをすり抜ける（2026-07-24 れいあ要望）。
+    //    上昇の途中で仕切りに引っかかって止まると、跳ね上げた意味がなくなるため。
+    //    玉同士のすり抜けと同じ考え方で、頂点を過ぎて落ち始めた時点で普通の玉に戻る。
+    //    ⚠️ 盤面の四辺（resolveBounds）は flying でも効かせる＝外へ飛び出させない。
+    if (!b.flying) {
+      for (let s = 0; s < world.segments.length; s++) {
+        resolveSegmentCollision(b, world.segments[s], opts.radius, opts.restitution);
+      }
     }
     resolveBounds(b, world, opts.radius, opts.restitution, opts.sideRestitution, opts.sidePush);
   });

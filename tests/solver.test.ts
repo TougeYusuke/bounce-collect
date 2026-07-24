@@ -189,6 +189,34 @@ describe('flying の解除', () => {
     expect(released).toBeGreaterThan(0); // 打ち上げ直後には解除されない
     expect(b.flying).toBe(false); // いずれ必ず解除される
   });
+
+  it('⚠️ 打ち上げ中は仕切りもすり抜ける（引っかかると跳ね上げた意味がなくなる）', () => {
+    // 玉のすぐ上に横向きの仕切りを置く
+    const world = { width: 100, height: 800, segments: [{ x1: 0, y1: 560, x2: 100, y2: 560 }] };
+    const pool = new BallPool(1);
+    const grid = new SpatialGrid(world.width, world.height, 10);
+    const b = pool.spawn(50, 600)!;
+    b.py = b.y + 20;
+    b.flying = true;
+
+    let top = b.y;
+    for (let i = 0; i < 60; i++) {
+      step(pool, grid, world, opts);
+      top = Math.min(top, b.y);
+    }
+    expect(top).toBeLessThan(560 - CONFIG.BALL_RADIUS); // 仕切りを越えて上がった
+  });
+
+  it('打ち上げ中でない玉は仕切りに止められる', () => {
+    // 玉の下に仕切りを置いて落とす
+    const world = { width: 100, height: 800, segments: [{ x1: 0, y1: 600, x2: 100, y2: 600 }] };
+    const pool = new BallPool(1);
+    const grid = new SpatialGrid(world.width, world.height, 10);
+    const b = pool.spawn(50, 500)!;
+
+    for (let i = 0; i < 200; i++) step(pool, grid, world, opts);
+    expect(b.y).toBeLessThanOrEqual(600); // 仕切りの上で止まる
+  });
 });
 
 describe('wakeUnsupported（支えを失った眠り玉の救済）', () => {
