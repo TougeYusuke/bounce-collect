@@ -91,6 +91,21 @@
       .icon-btn:active { opacity: 0.8; }
       .icon-btn svg { width: 24px; height: 24px; }
 
+      /* デバッグ表示（?debug=1 の時だけ） */
+      #debug {
+        position: fixed;
+        left: 0; right: 0;
+        bottom: calc(6px + env(safe-area-inset-bottom, 0));
+        padding: 8px 10px;
+        background: rgba(0, 0, 0, 0.72);
+        color: #9ff5c8;
+        font: 600 11px/1.5 ui-monospace, "SFMono-Regular", Consolas, monospace;
+        text-align: center;
+        pointer-events: none;
+        z-index: 5;
+      }
+      #debug[hidden] { display: none; }
+
       /* ── オーバーレイ画面の共通枠 ── */
       .screen {
         position: fixed;
@@ -278,6 +293,9 @@
         </button>
       </div>
     </div>
+
+    <!-- デバッグ表示（URLに ?debug=1 を付けた時だけ出る） -->
+    <div id="debug" hidden></div>
 
     <!-- タイトル画面 -->
     <div class="screen" id="screen-title" hidden>

@@ -314,6 +314,20 @@ export class CanvasRenderer implements Renderer {
         g.closePath();
         g.fill();
       }
+
+      // デバッグ: この台があと何個の玉を跳ね返せるか（バーの真上に出す）
+      if (this.showDebug) {
+        const left = Math.max(0, j.capacity - j.used);
+        g.save();
+        g.textAlign = 'center';
+        g.textBaseline = 'bottom';
+        g.font = `800 ${Math.max(10, Math.round(13 * s))}px ui-rounded, system-ui, sans-serif`;
+        g.shadowColor = 'rgba(0,0,0,.9)';
+        g.shadowBlur = 5 * s;
+        g.fillStyle = left > 0 ? '#ffffff' : '#ff8b6b'; // 使い切ったら赤
+        g.fillText(`残${left}`, x + w / 2, y - 4 * s);
+        g.restore();
+      }
     }
   }
 
@@ -329,6 +343,8 @@ export class CanvasRenderer implements Renderer {
   boardOffsetY = 0;
   /** 上バケツの横に出す残り玉数。null で非表示 */
   cupCount: number | null = null;
+  /** デバッグ表示（ジャンプ台の残り回数など）。URLに ?debug=1 で入る */
+  showDebug = false;
 
   draw(pool: BallPool, radius: number, stage?: Stage, cupX?: number, cupTilt = 0): void {
     const dpr = window.devicePixelRatio || 1;

@@ -55,6 +55,26 @@ function moveCup(clientX: number): void {
   match.setCupX(renderer.toLogicalX(clientX));
 }
 
+// URLに ?debug=1 を付けるとデバッグ表示が出る（ジャンプ台の残り回数など）
+const DEBUG = new URLSearchParams(location.search).has('debug');
+renderer.showDebug = DEBUG;
+const debugEl = document.getElementById('debug')!;
+debugEl.hidden = !DEBUG;
+
+function updateDebug(): void {
+  if (!DEBUG) return;
+  const s = match.session;
+  const jump = s.stage.jumpers
+    .map((j, i) => `台${i + 1} 残${Math.max(0, j.capacity - j.used)}/${j.capacity}`)
+    .join('　');
+  debugEl.textContent =
+    `R${match.round}${match.transitioning ? '(転換中)' : ''}　` +
+    `玉 ${s.pool.activeCount}　配り ${s.supplied}/${s.supplyBalls}　` +
+    `残量 ${s.remaining.toLocaleString('ja-JP')}　` +
+    `${Math.floor(s.elapsed / 60)}秒　${jump}` +
+    (s.released ? '　板ぬけた' : '');
+}
+
 // 毎フレーム textContent を書き換えると無駄なので、変わった時だけ
 let shownHint = '';
 function setHint(v: string): void {
@@ -177,6 +197,7 @@ function loop(): void {
   hud.setLabel(match.round === 1 ? 'BALLS' : 'SCORE');
   // R2もタップ待ちなので、待っている間はその案内に戻す
   setHint(match.session.started ? 'なぞってコップを動かす' : '画面をタップすると始まるよ');
+  updateDebug();
 
   if (match.finished && !shownResult) {
     shownResult = true;
