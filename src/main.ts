@@ -117,16 +117,33 @@ document.getElementById('result-retry')!.addEventListener('click', newRound);
 document.getElementById('scores-back')!.addEventListener('click', goToTitle);
 document.getElementById('total-back')!.addEventListener('click', goToTitle);
 
-window.addEventListener('resize', () => renderer.resize());
+// HUD（スコア・ボタン）を盤面の幅に合わせる。
+// PCの横長画面で画面端に散らばらず、盤面の縁に沿うようにする。
+const hudEl = document.getElementById('hud') as HTMLDivElement;
+function layoutHud(): void {
+  const r = renderer.boardRectCss();
+  hudEl.style.left = `${r.left}px`;
+  hudEl.style.right = 'auto';
+  hudEl.style.width = `${r.width}px`;
+}
 
-// 玉を出している間だけ上バケツを傾ける（注いでいる様子）
+window.addEventListener('resize', () => {
+  renderer.resize();
+  layoutHud();
+});
+
+// 玉を出している間だけ上バケツを傾ける（注いでいる様子）。
+// 供給は一瞬（約0.6秒）なので、目標角へイージングで寄せて「じわっと傾いて戻る」動きにする
+// ＝一瞬パッと切り替わるより、注いでいる動作として見える。
 const CUP_POUR_TILT = 1.4; // ラジアン（約80度）
+let cupTilt = 0;
 
 function loop(): void {
   session.update(speed);
   if (ready) {
-    const tilt = session.dispensing ? CUP_POUR_TILT : 0;
-    renderer.draw(session.pool, CONFIG.BALL_RADIUS, session.stage, session.cupX, tilt);
+    const target = session.dispensing ? CUP_POUR_TILT : 0;
+    cupTilt += (target - cupTilt) * 0.15;
+    renderer.draw(session.pool, CONFIG.BALL_RADIUS, session.stage, session.cupX, cupTilt);
   }
   hud.setScore(session.score);
 
@@ -143,6 +160,7 @@ function loop(): void {
 void renderer.init(stageEl, session.world).then(() =>
   loadArt([...MATERIALS.map((m) => m.board), 'bucket-wood.png']).then(() => {
     ready = true;
+    layoutHud();
     goToTitle();
     requestAnimationFrame(loop);
   }),

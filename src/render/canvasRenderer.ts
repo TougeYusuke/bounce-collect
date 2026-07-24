@@ -97,6 +97,20 @@ export class CanvasRenderer implements Renderer {
     return (clientX - rect.left - this.offsetX) / this.scale;
   }
 
+  /**
+   * 盤面が実際に描かれている領域（CSSピクセル）。
+   * PCの横長画面だと盤面は中央に寄って左右に余白ができるので、
+   * HUDをこの幅に合わせて画面端でなく盤面の縁に置くために使う。
+   */
+  boardRectCss(): { left: number; top: number; width: number; height: number } {
+    return {
+      left: this.offsetX,
+      top: this.offsetY,
+      width: this.world.width * this.scale,
+      height: this.world.height * this.scale,
+    };
+  }
+
   private roundRect(
     g: CanvasRenderingContext2D,
     x: number,
