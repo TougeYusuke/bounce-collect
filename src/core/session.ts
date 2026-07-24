@@ -21,6 +21,7 @@ const STEP_OPTIONS = {
   growPerFrame: (1 - CONFIG.SPAWN_GROW_START) / CONFIG.SPAWN_GROW_FRAMES,
   sideRestitution: CONFIG.WALL_SIDE_RESTITUTION,
   sidePush: CONFIG.WALL_SIDE_PUSH,
+  rollRelease: CONFIG.CUP_ROLL_RELEASE,
 };
 
 /** 何も動かなくなってから、終了と判断するまでの猶予 */

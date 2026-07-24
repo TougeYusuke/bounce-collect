@@ -25,14 +25,23 @@ export function integrate(
   gravity: number,
   damping: number,
   maxSpeed: number,
+  /** 転がりが終わる瞬間に横の勢いをどれだけ残すか（0で完全に真下へ） */
+  rollRelease = 0,
 ): void {
   let vx = (ball.x - ball.px) * damping;
   // ⚠️ カップの中を転がっている間は重力を受けない（2026-07-24 れいあ要望）。
   //    「縁までは横に転がって、そこから落ちる」という普通のボールの動きに見せるため。
   //    受けないのは重力だけ＝横の減速も衝突も普通に効く。
   let vy = (ball.y - ball.py) * damping;
-  if (ball.rollFrames > 0) ball.rollFrames--;
-  else vy += gravity;
+  if (ball.rollFrames > 0) {
+    ball.rollFrames--;
+    // ⚠️ 縁を離れる瞬間に横の勢いを捨てて、そこからは真下に落とす（2026-07-24 れいあ指定）。
+    //    「転がる → 口を出る → そのまま落下」。横に飛び続けるとカップから離れた所へ
+    //    弧を描いてしまうし、R2で全部の玉が右に流れて放流が来なくなる（実測）。
+    if (ball.rollFrames === 0) vx *= rollRelease;
+  } else {
+    vy += gravity;
+  }
 
   // 横: 左右対称に制限（落下速度の影響を受けない）
   if (vx > maxSpeed) vx = maxSpeed;
@@ -233,6 +242,8 @@ export interface StepOptions {
   sideRestitution?: number;
   /** 左右の壁に触れた落下中の玉を内側へ離す量。省くと押し出さない */
   sidePush?: number;
+  /** 転がり終了時に残す横の勢い（0〜1） */
+  rollRelease?: number;
 }
 
 /**
@@ -253,7 +264,7 @@ export function step(
     if (b.sleeping) return;
     // 生まれたての玉を通常サイズへ育てる（押し出しを和らげるため小さく生まれる）
     if (b.grow < 1) b.grow = Math.min(1, b.grow + (opts.growPerFrame ?? 1));
-    integrate(b, opts.gravity, opts.damping, opts.maxSpeed);
+    integrate(b, opts.gravity, opts.damping, opts.maxSpeed, opts.rollRelease ?? 0);
     // 頂点を過ぎて落ち始めたら、すり抜けを解除して普通の玉に戻す
     if (b.flying && b.y >= b.py) b.flying = false;
   });
