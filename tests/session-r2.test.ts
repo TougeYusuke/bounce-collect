@@ -31,7 +31,7 @@ describe('R2モードの供給', () => {
   it('R2で出てくる玉は weight を持っている', () => {
     const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
     s.start();
-    run(s, 40);
+    run(s, CONFIG.R2_START_DELAY_FRAMES + 40);
     let seen = 0;
     s.pool.forEachActive((b) => {
       if (b.weight >= s.supplyWeight) seen++;
@@ -39,27 +39,47 @@ describe('R2モードの供給', () => {
     expect(seen).toBeGreaterThan(0);
   });
 
-  it('R2は1回に複数個を横に並べて出す（縦の間隔は詰められないため）', () => {
+  it('R2は切り替わった直後に落ち始めない（コップの位置を選ぶ間がある）', () => {
     const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
     s.start();
-    // supplyTimer は「開始直後に出す」初期値なので、1フレームでちょうど1回ぶん出る
-    run(s, 1);
-    expect(s.supplied).toBe(CONFIG.R2_SUPPLY_PER_TICK);
-
-    // 同じ高さに並んでいて、横は最低でも直径ぶん離れている
-    const xs: number[] = [];
-    s.pool.forEachActive((b) => xs.push(b.x));
-    xs.sort((a, b) => a - b);
-    for (let i = 1; i < xs.length; i++) {
-      expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(CONFIG.BALL_RADIUS * 2);
-    }
+    run(s, CONFIG.R2_START_DELAY_FRAMES - 1);
+    expect(s.supplied).toBe(0);
+    // 待ちが明けたら出始める
+    run(s, 2);
+    expect(s.supplied).toBeGreaterThan(0);
   });
 
-  it('R1の供給は1個ずつのまま（既存の挙動を変えない）', () => {
+  it('R2も1個ずつ出す（横並びで複数同時に出さない）', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
+    s.start();
+    run(s, CONFIG.R2_START_DELAY_FRAMES + 1);
+    expect(s.supplied).toBe(1);
+  });
+
+  it('R1の供給も1個ずつ（待ちは無し）', () => {
     const s = new Session();
     s.start();
     run(s, 1);
     expect(s.supplied).toBe(1);
+  });
+});
+
+describe('供給間隔は持ち玉の数で決まる', () => {
+  it('持ち玉が少ないほどゆっくり出す', () => {
+    const few = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 20 });
+    const many = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 999_999 });
+    expect(few.supplyBalls).toBeLessThan(many.supplyBalls);
+    expect(few.supplyInterval).toBeGreaterThan(many.supplyInterval);
+  });
+
+  it('⚠️ 物理の下限（玉が1直径落ちる時間）を割らない', () => {
+    const many = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 999_999 });
+    expect(many.supplyInterval).toBeGreaterThanOrEqual(CONFIG.SUPPLY_INTERVAL_MIN);
+  });
+
+  it('上限を超えてゆっくりにはならない', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 1 });
+    expect(s.supplyInterval).toBeLessThanOrEqual(CONFIG.SUPPLY_INTERVAL_MAX);
   });
 });
 

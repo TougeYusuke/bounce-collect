@@ -40,6 +40,7 @@ describe('Match（2ラウンド）', () => {
     expect(m.session.stage.gates.every((g) => g.used === 0)).toBe(true);
   });
 
+  // 2ラウンド通しは玉が1000個規模で数千フレーム回るため、既定の5秒では足りない
   it('最終スコアはR2の回収（R1は足さない）', () => {
     const m = new Match();
     m.start();
@@ -49,5 +50,5 @@ describe('Match（2ラウンド）', () => {
     expect(m.finalScore).toBe(m.session.score);
     // ⚠️ R1の結果を足していないこと（足すと供給として使ったぶんの二重計上になる）
     expect(m.finalScore).not.toBe(m.r1Score + m.session.score);
-  });
+  }, 60_000);
 });

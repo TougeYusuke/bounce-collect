@@ -149,9 +149,12 @@ export class CanvasRenderer implements Renderer {
 
     g.save();
     if (tilt !== 0) {
-      // 口のふち（注ぎ口側）を軸に傾ける
       const px = x;
-      const py = y + hh * 0.5;
+      const py = y + hh * 0.5; // 回転の軸（バケツの真ん中あたり）
+      // ⚠️ 軸で回すと口が横へ逃げて、玉が「胴体の下」から出ているように見える（れいあ指摘）。
+      //    回転後の口が元の位置 (x, y) に戻るぶんだけ全体をずらして、口の真下から出す。
+      const half = hh * 0.5;
+      g.translate(-half * Math.sin(tilt), -half * (1 - Math.cos(tilt)));
       g.translate(px, py);
       g.rotate(tilt);
       g.translate(-px, -py);
