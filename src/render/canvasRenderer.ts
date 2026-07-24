@@ -232,7 +232,7 @@ export class CanvasRenderer implements Renderer {
   /** 傾斜以外の線分（＝中央の仕切り）を真鍮の丸棒として描く。木と同系色だと沈むため */
   private drawDividers(g: CanvasRenderingContext2D, stage: Stage, ox: number, oy: number, s: number): void {
     const wedgeSet = new Set(stage.wedges ?? []);
-    const dw = Math.max(3, 7 * s);
+    const dw = Math.max(3, CONFIG.DIVIDER_THICKNESS * s);
     for (const seg of stage.segments) {
       // wedge と同じオブジェクトは傾斜板として別途描いたのでスキップ
       if (wedgeSet.has(seg as never)) continue;
@@ -264,7 +264,7 @@ export class CanvasRenderer implements Renderer {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     for (const gt of stage.gates) {
-      const h = 15 * s;
+      const h = CONFIG.GATE_THICKNESS * s;
       const x = ox + gt.x1 * s;
       const w = (gt.x2 - gt.x1) * s;
       const y = oy + gt.y * s - h / 2;
@@ -289,7 +289,7 @@ export class CanvasRenderer implements Renderer {
 
   private drawJumpers(g: CanvasRenderingContext2D, stage: Stage, ox: number, oy: number, s: number): void {
     for (const j of stage.jumpers) {
-      const h = 13 * s;
+      const h = CONFIG.JUMPER_THICKNESS * s;
       const x = ox + j.x1 * s;
       const w = (j.x2 - j.x1) * s;
       const y = oy + j.y * s - h / 2;

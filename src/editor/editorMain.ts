@@ -86,7 +86,10 @@ function drawSelection(): void {
     const list = sel.kind === 'gate' ? model.def.gates : model.def.jumpers;
     const b = list[sel.index];
     if (b) {
-      const h = 18 * s * dpr;
+      // ⚠️ 実際に描かれている帯より少し大きい枠で囲う（太さを変えたら追従する）
+      const thickness =
+        sel.kind === 'gate' ? CONFIG.GATE_THICKNESS : CONFIG.JUMPER_THICKNESS;
+      const h = (thickness + 5) * s * dpr;
       ctx.strokeRect(px(b.x1) - 3 * dpr, py(b.y) - h / 2, (b.x2 - b.x1) * s * dpr + 6 * dpr, h);
     }
   }
