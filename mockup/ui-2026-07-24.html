@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Marble Mill — UIモック 2026-07-24</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0b0f14; color:#e8eef4;
+    font:15px/1.6 "Hiragino Sans","Yu Gothic UI",system-ui,sans-serif;
+    padding:20px; min-height:100vh;
+  }
+  h1 { font-size:20px; letter-spacing:.02em; margin-bottom:4px; }
+  .lead { color:#8fa3b5; font-size:14px; margin-bottom:18px; }
+  .lead b { color:#e8eef4; }
+
+  .tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+  .tabs button {
+    border:1px solid #2a3644; background:#151d26; color:#c3d2df;
+    padding:10px 18px; border-radius:10px; font:700 15px/1 inherit; cursor:pointer;
+  }
+  .tabs button.on { background:#2dd4a7; border-color:#2dd4a7; color:#08221a; }
+  .tabs.sub { margin-top:-8px; }
+  .tabs.sub button { padding:8px 15px; font-size:13px; background:#0f151c; }
+  .tabs.sub button.on { background:#c08a3e; border-color:#c08a3e; color:#1c1206; }
+
+  .frames { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+  .col { display:flex; flex-direction:column; gap:10px; }
+  .col > .cap { font:700 15px/1.4 inherit; }
+  .col > .cap span { display:block; font-weight:400; font-size:13px; color:#8fa3b5; }
+
+  /* ── iPhone 相当のフレーム ── */
+  .phone {
+    position:relative; width:390px; height:844px;
+    border-radius:44px; overflow:hidden;
+    box-shadow:0 0 0 10px #1c242e, 0 24px 60px rgba(0,0,0,.6);
+    user-select:none;
+  }
+  .screen { position:absolute; inset:0; display:none; }
+  .screen.on { display:block; }
+
+  /* ══════════ テーマA: 木の盤 × ネオン ══════════ */
+  .t-a {
+    --outer:#170e09;
+    --outer2:#070504;
+    --ink:#fdf6ec;
+    --sub:#c0ac93;
+    --accent:#e6b862;      /* 真鍮。バケツのたが・仕切りの金具と同じ色に揃える */
+    --accent-ink:#2e1e05;
+    --panel:#1d1610;
+    --panel-line:rgba(255,238,214,.12);
+    --danger:#ff8b6b;
+  }
+  /* ══════════ テーマB: ダークガラス × ミント ══════════ */
+  .t-b {
+    --outer:#151b26;
+    --outer2:#080b11;
+    --ink:#f2f6fa;
+    --sub:#93a3b8;
+    --accent:#68b7ff;
+    --accent-ink:#04203c;
+    --panel:#18212e;
+    --panel-line:rgba(255,255,255,.10);
+    --danger:#ff9d8a;
+  }
+
+  .stage-bg { position:absolute; inset:0; background:radial-gradient(120% 80% at 50% 8%, var(--outer) 0%, var(--outer2) 100%); }
+  /* タイトル専用の背景（工房の作業台）。無ければ下の stage-bg がそのまま見える */
+  .title-bg { position:absolute; inset:0; background:url(assets/title-bg.png) center/cover no-repeat; }
+  canvas.board { position:absolute; inset:0; width:100%; height:100%; display:block; }
+
+  /* ── プレイ中のオーバーレイHUD ── */
+  .hud-top {
+    position:absolute; top:0; left:0; right:0;
+    padding:56px 18px 0;
+    display:flex; align-items:flex-start; justify-content:space-between;
+    pointer-events:none;
+  }
+  .score-wrap { text-shadow:0 2px 14px rgba(0,0,0,.85); }
+  .score-label { font:700 11px/1 inherit; letter-spacing:.22em; color:var(--sub); }
+  .score-num {
+    font:800 46px/1 ui-rounded,"Hiragino Sans","Yu Gothic UI",system-ui,sans-serif;
+    font-variant-numeric:tabular-nums; letter-spacing:-.03em; color:var(--ink);
+    margin-top:5px;
+  }
+  .icon-col { display:flex; flex-direction:row; gap:10px; pointer-events:auto; }
+  .icon-btn {
+    width:54px; height:54px; border-radius:50%;
+    border:1px solid var(--panel-line);
+    background:rgba(10,16,22,.62);
+    backdrop-filter:blur(10px);
+    color:var(--ink);
+    font:800 19px/1 ui-rounded,system-ui,sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .icon-btn.hot { background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+  .icon-btn svg { width:24px; height:24px; }
+
+  /* ── モーダル（確認ダイアログ・リザルト共通） ── */
+  .veil {
+    position:absolute; inset:0; background:rgba(5,9,13,.78);
+    backdrop-filter:blur(6px);
+    display:flex; align-items:center; justify-content:center; padding:26px;
+  }
+  .card {
+    width:100%; background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:22px; padding:28px 24px 22px; text-align:center;
+    box-shadow:0 20px 50px rgba(0,0,0,.5);
+  }
+  .card h2 { font:800 21px/1.4 inherit; color:var(--ink); margin-bottom:8px; }
+  .card p { font-size:14px; color:var(--sub); margin-bottom:22px; }
+  .row { display:flex; gap:10px; }
+  .btn {
+    flex:1; min-height:54px; border:0; border-radius:14px;
+    font:800 16px/1 inherit; cursor:pointer;
+    background:var(--accent); color:var(--accent-ink);
+  }
+  .btn.ghost { background:transparent; color:var(--sub); border:1px solid var(--panel-line); }
+
+  .res-label { font:700 11px/1 inherit; letter-spacing:.22em; color:var(--sub); }
+  .res-num {
+    font:800 60px/1 ui-rounded,system-ui,sans-serif; font-variant-numeric:tabular-nums;
+    letter-spacing:-.03em; color:var(--accent); margin:8px 0 4px;
+  }
+  .badge {
+    display:inline-block; font:800 12px/1 inherit; letter-spacing:.14em;
+    background:var(--accent); color:var(--accent-ink);
+    padding:7px 12px; border-radius:999px; margin-bottom:18px;
+  }
+  .rank-list { text-align:left; margin:0 0 22px; }
+  .rank-row {
+    display:flex; align-items:baseline; gap:10px;
+    padding:9px 4px; border-bottom:1px solid var(--panel-line);
+    font-variant-numeric:tabular-nums;
+  }
+  .rank-row:last-child { border-bottom:0; }
+  .rank-row .no { width:24px; font:800 14px/1 inherit; color:var(--sub); }
+  .rank-row .v { flex:1; font:800 19px/1 inherit; color:var(--ink); }
+  .rank-row .d { font:400 12px/1 inherit; color:var(--sub); }
+  .rank-row.me .v { color:var(--accent); }
+  .rank-row.me .no { color:var(--accent); }
+
+  /* ── タイトル画面 ── */
+  .title-screen { position:absolute; inset:0; display:flex; flex-direction:column;
+                  align-items:center; justify-content:center; padding:0 30px; }
+  .logo { text-align:center; margin-bottom:36px; }
+  .logo .l1 { font:800 44px/1.05 ui-rounded,system-ui,sans-serif; letter-spacing:.10em; color:var(--ink); text-indent:.10em; }
+  .logo .l2 { font:800 44px/1.05 ui-rounded,system-ui,sans-serif; letter-spacing:.10em; color:var(--accent); text-indent:.10em; }
+  .logo .rule { width:76%; height:1px; margin:16px auto 11px;
+                background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:.75; }
+  .logo .sub { font:600 12px/1 inherit; letter-spacing:.34em; color:var(--sub); text-indent:.34em; }
+  .play-btn {
+    width:100%; min-height:66px; border:0; border-radius:18px;
+    background:var(--accent); color:var(--accent-ink);
+    font:800 21px/1 inherit; letter-spacing:.08em; cursor:pointer;
+    box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  .hs-panel {
+    width:100%; margin-top:26px; background:rgba(10,16,22,.5);
+    border:1px solid var(--panel-line); border-radius:18px; padding:16px 18px;
+  }
+  .hs-panel .t { font:700 11px/1 inherit; letter-spacing:.22em; color:var(--sub); margin-bottom:6px; }
+  .title-foot { position:absolute; bottom:40px; left:0; right:0; text-align:center; }
+  .title-foot span {
+    display:inline-block; font:700 13px/1 inherit; color:var(--sub); letter-spacing:.06em;
+    border:1px solid var(--panel-line); border-radius:999px; padding:11px 20px;
+  }
+  .hs-panel .t { display:flex; align-items:baseline; justify-content:space-between; }
+  .hs-panel .more { font:700 12px/1 inherit; letter-spacing:0; color:var(--accent); }
+
+  /* ハイスコア一覧 */
+  .sheet { position:absolute; inset:0; display:flex; flex-direction:column; padding:56px 22px 30px; }
+  .sheet .head { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .sheet .head .back {
+    width:44px; height:44px; border-radius:50%; border:1px solid var(--panel-line);
+    background:rgba(10,16,22,.6); color:var(--ink); font:800 20px/1 inherit; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .sheet .head h2 { font:800 19px/1 inherit; letter-spacing:.12em; color:var(--ink); }
+  .sheet .body {
+    flex:1; overflow:auto; background:rgba(10,16,22,.55);
+    border:1px solid var(--panel-line); border-radius:18px; padding:6px 18px;
+  }
+
+  .note { margin-top:26px; font-size:13px; color:#8fa3b5; max-width:860px; }
+  .note b { color:#e8eef4; }
+</style>
+</head>
+<body>
+
+<h1>Marble Mill — UIモック</h1>
+<p class="lead" style="margin-bottom:10px">旧称 Bounce and Collect（本家と同名だったため 2026-07-24 に改名）。リポジトリ名と公開URLは <code>bounce-collect</code> のまま＝過去リンクを切らないため。</p>
+<p class="lead">
+  テイストを<b>「木のおもちゃ工房」</b>に統一（本家の赤いカップ＝実在商品の再現をやめて、木のバケツに置き換え）。
+  上の段のタブで<b>画面</b>、下の段で<b>素材テーマ</b>を切り替えられるよ。
+  素材が変わるのは<b>盤面と構造物の色だけ</b>で、バケツは全テーマ共通＝プレイヤーが動かすものは見た目を変えない。
+</p>
+
+<div class="tabs" id="tabs">
+  <button data-s="play" class="on">プレイ中</button>
+  <button data-s="confirm">確認ダイアログ</button>
+  <button data-s="result">リザルト</button>
+  <button data-s="title">タイトル</button>
+  <button data-s="scores">ハイスコア一覧</button>
+</div>
+
+<div class="tabs sub" id="mats"></div>
+
+<div class="frames" id="frames"></div>
+
+<p class="note">
+  <b>生成した素材（GPTImage・7枚）</b>：盤面テクスチャ6種（マホガニー/チェリー/竹/ウォールナット/メープル/古材）＋木のバケツ1種（上下で共用・背景切り抜き済み）。<br>
+  <b>canvas描画のまま</b>：ゲート＝角丸カプセル＋発光／ジャンプ台＝三角の図形／玉＝グラデ＋落ち影／<b>仕切り＝真鍮の丸棒</b>（木の板と同系色だと沈むので金具にした）。<br>
+  <b>ボタン類は画像にしない方針</b>＝状態（通常/押下/選択中）ぶん枚数が要る・テーマ×ボタン数で増える・拡大でボケる。丸アイコンや角丸パネルはCSS＋SVGの方がシャープ。<br>
+  <b>この絵の玉の配置はモック用のダミー</b>（実際の物理結果ではない）。ゲートの数字が玉に隠れてるのもモックの都合。
+</p>
+
+<script>
+// ───────── 盤面の描画（実ゲームの座標そのまま：360×720） ─────────
+const W = 360, H = 720, R = 7;
+const GATES = [
+  {x1:.05*W, x2:.35*W, y:180, m:3},
+  {x1:.40*W, x2:.60*W, y:180, m:4},
+  {x1:.65*W, x2:.95*W, y:180, m:3},
+  {x1:.08*W, x2:.42*W, y:330, m:4},
+  {x1:.58*W, x2:.92*W, y:330, m:2},
+  {x1:.35*W, x2:.65*W, y:470, m:4},
+];
+const JUMPERS = [
+  {x1:.06*W, x2:.30*W, y:520},
+  {x1:.70*W, x2:.94*W, y:520},
+];
+const BOTTOM_Y = H - 70, HALF_OUT = R * 2;
+const RUN = W/2 - HALF_OUT, RISE = RUN * Math.tan(12*Math.PI/180);
+const TOP_Y = BOTTOM_Y - RISE;
+const CUP_Y = 95;         // 上カップの口の高さ。スコア数字のすぐ下＝カップ全体が見えて数字も隠れない
+const WEDGE_THICK = 22;   // 傾斜板の厚み。下は板が見える＝出口を木で埋めない
+const COLLECT_Y = 656; // 回収ライン＝下カップの口（V字の出口のすぐ下）
+
+// ── 生成した素材（assets/*.png）。無ければ手描きにフォールバックする ──
+const ART = {};
+function loadArt(names, done){
+  names.forEach(n => {
+    const im = new Image();
+    im.onload = () => { ART[n] = im; done(); };
+    im.src = 'assets/' + n + '.png';
+  });
+}
+
+// 決定論的な乱数（毎回同じ絵にする）
+function mkRng(seed){ let s = seed>>>0; return () => (s = (s*1664525+1013904223)>>>0) / 4294967296; }
+
+// 玉の配置：漏斗に積もったぶん ＋ 落下中のぶん
+function makeBalls(){
+  const rng = mkRng(20260724), out = [];
+  const slope = (BOTTOM_Y - TOP_Y) / RUN;
+  for (let row = 0; row < 9; row++) {
+    const y = BOTTOM_Y - row * R * 1.75 - R;
+    const halfSpan = Math.max(HALF_OUT, RUN * (1 - row/11));
+    const n = Math.floor(halfSpan * 2 / (R * 2.05));
+    for (let i = 0; i < n; i++) {
+      const x = W/2 - halfSpan + i * (halfSpan*2/n) + R + (rng()-.5)*2;
+      const surf = BOTTOM_Y - Math.abs(x - W/2 - (x>W/2?HALF_OUT:-HALF_OUT)) * slope;
+      if (y > surf - R) continue;
+      out.push({x, y});
+    }
+  }
+  for (let i = 0; i < 70; i++) {
+    const x = 20 + rng()*(W-40), y = 190 + rng()*350;
+    out.push({x, y});
+  }
+  // 上カップから出たばかりの玉
+  for (let i = 0; i < 10; i++) out.push({x: W/2 - 20 + rng()*40, y: CUP_Y + 26 + rng()*70});
+  // 下カップが受け取っている玉
+  for (let i = 0; i < 7; i++) out.push({x: W/2 - 15 + rng()*30, y: COLLECT_Y - 2 + rng()*12});
+  return out;
+}
+const BALLS = makeBalls();
+
+const THEMES = {
+  a: { // 木の盤 × ネオン緑
+    outer:'#0d1218', boardTop:'#9c7649', boardBot:'#6d4f31',
+    grain:'rgba(60,38,18,.30)', edge:'rgba(0,0,0,.55)', wall:'#4a3520',
+    wedge:'#5d4429', wedgeTop:'#7b5c39',
+    gate:'#3fe0a4', gateInk:'#04291d', gateGlow:'rgba(63,224,164,.55)',
+    jump:'#57c8ff', jumpInk:'#032539', jumpGlow:'rgba(87,200,255,.5)',
+    cup:'#b5814a', cupDark:'#7a5228', cupRim:'#d8ab74', cupInner:'#4a2f14',
+    ballHi:'#ffffff', ballMid:'#eef3f7', ballLo:'#a9bac9',
+    divider:'#4a3520', metal:'#e8c165', metalDark:'#8a6420',
+  },
+  b: { // 暗いガラス板 × ブルー
+    outer:'#151b26', boardTop:'#1d2836', boardBot:'#111925',
+    grain:'rgba(255,255,255,.028)', edge:'rgba(0,0,0,.6)', wall:'#3a4e66',
+    wedge:'#243244', wedgeTop:'#31435b',
+    gate:'#68b7ff', gateInk:'#04203c', gateGlow:'rgba(104,183,255,.5)',
+    jump:'#b98cff', jumpInk:'#22083f', jumpGlow:'rgba(185,140,255,.45)',
+    cup:'#e5544a', cupDark:'#9c2b24', cupRim:'#f7f7f7', cupInner:'#701a15',
+    ballHi:'#ffffff', ballMid:'#e9f1f8', ballLo:'#95a9bd',
+    divider:'#3a4e66', metal:'#cbd6e4', metalDark:'#6d7b8d',
+  },
+};
+
+/**
+ * 素材テーマ。世界観（木のおもちゃ工房）は固定で、盤面の素材と構造物の色だけ差し替える。
+ * 入れ物（バケツ）は全テーマ共通＝プレイヤーが動かすものは見た目を変えない。
+ */
+const MATERIALS = {
+  'board-wood':      { name:'マホガニー', wedge:'#5a3f26', wedgeTop:'#b98953', outer:'#170f0a' },
+  'board-cherry':    { name:'チェリー',   wedge:'#6b4526', wedgeTop:'#c99a63', outer:'#170e09' },
+  'board-bamboo':    { name:'竹',         wedge:'#8a7440', wedgeTop:'#e0cf92', outer:'#11150e' },
+  'board-walnut':    { name:'ウォールナット', wedge:'#3a2718', wedgeTop:'#8f6d47', outer:'#0d0906' },
+  'board-maple':     { name:'メープル',   wedge:'#a8895c', wedgeTop:'#f0dcb8', outer:'#181410' },
+  'board-driftwood': { name:'古材',       wedge:'#6b6b66', wedgeTop:'#c2c2b8', outer:'#0f1113' },
+};
+let MAT = 'board-cherry';
+
+function roundRect(g,x,y,w,h,r){
+  g.beginPath();
+  g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
+  g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath();
+}
+
+/** 赤いカップ。cyTop = 口（飲み口）の高さ。上下で共用する */
+function drawCup(g, X, Y, s, t, cx, cyTop, k){
+  const hw = 27 * k * s, hh = 34 * k * s;
+  const x = X(cx), y = Y(cyTop);
+
+  if (ART['bucket-wood']) {
+    const im = ART['bucket-wood'];
+    const w = hw * 2.15, h = w * (im.height / im.width);
+    g.save();
+    g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 12*s; g.shadowOffsetY = 5*s;
+    g.drawImage(im, x - w/2, y - h*0.17, w, h);
+    g.restore();
+    return;
+  }
+
+  // 本体（台形・左右に陰影）
+  const grad = g.createLinearGradient(x-hw, 0, x+hw, 0);
+  grad.addColorStop(0, t.cupDark); grad.addColorStop(.38, t.cup); grad.addColorStop(1, t.cupDark);
+  g.save();
+  g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 12*s; g.shadowOffsetY = 5*s;
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(x-hw, y); g.lineTo(x+hw, y);
+  g.lineTo(x+hw*0.66, y+hh); g.lineTo(x-hw*0.66, y+hh);
+  g.closePath(); g.fill();
+  g.restore();
+  // 中の影 → 口のふち の順で描くと、内側がへこんで見える
+  g.fillStyle = t.cupInner;
+  g.beginPath(); g.ellipse(x, y, hw*0.94, hw*0.27, 0, 0, Math.PI*2); g.fill();
+  g.fillStyle = t.cupRim;
+  g.beginPath(); g.ellipse(x, y, hw, hw*0.29, 0, 0, Math.PI*2);
+  g.ellipse(x, y+1.6*s, hw*0.87, hw*0.24, 0, 0, Math.PI*2);
+  g.fill('evenodd');
+  // ハイライト
+  g.fillStyle = 'rgba(255,255,255,.22)';
+  g.beginPath();
+  g.moveTo(x-hw*0.72, y+hh*0.13); g.lineTo(x-hw*0.44, y+hh*0.13);
+  g.lineTo(x-hw*0.33, y+hh*0.86); g.lineTo(x-hw*0.52, y+hh*0.86);
+  g.closePath(); g.fill();
+}
+
+function drawBoard(canvas, t){
+  const dpr = window.devicePixelRatio || 1;
+  const cw = canvas.clientWidth, ch = canvas.clientHeight;
+  canvas.width = cw*dpr; canvas.height = ch*dpr;
+  const g = canvas.getContext('2d');
+  g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,cw,ch);
+
+  const s = Math.min(cw/W, ch/H);
+  const ox = (cw - W*s)/2, oy = (ch - H*s)/2;
+  const X = x => ox + x*s, Y = y => oy + y*s;
+
+  // 盤面の板（ベタ塗りをやめてグラデ＋質感＋縁の影）
+  const bg = g.createLinearGradient(0, Y(0), 0, Y(H));
+  bg.addColorStop(0, t.boardTop); bg.addColorStop(1, t.boardBot);
+  g.save();
+  g.shadowColor = 'rgba(0,0,0,.65)'; g.shadowBlur = 30*s; g.shadowOffsetY = 6*s;
+  g.fillStyle = bg; g.fillRect(X(0), Y(0), W*s, H*s);
+  g.restore();
+
+  g.save();
+  g.beginPath(); g.rect(X(0), Y(0), W*s, H*s); g.clip();
+
+  // 選択中の素材の板を敷く。無ければ手描きの質感でしのぐ
+  if (ART[MAT]) g.drawImage(ART[MAT], X(0), Y(0), W*s, H*s);
+
+  // 素材の質感（画像が無いときのフォールバック）
+  g.strokeStyle = t.grain; g.lineWidth = Math.max(1, 1.2*s);
+  if (ART[MAT]) { /* 画像側に質感があるので手描きの縞は重ねない */ }
+  else if (t.metal) {
+    for (let i = 0; i < 26; i++) {
+      const y = (i*29 + (i%3)*7) % H;
+      g.beginPath();
+      for (let x = 0; x <= W; x += 12) g.lineTo(X(x), Y(y + Math.sin((x+i*40)/46)*3.5));
+      g.stroke();
+    }
+  } else {
+    for (let x = 30; x < W; x += 30) { g.beginPath(); g.moveTo(X(x),Y(0)); g.lineTo(X(x),Y(H)); g.stroke(); }
+    for (let y = 30; y < H; y += 30) { g.beginPath(); g.moveTo(X(0),Y(y)); g.lineTo(X(W),Y(y)); g.stroke(); }
+  }
+
+  // 内側の影（板がへこんで見える）
+  const vig = g.createRadialGradient(X(W/2),Y(H/2),W*s*0.2, X(W/2),Y(H/2),W*s*0.95);
+  vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,t.edge);
+  g.fillStyle = vig; g.fillRect(X(0),Y(0),W*s,H*s);
+
+  // V字の傾斜板。厚みのある「斜めの帯」として描く＝板の下まで塗りつぶさない。
+  // 出口の下は板が見えていて、そこで下カップが受け取る（本家と同じ見え方）。
+  const wedge = (x1,y1,x2,y2) => {
+    g.beginPath();
+    g.moveTo(X(x1),Y(y1)); g.lineTo(X(x2),Y(y2));
+    g.lineTo(X(x2),Y(y2+WEDGE_THICK)); g.lineTo(X(x1),Y(y1+WEDGE_THICK));
+    g.closePath();
+  };
+  g.save();
+  g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 12*s; g.shadowOffsetY = 5*s;
+  g.fillStyle = t.wedge;
+  wedge(0, TOP_Y, W/2-HALF_OUT, BOTTOM_Y); g.fill();
+  wedge(W/2+HALF_OUT, BOTTOM_Y, W, TOP_Y); g.fill();
+  g.restore();
+  // 上面のハイライト（滑る面だと分かる）
+  g.strokeStyle = t.wedgeTop; g.lineWidth = Math.max(2,3*s); g.lineCap='round';
+  g.beginPath(); g.moveTo(X(0),Y(TOP_Y)); g.lineTo(X(W/2-HALF_OUT),Y(BOTTOM_Y)); g.stroke();
+  g.beginPath(); g.moveTo(X(W),Y(TOP_Y)); g.lineTo(X(W/2+HALF_OUT),Y(BOTTOM_Y)); g.stroke();
+
+  // 下のカップ（出口の真下で受け取る）。玉より先に描くので中に溜まって見える
+  drawCup(g, X, Y, s, t, W/2, COLLECT_Y, 0.95);
+
+  // 中央の仕切り。木の板と同系色だと沈んで見えないので、真鍮の丸棒として立てる
+  const dx = X(W/2), dw = Math.max(3, 7*s);
+  const rod = g.createLinearGradient(dx-dw/2, 0, dx+dw/2, 0);
+  rod.addColorStop(0, t.metalDark); rod.addColorStop(.35, t.metal); rod.addColorStop(1, t.metalDark);
+  g.save();
+  g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 8*s; g.shadowOffsetX = 2*s; g.shadowOffsetY = 3*s;
+  g.strokeStyle = rod; g.lineWidth = dw; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(dx, Y(250)); g.lineTo(dx, Y(320)); g.stroke();
+  g.restore();
+
+  // ゲート（角丸カプセル＋発光）
+  for (const gt of GATES) {
+    const h = 15*s, x = X(gt.x1), w = (gt.x2-gt.x1)*s, y = Y(gt.y)-h/2;
+    g.save();
+    g.shadowColor = t.gateGlow; g.shadowBlur = 16*s;
+    g.fillStyle = t.gate; roundRect(g,x,y,w,h,h/2); g.fill();
+    g.restore();
+    const gl = g.createLinearGradient(0,y,0,y+h);
+    gl.addColorStop(0,'rgba(255,255,255,.45)'); gl.addColorStop(.5,'rgba(255,255,255,0)');
+    g.fillStyle = gl; roundRect(g,x,y,w,h,h/2); g.fill();
+    g.fillStyle = t.gateInk; g.textAlign='center'; g.textBaseline='middle';
+    g.font = `800 ${Math.max(9,Math.round(12*s))}px ui-rounded, system-ui, sans-serif`;
+    g.fillText('×'+gt.m, X((gt.x1+gt.x2)/2), Y(gt.y)+.5);
+  }
+
+  // ジャンプ台（文字ではなく三角の図形）
+  for (const j of JUMPERS) {
+    const h = 13*s, x = X(j.x1), w = (j.x2-j.x1)*s, y = Y(j.y)-h/2;
+    g.save();
+    g.shadowColor = t.jumpGlow; g.shadowBlur = 14*s;
+    g.fillStyle = t.jump; roundRect(g,x,y,w,h,h/2); g.fill();
+    g.restore();
+    g.fillStyle = t.jumpInk;
+    const n = 3, step = w/(n+1), tw = 5.5*s;
+    for (let i = 1; i <= n; i++) {
+      const cx = x + step*i;
+      g.beginPath();
+      g.moveTo(cx, y + h*0.24); g.lineTo(cx+tw/2, y + h*0.76); g.lineTo(cx-tw/2, y + h*0.76);
+      g.closePath(); g.fill();
+    }
+  }
+
+  // 玉（落ち影つき）
+  const rr = R*s;
+  for (const b of BALLS) {
+    g.fillStyle = 'rgba(0,0,0,.30)';
+    g.beginPath(); g.arc(X(b.x)+rr*.22, Y(b.y)+rr*.30, rr, 0, Math.PI*2); g.fill();
+  }
+  for (const b of BALLS) {
+    const px = X(b.x), py = Y(b.y);
+    const gr = g.createRadialGradient(px-rr*.35, py-rr*.35, rr*.1, px, py, rr);
+    gr.addColorStop(0, t.ballHi); gr.addColorStop(.62, t.ballMid); gr.addColorStop(1, t.ballLo);
+    g.fillStyle = gr;
+    g.beginPath(); g.arc(px, py, rr, 0, Math.PI*2); g.fill();
+  }
+
+  // 上のカップ（一番手前。ここから玉が出る）
+  drawCup(g, X, Y, s, t, W/2, CUP_Y, 1.0);
+  g.restore();
+
+  // 板の縁
+  g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = Math.max(1,2*s);
+  g.strokeRect(X(0),Y(0),W*s,H*s);
+}
+
+// ───────── 画面（HTML） ─────────
+const HS = [
+  {v:'1,284,930', d:'7/24', m:'チェリー'},
+  {v:'962,410',   d:'7/23', m:'竹'},
+  {v:'640,118',   d:'7/23', m:'ウォールナット'},
+  {v:'421,077',   d:'7/22', m:'メープル'},
+  {v:'318,540',   d:'7/22', m:'古材'},
+  {v:'295,006',   d:'7/22', m:'チェリー'},
+  {v:'240,880',   d:'7/21', m:'マホガニー'},
+  {v:'198,432',   d:'7/21', m:'竹'},
+  {v:'156,700',   d:'7/20', m:'メープル'},
+  {v:'132,215',   d:'7/20', m:'古材'},
+  {v:'98,640',    d:'7/19', m:'チェリー'},
+  {v:'74,120',    d:'7/19', m:'ウォールナット'},
+];
+const rankRows = (mark, n) => HS.slice(0, n || HS.length).map((h,i)=>
+  `<div class="rank-row${mark===i?' me':''}"><div class="no">${i+1}</div><div class="v">${h.v}</div><div class="d">${h.m}・${h.d}</div></div>`
+).join('');
+
+const ICONS = {
+  restart:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>`,
+};
+
+function hud(){ return `
+  <div class="hud-top">
+    <div class="score-wrap">
+      <div class="score-label">SCORE</div>
+      <div class="score-num">284,930</div>
+    </div>
+    <div class="icon-col">
+      <button class="icon-btn hot">2×</button>
+      <button class="icon-btn">${ICONS.restart}</button>
+    </div>
+  </div>`;
+}
+
+function screens(){ return `
+  <div class="screen" data-s="play">
+    <div class="stage-bg"></div><canvas class="board"></canvas>
+    ${hud()}
+  </div>
+
+  <div class="screen" data-s="confirm">
+    <div class="stage-bg"></div><canvas class="board"></canvas>
+    ${hud()}
+    <div class="veil"><div class="card">
+      <h2>もう一回やる？</h2>
+      <p>いま出てる 284,930 点は記録されずに消えるよ。</p>
+      <div class="row">
+        <button class="btn ghost">つづける</button>
+        <button class="btn">やり直す</button>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="screen" data-s="result">
+    <div class="stage-bg"></div><canvas class="board"></canvas>
+    <div class="veil"><div class="card">
+      <div class="res-label">SCORE</div>
+      <div class="res-num">1,284,930</div>
+      <div class="badge">NEW RECORD</div>
+      <div class="rank-list">${rankRows(0, 5)}</div>
+      <div class="row">
+        <button class="btn ghost">タイトルへ</button>
+        <button class="btn">もう一回</button>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="screen" data-s="title">
+    <div class="stage-bg"></div><div class="title-bg"></div>
+    <div class="veil" style="background:rgba(18,10,4,.58)">
+      <div class="title-screen">
+        <div class="logo">
+          <div class="l1">MARBLE</div>
+          <div class="l2">MILL</div>
+          <div class="rule"></div>
+          <div class="sub">REIA EDITION</div>
+        </div>
+        <button class="play-btn">PLAY</button>
+        <div class="hs-panel">
+          <div class="t">HIGH SCORE<span class="more">すべて見る ›</span></div>
+          <div class="rank-list" style="margin:0">${rankRows(-1, 5)}</div>
+        </div>
+        <div class="title-foot"><span>ステージエディタ</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" data-s="scores">
+    <div class="stage-bg"></div><canvas class="board"></canvas>
+    <div class="veil" style="background:rgba(5,9,13,.86)">
+      <div class="sheet">
+        <div class="head">
+          <button class="back">‹</button>
+          <h2>HIGH SCORE</h2>
+        </div>
+        <div class="body"><div class="rank-list" style="margin:0">${rankRows(-1)}</div></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+const framesEl = document.getElementById('frames');
+framesEl.innerHTML = [
+  {k:'a', name:'木のおもちゃ工房', sub:'盤面とバケツ＝GPTImageで生成／ゲート・ジャンプ台・玉・仕切り＝canvas描画'},
+].map(c => `
+  <div class="col">
+    <div class="cap">${c.name}<span>${c.sub}</span></div>
+    <div class="phone t-${c.k}" data-k="${c.k}">${screens()}</div>
+  </div>`).join('');
+
+function show(name){
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.dataset.s === name));
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.s === name));
+  requestAnimationFrame(paint);
+}
+function paint(){
+  const m = MATERIALS[MAT];
+  document.querySelectorAll('.phone').forEach(p => {
+    const t = { ...THEMES[p.dataset.k], ...m };
+    p.style.setProperty('--outer', m.outer);
+    p.querySelectorAll('.screen.on canvas.board').forEach(c => drawBoard(c, t));
+  });
+}
+document.getElementById('tabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (b) show(b.dataset.s);
+});
+
+// 素材テーマの切り替えバー（本番ではここがランダム抽選になる）
+const matsEl = document.getElementById('mats');
+matsEl.innerHTML = Object.entries(MATERIALS)
+  .map(([k,v]) => `<button data-m="${k}"${k===MAT?' class="on"':''}>${v.name}</button>`).join('');
+matsEl.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  MAT = b.dataset.m;
+  matsEl.querySelectorAll('button').forEach(o => o.classList.toggle('on', o.dataset.m === MAT));
+  paint();
+});
+
+show('play');
+loadArt([...Object.keys(MATERIALS), 'bucket-wood'], paint);
+window.addEventListener('resize', paint);
+</script>
+</body>
+</html>

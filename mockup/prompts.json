@@ -1,0 +1,17 @@
+[
+  {
+    "filename": "board-wood",
+    "appendNoiseSuppression": false,
+    "prompt": "A tall vertical wooden board seen straight-on from the front, used as the play surface of a casual mobile ball-drop game. Warm medium-brown polished hardwood with natural vertical grain, a few soft darker knots, gentle satin sheen from soft top-down lighting, slightly darker and richer toward the left and right edges, very subtle vignette. Completely flat front-facing surface with no perspective distortion. The board fills the entire frame edge to edge. Absolutely nothing on the surface: no objects, no pegs, no bars, no cups, no balls, no text, no logos, no UI. Clean high-end 3D render, portrait orientation, tall 2:3 aspect ratio."
+  },
+  {
+    "filename": "cup-red",
+    "appendNoiseSuppression": false,
+    "prompt": "A single glossy red plastic party cup, clean stylized 3D game asset render, viewed from slightly above and in front so the circular opening is visible as an ellipse. Tapered cylinder shape, wider at the top, narrower at the base, smooth white rim at the top edge, soft studio lighting with one bright specular highlight on the upper left and a warm bounce light on the right, gentle ambient occlusion inside the cup. The cup is centered and isolated on a pure flat white background with no shadow cast on the background. No hands, no arms, no people, no other objects, no text, no logos. Square 1:1 aspect ratio."
+  },
+  {
+    "filename": "gate-bar-green",
+    "appendNoiseSuppression": false,
+    "prompt": "A single horizontal capsule-shaped bar, a UI element for a casual mobile game, rendered as a clean stylized 3D asset. Bright fresh green glossy plastic with fully rounded ends, a soft glass-like highlight along the top edge, a subtle darker green shading along the bottom, and a faint outer glow. The bar is perfectly horizontal and centered, isolated on a pure flat white background. No text, no numbers, no symbols, no other objects. Wide 3:1 aspect ratio."
+  }
+]
