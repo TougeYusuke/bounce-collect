@@ -17,6 +17,7 @@ const STEP_OPTIONS = {
   sleepVelocity: CONFIG.SLEEP_VELOCITY,
   // 眠りを切ると玉は常に動き続ける（宙で固まる違和感を無くす・れいあ判断）
   sleepFrames: CONFIG.SLEEP_ENABLED ? CONFIG.SLEEP_FRAMES : 0,
+  growPerFrame: (1 - CONFIG.SPAWN_GROW_START) / CONFIG.SPAWN_GROW_FRAMES,
 };
 
 /** 何も動かなくなってから、終了と判断するまでの猶予 */
@@ -288,7 +289,7 @@ export class Session {
       this.supply();
       step(this.pool, this.grid, this.world, STEP_OPTIONS);
       this.enforceWedges();
-      applyGates(this.pool, this.stage, this.maxBalls, CONFIG.BALL_RADIUS * 2);
+      applyGates(this.pool, this.stage, this.maxBalls, CONFIG.BALL_RADIUS * 2, this.grid);
       applyJumpers(this.pool, this.stage, CONFIG.MAX_BOUNCE);
       this.tryRelease();
       this.collect();

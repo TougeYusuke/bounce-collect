@@ -61,8 +61,10 @@ export function resolveBallCollisions(
   radius: number,
   iterations: number,
 ): void {
-  const d = radius * 2;
-  const dSq = d * d;
+  // ⚠️ 距離のしきい値はペアごとに変わる（生まれたては小さい）。
+  //    ここでは最大値だけ先に持ち、実際の判定は各ペアで行う。
+  const dMax = radius * 2;
+  const dMaxSq = dMax * dMax;
 
   // 下にある玉から順に解く。
   // 積もった山では下の玉が上の玉を支えるので、支える側から確定させないと
@@ -86,7 +88,10 @@ export function resolveBallCollisions(
         let dx = b.x - a.x;
         let dy = b.y - a.y;
         const distSq = dx * dx + dy * dy;
-        if (distSq >= dSq) return;
+        if (distSq >= dMaxSq) return; // まず粗く弾く
+        // 生まれたての玉は小さい＝ぶつかる距離も近い
+        const d = radius * (a.grow + b.grow);
+        if (distSq >= d * d) return;
 
         // 打ち上げ中の玉はすり抜ける。上に向かって飛んでいる玉が
         // 落ちてくる玉に当たって叩き落されるのを防ぐ（壁と床には当たる）。
@@ -217,6 +222,8 @@ export interface StepOptions {
   iterations: number;
   sleepVelocity: number;
   sleepFrames: number;
+  /** 1フレームで当たり判定がどれだけ育つか。省くと成長なし（計測デモなど） */
+  growPerFrame?: number;
 }
 
 /**
@@ -235,6 +242,8 @@ export function step(
   // 1. 積分（重力を受けて動く）
   pool.forEachActive((b) => {
     if (b.sleeping) return;
+    // 生まれたての玉を通常サイズへ育てる（押し出しを和らげるため小さく生まれる）
+    if (b.grow < 1) b.grow = Math.min(1, b.grow + (opts.growPerFrame ?? 1));
     integrate(b, opts.gravity, opts.damping, opts.maxSpeed);
     // 頂点を過ぎて落ち始めたら、すり抜けを解除して普通の玉に戻す
     if (b.flying && b.y >= b.py) b.flying = false;

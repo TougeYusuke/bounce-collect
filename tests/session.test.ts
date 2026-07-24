@@ -96,7 +96,8 @@ describe('Session', () => {
     }
     expect(s.finished).toBe(true);
     expect(frames).toBeLessThanOrEqual(CONFIG.ROUND_TIME_LIMIT + 200);
-  });
+    // ハング止めは3分ぶん回すので、既定の5秒では足りない
+  }, 60_000);
 
   it('漏斗の壁に浅くめり込んだ玉は表面へ戻される（貫通の背止め）', () => {
     const s = small();

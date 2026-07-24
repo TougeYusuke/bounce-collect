@@ -1,3 +1,4 @@
+import { CONFIG } from './config';
 import type { BallPool } from './ball';
 import { type Gate, type Stage } from './stage';
 
@@ -34,8 +35,30 @@ export function applyGates(
   stage: Stage,
   maxBalls: number,
   ballDiameter = 10,
+  grid?: { forEachNeighbor(x: number, y: number, fn: (i: number) => void): void },
 ): number {
   let gained = 0;
+
+  /**
+   * その場所が既に埋まっているか。
+   * ⚠️ 埋まっているのに生やすと、生まれた瞬間から玉が重なって押し出され、
+   *    弾かれた玉が上へ飛ぶ（設計書2026-07-23 §10.2 が「ガード必須」と書いていたのに
+   *    未実装だった・れいあ指摘）。混んでいる場所には**そもそも生まない**。
+   */
+  const occupied = (x: number, y: number): boolean => {
+    if (!grid) return false;
+    const minSq = (ballDiameter * 0.85) ** 2;
+    let hit = false;
+    grid.forEachNeighbor(x, y, (i) => {
+      if (hit) return;
+      const o = pool.balls[i];
+      if (!o.alive) return;
+      const dx = o.x - x;
+      const dy = o.y - y;
+      if (dx * dx + dy * dy < minSq) hit = true;
+    });
+    return hit;
+  };
 
   // 反復中に生まれた玉をその場で再判定しないよう、開始時点の玉だけを対象にする
   const snapshot: number[] = [];
@@ -80,6 +103,7 @@ export function applyGates(
         const uy = len > 0.01 ? vy / len : 1; // 止まっていれば下向きとみなす
         const spacing = ballDiameter;
 
+        let placed = 0;
         for (let k = 0; k < extra; k++) {
           // 進行方向の「前」に並べる。後ろ（通ってきた側）に置くと、
           // 次のフレームで同じゲートをもう一度またいでしまう。
@@ -88,8 +112,14 @@ export function applyGates(
           // そのまま縦に積み上がって崩れず、眠って固まってしまう（実測）。
           // 進行方向に対して垂直に、交互にわずかずらして不安定にする。
           const jitter = (k % 2 === 0 ? 1 : -1) * spacing * 0.15;
-          const child = pool.spawn(ball.x + ux * d - uy * jitter, ball.y + uy * d + ux * jitter, {
+          const cx = ball.x + ux * d - uy * jitter;
+          const cy = ball.y + uy * d + ux * jitter;
+          if (occupied(cx, cy)) continue; // 混んでいる場所には生まない
+          const child = pool.spawn(cx, cy, {
             weight: ball.weight,
+            // ⚠️ 小さく生む。フル半径だと密集地帯で既存の玉を強く押し出し、
+            //    弾かれた玉が上へ飛んで上のゲートを再走する（れいあ指摘）
+            grow: CONFIG.SPAWN_GROW_START,
             gateMask: 0, // ★新品（別のゲートでまた増える）
             jumperMask: 0, // ★新品（ジャンプ台も使える）
             bounce: ball.bounce, // ★継承（跳ね返りの総数を有限に保つ）
@@ -98,7 +128,11 @@ export function applyGates(
           if (!child) break;
           child.px = child.x - vx;
           child.py = child.y - vy;
+          placed++;
         }
+        // ⚠️ 置けなかったぶんは親の重さに足す。捨てるとスコアの帳尻が合わない
+        //    （gained では既に extra 個ぶん計上しているため）
+        if (placed < extra) ball.weight += ball.weight * (extra - placed);
       } else {
         // 飽和: 玉を増やさず重さで表現する。
         // ⚠️ 印は**消さない**（`|=`）。以前は `= bit` として新品扱いに戻していたが、

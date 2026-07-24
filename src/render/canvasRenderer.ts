@@ -391,6 +391,8 @@ export class CanvasRenderer implements Renderer {
     // 玉（落ち影はスプライトに焼き込み済み）
     const sprite = this.sprite;
     const half = this.spriteHalf;
+    // ⚠️ 見た目は常に通常サイズで描く（れいあ指定）。
+    //    小さくしているのは当たり判定だけ＝生まれた瞬間に周りを押しのけないため。
     pool.forEachActive((b) => {
       ctx.drawImage(sprite, ox + b.x * s - half, oy + b.y * s - half);
     });

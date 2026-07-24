@@ -18,6 +18,13 @@ export interface Ball {
    * 下降に転じた時点で解除される。
    */
   flying: boolean;
+  /**
+   * 当たり判定の大きさの割合（0〜1）。生まれた直後は小さく、徐々に 1 へ育つ。
+   * ⚠️ 密集地帯でゲートが一度に何個も玉を生むと、フル半径だと既存の玉を強く押し出して
+   *    上へ弾け飛ぶ（れいあ指摘）。生まれたてを小さくして押し出しを和らげる。
+   *    ⚠️ 効くのは**玉同士**だけ。壁・斜面には最初からフル半径で当てる（地形へのめり込み防止）。
+   */
+  grow: number;
   /** 眠り判定の観測を始めた時点の位置（ここからどれだけ動いたかで判定する） */
   anchorX: number;
   anchorY: number;
@@ -33,6 +40,8 @@ export interface Ball {
 
 export interface SpawnOptions {
   weight?: number;
+  /** 当たり判定の初期の大きさ（0〜1）。省くと 1（最初から通常サイズ） */
+  grow?: number;
   gateMask?: number;
   jumperMask?: number;
   bounce?: number;
@@ -63,6 +72,7 @@ export class BallPool {
         jumperMask: 0,
         bounce: 0,
         flying: false,
+        grow: 1,
         anchorX: 0,
         anchorY: 0,
         sleepFrames: 0,
@@ -87,6 +97,7 @@ export class BallPool {
     b.jumperMask = opts?.jumperMask ?? 0;
     b.bounce = opts?.bounce ?? 0;
     b.flying = opts?.flying ?? false;
+    b.grow = opts?.grow ?? 1;
     b.anchorX = x;
     b.anchorY = y;
     b.sleepFrames = 0;
