@@ -76,7 +76,7 @@ function updateDebug(): void {
   debugEl.textContent =
     `型 ${def.name}　種 ${match.seed}　倍率 ${mult}\n` +
     `R${match.round}${match.transitioning ? '(転換中)' : ''}　` +
-    `盤面 ${s.pool.activeCount}　配り ${s.supplied}/${s.supplyBalls}　` +
+    `盤面 ${s.pool.activeCount}　配り ${s.supplied}/${s.supplyBalls}(${s.ballsPerSecond.toFixed(1)}個/秒)　` +
     `残量 ${s.remaining.toLocaleString('ja-JP')}　${Math.floor(s.elapsed / 60)}秒\n` +
     `回収 ${s.collectedBalls.toLocaleString('ja-JP')}個　${jump}` +
     (s.released ? '　板ぬけた' : '');

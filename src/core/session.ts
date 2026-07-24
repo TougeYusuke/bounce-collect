@@ -145,6 +145,22 @@ export class Session {
   }
 
   /**
+   * 玉を出す時の下向きの初速。
+   * 配る間隔が下限（＝一番テンポが速い）なら `CUP_DROP_SPEED_MAX`、上限なら 0。
+   */
+  private get dropSpeed(): number {
+    const span = CONFIG.SUPPLY_INTERVAL_MAX - CONFIG.SUPPLY_INTERVAL_MIN;
+    if (span <= 0) return 0;
+    const fast = (CONFIG.SUPPLY_INTERVAL_MAX - this.supplyInterval) / span;
+    return CONFIG.CUP_DROP_SPEED_MAX * Math.min(1, Math.max(0, fast));
+  }
+
+  /** 1秒あたり何個配っているか（デバッグ表示用） */
+  get ballsPerSecond(): number {
+    return 60 / this.supplyInterval;
+  }
+
+  /**
    * コップに残っている**個数**（これから出てくるぶん）。カップの横に出す。
    * ⚠️ 個数と総量は常に一致する（重い玉を作らないので・2026-07-24）。
    */
@@ -339,6 +355,9 @@ export class Session {
     const b = this.pool.spawn(x, y);
     if (b) {
       b.px = b.x - CONFIG.CUP_SPAWN_VX; // Verlet では前フレーム位置を左へ置くと右向きの速度になる
+      // ⚠️ テンポよく配っている時ほど強く落とす（れいあ要望 2026-07-24）。
+      //    遅いままだと口の下で次の玉に追いつかれて団子になる。
+      b.py = b.y - this.dropSpeed;
       this.supplied++;
     }
   }

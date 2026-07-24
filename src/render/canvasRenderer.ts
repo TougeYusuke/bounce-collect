@@ -149,14 +149,12 @@ export class CanvasRenderer implements Renderer {
 
     g.save();
     if (tilt !== 0) {
-      const px = x;
-      const py = y + hh * 0.5; // 回転の軸（バケツの真ん中あたり）
-      // ⚠️ 軸で回すと口が横へ逃げて、玉が「胴体の下」から出ているように見える（れいあ指摘）。
-      //    回転後の口が **玉の湧く位置そのもの** に来るまでずらして、口の中から出ているようにする。
-      //    ずらし量を sin(tilt) に比例させることで、直立時（tilt=0）はズレ0のまま滑らかに移る。
-      const half = hh * 0.5;
-      const toSpawn = CONFIG.CUP_SPAWN_OFFSET_Y * s * Math.sin(tilt);
-      g.translate(-half * Math.sin(tilt), -half * (1 - Math.cos(tilt)) + toSpawn);
+      // ⚠️ **玉が湧く位置そのものを軸にして回す**。こうすると傾きをどう変えても
+      //    口が玉の出どころから離れない（＝補正計算が要らない）。
+      //    胴の真ん中を軸にして後からズレを打ち消す方式だと、傾きが大きい時に
+      //    補正が効きすぎてバケツが浮き上がった（2026-07-24 実機で確認）。
+      const px = x + CONFIG.CUP_SPAWN_OFFSET_X * s;
+      const py = y + CONFIG.CUP_SPAWN_OFFSET_Y * s;
       g.translate(px, py);
       g.rotate(tilt);
       g.translate(-px, -py);
