@@ -26,11 +26,18 @@ describe('Match（2ラウンド）', () => {
     expect(m.session.supplyBalls * m.session.supplyWeight).toBeGreaterThanOrEqual(m.r1Score);
   }, 60_000);
 
-  it('R2はタップを待たずシームレスに始まる', () => {
+  it('⚠️ R2もタップを待つ（自動では落ち始めない）', () => {
     const m = new Match();
     m.start();
     runUntil(m, (x) => x.round === 2);
-    expect(m.session.started).toBe(true);
+    // 演出が明けてR2になっても、タップするまでは玉が出ない
+    expect(m.session.started).toBe(false);
+    for (let i = 0; i < 120; i++) m.update(1);
+    expect(m.session.supplied).toBe(0);
+    // タップして初めて動き出す
+    m.start();
+    for (let i = 0; i < 30; i++) m.update(1);
+    expect(m.session.supplied).toBeGreaterThan(0);
   }, 60_000);
 
   it('R1が終わると下バケツが下へ抜ける演出を挟む', () => {
@@ -41,15 +48,18 @@ describe('Match（2ラウンド）', () => {
     expect(m.round).toBe(1); // 演出中はまだR1扱い（下バケツを描くため）
     expect(m.session.started).toBe(false); // 盤面はまだ動かさない
 
-    // 演出が明けるとR2が動き出す
+    // 演出が明けるとR2に入る（開始はタップ待ち）
     runUntil(m, (x) => !x.transitioning);
     expect(m.round).toBe(2);
-    expect(m.session.started).toBe(true);
+    expect(m.session.started).toBe(false);
   }, 60_000);
 
   // 2ラウンド通しは玉が1000個規模で数千フレーム回るため、既定の5秒では足りない
   it('最終スコアはR2の回収（R1は足さない）', () => {
     const m = new Match();
+    m.start();
+    // R1が終わってR2に入ったら、プレイヤーがもう一度タップする想定
+    runUntil(m, (x) => x.round === 2 && !x.transitioning);
     m.start();
     runUntil(m, (x) => x.finished);
 

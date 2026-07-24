@@ -48,12 +48,19 @@ function newRound(): void {
   updateSpeedButton();
   shownResult = false;
   cupTilt = 0; // 新ラウンドは直立から。最初のタップで傾き始める
-  hintEl.textContent = '画面をタップすると始まるよ';
   showScreen('play');
 }
 
 function moveCup(clientX: number): void {
   match.setCupX(renderer.toLogicalX(clientX));
+}
+
+// 毎フレーム textContent を書き換えると無駄なので、変わった時だけ
+let shownHint = '';
+function setHint(v: string): void {
+  if (v === shownHint) return;
+  shownHint = v;
+  hintEl.textContent = v;
 }
 
 // ── プレイ中の操作 ──
@@ -62,7 +69,6 @@ stageEl.addEventListener('pointerdown', (e) => {
   stageEl.setPointerCapture(e.pointerId);
   moveCup(e.clientX);
   match.start();
-  hintEl.textContent = 'なぞってコップを動かす';
 });
 stageEl.addEventListener('pointermove', (e) => {
   if (e.pointerType === 'mouse' && e.buttons === 0) return;
@@ -151,6 +157,8 @@ function loop(): void {
   hud.setScore(match.displayScore);
   // R1は積み上げた弾、R2は最終スコア。数字の意味が変わるのでラベルで示す
   hud.setLabel(match.round === 1 ? 'BALLS' : 'SCORE');
+  // R2もタップ待ちなので、待っている間はその案内に戻す
+  setHint(match.session.started ? 'なぞってコップを動かす' : '画面をタップすると始まるよ');
 
   if (match.finished && !shownResult) {
     shownResult = true;

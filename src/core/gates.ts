@@ -65,7 +65,12 @@ export function applyGates(
         // 空きがある: 実際に玉を生む。生まれた玉は新品（gateMask = 0）
         ball.gateMask |= bit;
         const vx = ball.x - ball.px;
-        const vy = ball.y - ball.py;
+        // ⚠️ 生まれた玉を上へ飛ばさない（れいあ指摘）。
+        //    親が上向きに弾かれている瞬間にゲートを通ると、子まで上へ打ち上がって
+        //    上のゲートを再走し、増殖が止まらなくなる。見た目にも不自然。
+        //    ただしジャンプ台で上昇中（flying）は意図した上昇なのでそのまま継がせる。
+        const rawVy = ball.y - ball.py;
+        const vy = ball.flying ? rawVy : Math.max(0, rawVy);
 
         // ⚠️ 子を親と同じ場所に重ねて生むと、玉同士の押し出しで左右に弾け飛び、
         // 落下の軌道が不自然になる（れいあ指摘）。

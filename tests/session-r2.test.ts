@@ -39,12 +39,11 @@ describe('R2モードの供給', () => {
     expect(seen).toBeGreaterThan(0);
   });
 
-  it('R2は切り替わった直後に落ち始めない（コップの位置を選ぶ間がある）', () => {
+  it('start() するまでは1個も出ない（R2もタップ待ち）', () => {
     const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
-    s.start();
-    run(s, CONFIG.R2_START_DELAY_FRAMES - 1);
+    run(s, 120);
     expect(s.supplied).toBe(0);
-    // 待ちが明けたら出始める
+    s.start();
     run(s, 2);
     expect(s.supplied).toBeGreaterThan(0);
   });

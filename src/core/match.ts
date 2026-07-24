@@ -57,7 +57,8 @@ export class Match {
       if (this.transitionFrames < CONFIG.ROUND_TRANSITION_FRAMES) return;
       this.transitioning = false;
       this.round = 2;
-      this.session.start(); // ここからR2（供給には別途の待ちがある）
+      // ⚠️ ここで start() しない。R2もR1と同じく**タップされるまで待つ**（れいあ要望）。
+      //    自動で始めると、コップの位置を選ぶ前に玉が落ち始めてしまう。
       return;
     }
 
