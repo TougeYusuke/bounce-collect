@@ -35,6 +35,17 @@ export function crossedGate(
  *    それが「1個回収するたびに数千点入る」の正体だった。
  *    スコアは**回収した玉の個数**なので、盤面に入らなかった玉は存在しない。
  */
+/** 0以上1未満の決定論的な値。乱数の代わりに使う（同じ入力なら必ず同じ結果） */
+export function hash01(n: number): number {
+  let x = n >>> 0;
+  x ^= x >>> 16;
+  x = Math.imul(x, 0x7feb352d) >>> 0;
+  x ^= x >>> 15;
+  x = Math.imul(x, 0x846ca68b) >>> 0;
+  x ^= x >>> 16;
+  return x / 4294967296;
+}
+
 export function applyGates(
   pool: BallPool,
   stage: Stage,
@@ -91,7 +102,6 @@ export function applyGates(
         // 盤面に入るぶんだけ実際に玉を生む。生まれた玉は新品（gateMask = 0）。
         // ⚠️ 盤面が満杯なら**何も起きない**（以前はここで重さを倍にしていた）
         ball.gateMask |= bit;
-        const vx = ball.x - ball.px;
         // ⚠️ 生まれた玉を上へ飛ばさない（れいあ指摘）。
         //    親が上向きに弾かれている瞬間にゲートを通ると、子まで上へ打ち上がって
         //    上のゲートを再走し、増殖が止まらなくなる。見た目にも不自然。
@@ -99,26 +109,24 @@ export function applyGates(
         const rawVy = ball.y - ball.py;
         const vy = ball.flying ? rawVy : Math.max(0, rawVy);
 
-        // ⚠️ 子を親と同じ場所に重ねて生むと、玉同士の押し出しで左右に弾け飛び、
-        // 落下の軌道が不自然になる（れいあ指摘）。
-        // 進行方向に沿って一列に並べれば、重ならず、横にも散らない。
-        const len = Math.hypot(vx, vy);
-        const ux = len > 0.01 ? vx / len : 0;
-        const uy = len > 0.01 ? vy / len : 1; // 止まっていれば下向きとみなす
-        const spacing = ballDiameter;
+        // ⚠️ 生む場所は「ゲートの判定に触れないギリギリ下」に、ゲートの幅いっぱいへ
+        //    散らして置く（2026-07-24 れいあ提案・検証中）。
+        //    狙い＝押し出されて上へ盛り返した玉がゲートを下から通り直し、
+        //    そこからまた増える形をつくる。跳ね上げほど激しくない「盛り返し」。
+        const radius = ballDiameter / 2;
+        const spawnY = gate.y + radius * CONFIG.SPAWN_BELOW_GATE + 1; // 中心がここなら生成直後はまたいでいない
+        const innerX1 = gate.x1 + radius;
+        const innerX2 = gate.x2 - radius;
+        const span = Math.max(0, innerX2 - innerX1);
 
         let placed = 0;
         for (let k = 0; k < extra; k++) {
           if (pool.activeCount >= maxBalls) break; // 盤面が満杯ならこれ以上は増えない
-          // 進行方向の「前」に並べる。後ろ（通ってきた側）に置くと、
-          // 次のフレームで同じゲートをもう一度またいでしまう。
-          const d = spacing * (k + 1);
-          // ⚠️ 完全な一直線にしないこと。真っ直ぐ並べると、細い仕切りの上などに
-          // そのまま縦に積み上がって崩れず、眠って固まってしまう（実測）。
-          // 進行方向に対して垂直に、交互にわずかずらして不安定にする。
-          const jitter = (k % 2 === 0 ? 1 : -1) * spacing * 0.15;
-          const cx = ball.x + ux * d - uy * jitter;
-          const cy = ball.y + uy * d + ux * jitter;
+          // ⚠️ 乱数は使わない（設計書 §4.4）。同じ状況なら同じ結果になるよう、
+          //    玉と順番から決定論的に散らす。
+          const t = hash01(idx * 2654435761 + k * 40503 + gate.id * 97);
+          const cx = span > 0 ? innerX1 + t * span : (gate.x1 + gate.x2) / 2;
+          const cy = spawnY;
           if (occupied(cx, cy)) continue; // 混んでいる場所には生まない
           const child = pool.spawn(cx, cy, {
             weight: ball.weight,
@@ -131,8 +139,10 @@ export function applyGates(
             flying: ball.flying, // ★継承（上昇中に増えた玉も叩き落されない）
           });
           if (!child) break;
-          child.px = child.x - vx;
-          child.py = child.y - vy;
+          // 初速はほぼ持たせない。押し出しで動かすことで「盛り返し」を起こしやすくする。
+          // ⚠️ 上昇中（flying）の親から生まれた子だけは、上向きの勢いを継がせる。
+          child.px = child.x;
+          child.py = ball.flying ? child.y - vy : child.y;
           placed++;
         }
         // ⚠️ 置けなかったぶんは**そのまま増えない**。
