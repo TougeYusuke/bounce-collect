@@ -28,6 +28,7 @@ let material: Material = MATERIALS[0];
 let speed = 1;
 let shownResult = false;
 let ready = false;
+let cupTilt = 0; // 上バケツの傾き（ラジアン）。タップ後はそのラウンド中ずっと傾けたまま
 
 renderer.setMaterial(material);
 
@@ -46,6 +47,7 @@ function newRound(): void {
   speed = 1;
   updateSpeedButton();
   shownResult = false;
+  cupTilt = 0; // 新ラウンドは直立から。最初のタップで傾き始める
   hintEl.textContent = '画面をタップすると始まるよ';
   showScreen('play');
 }
@@ -132,16 +134,14 @@ window.addEventListener('resize', () => {
   layoutHud();
 });
 
-// 玉を出している間だけ上バケツを傾ける（注いでいる様子）。
-// 供給は一瞬（約0.6秒）なので、目標角へイージングで寄せて「じわっと傾いて戻る」動きにする
-// ＝一瞬パッと切り替わるより、注いでいる動作として見える。
+// タップして玉を出し始めたら、上バケツは傾けたままにする（注いだ後もその姿勢を保つ）。
+// 目標角へイージングで寄せるので「じわっと傾く」動きになる。新ラウンドで直立に戻る。
 const CUP_POUR_TILT = 1.4; // ラジアン（約80度）
-let cupTilt = 0;
 
 function loop(): void {
   session.update(speed);
   if (ready) {
-    const target = session.dispensing ? CUP_POUR_TILT : 0;
+    const target = session.started ? CUP_POUR_TILT : 0;
     cupTilt += (target - cupTilt) * 0.15;
     renderer.draw(session.pool, CONFIG.BALL_RADIUS, session.stage, session.cupX, cupTilt);
   }
