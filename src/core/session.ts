@@ -50,8 +50,10 @@ export class Session {
   readonly mode: RoundMode;
   /** このラウンドで配る玉数（R1では initialBalls と同じ） */
   readonly supplyBalls: number;
-  /** 1玉あたりの weight（R1は常に1） */
+  /** 1玉あたりの weight（R1は常に1）。端数ぶんは heavyBalls 個だけ +1 される */
   readonly supplyWeight: number;
+  /** weight が1つ多い玉の個数（端数の配り先）。R1では0 */
+  readonly heavyBalls: number = 0;
   /**
    * 玉を出す間隔（フレーム）。持ち玉の数から決まる。
    * 少なければゆっくり、多ければテンポよく（ただし物理の下限あり）。
@@ -90,8 +92,11 @@ export class Session {
     if (this.mode === 'r2') {
       const total = Math.max(1, Math.floor(opts.supplyTotal ?? 0));
       this.supplyBalls = Math.min(CONFIG.R2_SUPPLY_BALLS, total);
-      // ⚠️ 切り上げ。切り捨てると供給がR1の結果を下回り、積み上げた実感が消える
-      this.supplyWeight = Math.ceil(total / this.supplyBalls);
+      // ⚠️ 端数は「重い玉を何個か混ぜる」形で配り切る。
+      //    全部を切り上げると総量がR1の結果を上回り（208→300）、切り捨てると下回る。
+      //    どちらも「積み上げたぶんがそのまま来ていない」ことになる（れいあ指摘）。
+      this.supplyWeight = Math.floor(total / this.supplyBalls);
+      this.heavyBalls = total - this.supplyWeight * this.supplyBalls;
     } else {
       this.supplyBalls = this.initialBalls;
       this.supplyWeight = 1;
@@ -128,9 +133,15 @@ export class Session {
       : this.stage.collectY;
   }
 
-  /** コップに残っている玉の数（これから出てくるぶん）。カップの横に出す */
+  /**
+   * コップに残っている**総量**（これから出てくるぶんの weight 合計）。カップの横に出す。
+   * ⚠️ 個数ではない。R2は重さでまとめて配るので、個数を出すと
+   *    「R1で208点 → R2のコップに100」と減ったように見える（れいあ指摘）。
+   */
   get remaining(): number {
-    return Math.max(0, this.supplyBalls - this.supplied);
+    const balls = Math.max(0, this.supplyBalls - this.supplied);
+    const heavyLeft = Math.max(0, this.heavyBalls - this.supplied);
+    return balls * this.supplyWeight + heavyLeft;
   }
 
   /** いま玉を出している最中か（上バケツを傾ける演出に使う） */
@@ -296,7 +307,9 @@ export class Session {
 
     // 常に1個ずつ、コップの口の真下から出す
     const y = CONFIG.CUP_Y + CONFIG.BALL_RADIUS * 2;
-    const opts = this.mode === 'r2' ? { weight: this.supplyWeight } : undefined;
+    // 端数ぶんは先頭の heavyBalls 個に +1 して配り、総量をぴったり合わせる
+    const w = this.supplyWeight + (this.supplied < this.heavyBalls ? 1 : 0);
+    const opts = this.mode === 'r2' ? { weight: w } : undefined;
     if (this.pool.spawn(this.cupX, y, opts)) this.supplied++;
   }
 

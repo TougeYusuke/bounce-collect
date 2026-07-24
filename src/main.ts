@@ -154,15 +154,20 @@ function loop(): void {
     const p = match.transitionProgress;
     if (match.transitioning) {
       const half = p < 0.5;
+      const k = half ? p * 2 : (p - 0.5) * 2; // 各半分の中での進み具合 0→1
       renderer.boardOffsetY = half
-        ? -(p * 2) * CONFIG.BOARD_HEIGHT // 0 → -720（上へ抜ける）
-        : (1 - (p - 0.5) * 2) * CONFIG.BOARD_HEIGHT; // +720 → 0（下から入る）
+        ? -k * CONFIG.BOARD_HEIGHT // 0 → -720（盤面が上へ抜ける）
+        : (1 - k) * CONFIG.BOARD_HEIGHT; // +720 → 0（次の盤面が下から入る）
       renderer.showBottomBucket = half; // 前半だけR1のバケツを見せる
+      // ⚠️ 盤面と一緒に上へ流すと、積み上げた玉ごと上へ消えてしまう。
+      //    盤面の動きを打ち消したうえで**下へ**運び、「この中身をそのまま次へ持っていく」
+      //    ように見せる（れいあ要望）。
+      renderer.bottomBucketOffsetY = half ? k * CONFIG.BOARD_HEIGHT + k * 140 : 0;
     } else {
       renderer.boardOffsetY = 0;
+      renderer.bottomBucketOffsetY = 0;
       renderer.showBottomBucket = match.round === 1;
     }
-    renderer.bottomBucketOffsetY = 0;
     // コップに残っている玉の数（タップ前と出し切る前だけ意味がある）
     renderer.cupCount = match.session.remaining > 0 ? match.session.remaining : null;
     renderer.draw(match.session.pool, CONFIG.BALL_RADIUS, match.session.stage, match.cupX, cupTilt);

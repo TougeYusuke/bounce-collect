@@ -13,7 +13,8 @@ import type { Segment } from './world';
 export interface StageDef {
   name: string;
   gates: { x1: number; x2: number; y: number; multiplier: number }[];
-  jumpers: { x1: number; x2: number; y: number }[];
+  /** capacity を省くと CONFIG.JUMPER_CAPACITY（跳ね返せる玉の個数） */
+  jumpers: { x1: number; x2: number; y: number; capacity?: number }[];
   dividers: { x1: number; y1: number; x2: number; y2: number }[];
 }
 
@@ -87,6 +88,8 @@ export function buildStage(def: StageDef): Stage {
     x2: j.x2,
     y: j.y,
     power: CONFIG.JUMP_POWER, // ステージごとに変えない
+    capacity: j.capacity ?? CONFIG.JUMPER_CAPACITY,
+    used: 0,
   }));
 
   return {

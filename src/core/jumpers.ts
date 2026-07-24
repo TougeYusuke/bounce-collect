@@ -1,6 +1,6 @@
 import type { BallPool } from './ball';
 import { wake } from './solver';
-import type { Stage } from './stage';
+import { isJumperActive, type Stage } from './stage';
 
 /**
  * ジャンプ台の判定。
@@ -16,6 +16,7 @@ import type { Stage } from './stage';
 export function applyJumpers(pool: BallPool, stage: Stage, maxBounce: number): void {
   pool.forEachActive((b) => {
     for (const j of stage.jumpers) {
+      if (!isJumperActive(j)) continue; // この台は跳ね返す数を使い切った
       const bit = 1 << j.id;
       if (b.jumperMask & bit) continue; // この台はもう使った
       if (b.x < j.x1 || b.x > j.x2) continue;
@@ -25,6 +26,7 @@ export function applyJumpers(pool: BallPool, stage: Stage, maxBounce: number): v
 
       b.jumperMask |= bit;
       b.bounce++;
+      j.used++; // ⚠️ 重さではなく「玉の個数」で数える（重い玉1個で使い切らないように）
       b.y = j.y - 1;
       // Verlet では前フレーム位置を下にずらすことが上向きの速度になる
       b.py = b.y + j.power;

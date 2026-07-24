@@ -6,7 +6,7 @@ import type { Stage } from '../src/core/stage';
 const stage: Stage = {
   segments: [],
   gates: [],
-  jumpers: [{ id: 0, x1: 100, x2: 200, y: 400, power: 9 }],
+  jumpers: [{ id: 0, x1: 100, x2: 200, y: 400, power: 9, capacity: 10_000, used: 0 }],
   collectY: 700,
 };
 
@@ -70,8 +70,8 @@ describe('applyJumpers', () => {
     const twoJumpers: Stage = {
       ...stage,
       jumpers: [
-        { id: 0, x1: 100, x2: 200, y: 400, power: 9 },
-        { id: 1, x1: 100, x2: 200, y: 402, power: 9 },
+        { id: 0, x1: 100, x2: 200, y: 400, power: 9, capacity: 10_000, used: 0 },
+        { id: 1, x1: 100, x2: 200, y: 402, power: 9, capacity: 10_000, used: 0 },
       ],
     };
     const pool = new BallPool(10);
@@ -104,8 +104,8 @@ describe('applyJumpers', () => {
     const two = {
       ...stage,
       jumpers: [
-        { id: 0, x1: 100, x2: 200, y: 400, power: 9 },
-        { id: 1, x1: 100, x2: 200, y: 600, power: 9 },
+        { id: 0, x1: 100, x2: 200, y: 400, power: 9, capacity: 10_000, used: 0 },
+        { id: 1, x1: 100, x2: 200, y: 600, power: 9, capacity: 10_000, used: 0 },
       ],
     };
     const pool = new BallPool(10);
@@ -123,8 +123,8 @@ describe('applyJumpers', () => {
     const two = {
       ...stage,
       jumpers: [
-        { id: 0, x1: 100, x2: 200, y: 400, power: 9 },
-        { id: 1, x1: 100, x2: 200, y: 600, power: 9 },
+        { id: 0, x1: 100, x2: 200, y: 400, power: 9, capacity: 10_000, used: 0 },
+        { id: 1, x1: 100, x2: 200, y: 600, power: 9, capacity: 10_000, used: 0 },
       ],
     };
     const pool = new BallPool(10);

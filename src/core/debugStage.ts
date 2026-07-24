@@ -45,7 +45,7 @@ export function createDebugStage(preset: DebugPreset): Stage {
   return {
     segments: [],
     gates: [gate(0, w * 0.15, w * 0.85, 200, 2)],
-    jumpers: [{ id: 0, x1: w * 0.2, x2: w * 0.8, y: 520, power: CONFIG.JUMP_POWER }],
+    jumpers: [{ id: 0, x1: w * 0.2, x2: w * 0.8, y: 520, power: CONFIG.JUMP_POWER, capacity: CONFIG.JUMPER_CAPACITY, used: 0 }],
     collectY: h - 20,
   };
 }

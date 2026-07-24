@@ -22,6 +22,9 @@ export interface Gate {
 /**
  * 触れると上に打ち上げる横バー。
  * ゲートと同じく「1つの玉につき1回だけ」反応する（id は Ball.jumperMask のビット位置）。
+ *
+ * ⚠️ ゲートと違い、**台ごとに「何個の玉を跳ね返せるか」の上限を持つ**（2026-07-24 れいあ判断）。
+ *    これが無いと跳ね上げ→再増殖のループが長く続き、ラウンドがいつまでも終わらない。
  */
 export interface Jumper {
   id: number;
@@ -29,6 +32,15 @@ export interface Jumper {
   x2: number;
   y: number;
   power: number;
+  /** この台が跳ね返せる玉の個数。使い切ると反応しなくなる */
+  capacity: number;
+  /** これまでに跳ね返した玉の個数 */
+  used: number;
+}
+
+/** まだ跳ね返せるか（使い切っていないか） */
+export function isJumperActive(j: Jumper): boolean {
+  return j.used < j.capacity;
 }
 
 /**

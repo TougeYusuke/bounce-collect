@@ -22,8 +22,11 @@ describe('Match（2ラウンド）', () => {
     expect(m.round).toBe(2);
     expect(m.r1Score).toBeGreaterThan(0);
     expect(m.session.mode).toBe('r2');
-    // 切り上げのぶん、供給の合計はR1の結果以上になる
-    expect(m.session.supplyBalls * m.session.supplyWeight).toBeGreaterThanOrEqual(m.r1Score);
+    // ⚠️ 端数も含めて**ぴったり**引き継ぐ（多くも少なくもならない）
+    const carried = m.session.supplyBalls * m.session.supplyWeight + m.session.heavyBalls;
+    expect(carried).toBe(m.r1Score);
+    // コップの残量表示も同じ値から始まる（個数ではなく中身）
+    expect(m.session.remaining).toBe(m.r1Score);
   }, 60_000);
 
   it('⚠️ R2もタップを待つ（自動では落ち始めない）', () => {
