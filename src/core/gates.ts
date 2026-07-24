@@ -93,6 +93,14 @@ export function applyGates(
     //    同じフレームで次のゲートを「またいでいない」と誤判定する（実測で発覚）。
     let slowDown = false;
 
+    // ⚠️ 上向きに動いている玉は、**ジャンプ台で打ち上げられた時だけ**反応させる
+    //    （2026-07-24 れいあ指摘）。押し出されて盛り返しただけの玉まで増えると、
+    //    上へ上がる玉がどんどん増えて挙動が気持ち悪くなる。
+    //    ⚠️ ジャンプ台由来（flying）は除外しないこと。打ち上げた玉が上のゲートを
+    //       通り直して増えるのは設計の核（設計書 §2.4 の爆増の源）。
+    const movingUp = ball.y < ball.py;
+    if (movingUp && !ball.flying) continue;
+
     for (const gate of stage.gates) {
       // 1つの玉につき1回だけ反応する（使用回数の上限は持たない・2026-07-24）
       const bit = 1 << gate.id;

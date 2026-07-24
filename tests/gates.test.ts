@@ -153,13 +153,23 @@ describe('applyGates（増殖ルール）', () => {
     expect(pool.activeCount).toBe(1);
   });
 
-  it('ジャンプ台で戻って同じゲートを下から通った新品の玉も増える', () => {
+  it('ジャンプ台で打ち上げられた玉は、下から通っても増える（爆増の源）', () => {
     const pool = new BallPool(100);
-    const b = pool.spawn(150, 295, { gateMask: 0 })!;
+    // ⚠️ flying = ジャンプ台で打ち上げ中。これが立っている時だけ上向き通過を認める
+    const b = pool.spawn(150, 295, { gateMask: 0, flying: true })!;
     b.py = 305; // 下から上へ
     b.px = 150;
     applyGates(pool, stage, 100);
     expect(pool.activeCount).toBe(4);
+  });
+
+  it('⚠️ 押し出されて上がっただけの玉は、下から通っても増えない', () => {
+    const pool = new BallPool(100);
+    const b = pool.spawn(150, 295, { gateMask: 0 })!; // flying なし
+    b.py = 305; // 下から上へ
+    b.px = 150;
+    applyGates(pool, stage, 100);
+    expect(pool.activeCount).toBe(1); // 増えない
   });
 
   it('生まれた玉は親と完全に同じ位置には置かれない（重なって爆ぜないように）', () => {

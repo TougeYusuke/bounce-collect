@@ -22,7 +22,6 @@ const hintEl = document.getElementById('hint')!;
 const renderer = new CanvasRenderer();
 const hud = new Hud();
 
-const SPEEDS = [1, 2, 4] as const;
 let match = new Match();
 let material: Material = MATERIALS[0];
 let speed = 1;
@@ -57,6 +56,8 @@ function moveCup(clientX: number): void {
 
 // URLに ?debug=1 を付けるとデバッグ表示が出る（ジャンプ台の残り回数など）
 const DEBUG = new URLSearchParams(location.search).has('debug');
+// ⚠️ 0.5倍速はデバッグ時だけ。挙動をコマ送り気味に確かめるため（れいあ要望）
+const SPEEDS: number[] = DEBUG ? [0.5, 1, 2, 4] : [1, 2, 4];
 renderer.showDebug = DEBUG;
 const debugEl = document.getElementById('debug')!;
 debugEl.hidden = !DEBUG;
@@ -106,7 +107,7 @@ function updateSpeedButton(): void {
   speedBtn.textContent = `${speed}×`;
 }
 speedBtn.addEventListener('click', () => {
-  speed = SPEEDS[(SPEEDS.indexOf(speed as 1 | 2 | 4) + 1) % SPEEDS.length];
+  speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
   updateSpeedButton();
 });
 
@@ -169,8 +170,16 @@ window.addEventListener('resize', () => {
 // 目標角へイージングで寄せるので「じわっと傾く」動きになる。新ラウンドで直立に戻る。
 const CUP_POUR_TILT = 1.4; // ラジアン（約80度）
 
+// 0.5倍速は「2フレームに1回だけ進める」で表す（物理は1ステップ単位でしか進められない）
+let halfTick = 0;
+
 function loop(): void {
-  match.update(speed);
+  if (speed < 1) {
+    halfTick++;
+    if (halfTick % 2 === 0) match.update(1);
+  } else {
+    match.update(speed);
+  }
   if (ready) {
     const target = match.session.started ? CUP_POUR_TILT : 0;
     cupTilt += (target - cupTilt) * 0.15;
