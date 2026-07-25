@@ -130,11 +130,13 @@ describe('Session', () => {
   it('⚠️ 盤面の内側に収めるのは「玉が落ちる場所」（カップ本体は見切れてよい）', () => {
     // 2026-07-25 れいあ裁定: カップ中心を画面内に収める形だと左端に落とせなかった。
     // 玉は口の縁から出る＝カップ本体は落下点より左に居るので、左端を狙うと見切れる。
+    // ⚠️ 2026-07-26: 限界は壁ぎわではなく**玉の半径ぶん内側**（＝玉の縁が壁に接する所）。
+    //    壁ぎわまで許すと、玉がめり込んだ状態で生まれて中央へ飛ぶ（れいあ指摘）。
     const s = new Session();
     s.setCupX(-999);
-    expect(s.cupX + s.dropOffsetX).toBe(0);
+    expect(s.cupX + s.dropOffsetX).toBe(CONFIG.BALL_RADIUS);
     s.setCupX(99999);
-    expect(s.cupX + s.dropOffsetX).toBe(CONFIG.BOARD_WIDTH);
+    expect(s.cupX + s.dropOffsetX).toBe(CONFIG.BOARD_WIDTH - CONFIG.BALL_RADIUS);
   });
 
   it('コップの位置を変えると玉の落ちる場所が変わる', () => {

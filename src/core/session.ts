@@ -42,6 +42,24 @@ function stepOptions() {
 /** 何も動かなくなってから、終了と判断するまでの猶予 */
 const QUIET_FRAMES = 45;
 
+/**
+ * R2でまとめて出す時の、i番目の玉が湧く場所（世界座標）。
+ * 口の幅方向に `R2_DUMP_COLUMNS` 個並べ、あふれたぶんは口の**奥**へ積む。
+ * ⚠️ 奥へ積むこと。手前（口の外）へ足すと、バケツの外の宙から玉が湧いて見える。
+ *
+ * 🔑 カップの位置と傾きを**引数で受ける**（Sessionの状態を見ない）。
+ *    こうしておくと「実際に湧かせる時」と「壁からの余白を決める時」で同じ式を使える。
+ */
+function dumpSlotAt(cupX: number, tilt: number, i: number): CupPoint {
+  const d = CONFIG.BALL_RADIUS * 2 * CONFIG.R2_DUMP_SPACING;
+  const cols = CONFIG.R2_DUMP_COLUMNS;
+  // ⚠️ 横の中心は**カップの軸**（ローカル0＝開口部の中心）。`CUP_SPAWN_OFFSET_X` は
+  //    1個ずつ出す時の調整点であって開口部の中心ではないので、ここに使うと左右非対称になる。
+  const lx = CONFIG.CUP_TILT_PIVOT_OFFSET_X + ((i % cols) - (cols - 1) / 2) * d;
+  const ly = CONFIG.CUP_SPAWN_OFFSET_Y + Math.floor(i / cols) * d;
+  return cupLocalToWorld(cupX, tilt, lx, ly);
+}
+
 /** R1=増やすラウンド ／ R2=溜めて放流するラウンド。違うのは底の挙動だけ */
 export type RoundMode = 'r1' | 'r2';
 
@@ -262,8 +280,42 @@ export class Session {
    *    （左右で注ぐ向きを入れ替える案は「挙動が気持ち悪い」で不採用）。
    */
   setCupX(x: number): void {
-    const drop = Math.min(CONFIG.BOARD_WIDTH, Math.max(0, x));
+    // ⚠️ 止めるのは**玉が落ち始める場所**（カップの位置ではない）。
+    //
+    // 🔑 さらに **一番外側に湧く玉の「縁」が壁に触れる所**が限界（2026-07-26 れいあ指摘）。
+    //    壁ぎわ(0/360)まで許すと、玉は**生まれた瞬間から壁にめり込んでいる**状態になる。
+    //    Verlet では「めり込みを押し戻した量」がそのまま速度に化けるので、
+    //    玉は落ちずに**中央へ向かって飛ぶ**（実測: R1の狙い0 で +8.38px/フレーム＝上限速度まで出る）。
+    const r = CONFIG.BALL_RADIUS;
+    const s = this.spawnSpreadX();
+    const lo = r - s.min + this.dropOffsetX;
+    const hi = CONFIG.BOARD_WIDTH - r - s.max + this.dropOffsetX;
+    const drop = Math.min(hi, Math.max(lo, x));
     this.cupX = drop - this.dropOffsetX;
+  }
+
+  /**
+   * カップの中心から見て、玉が湧く x がどこまで広がるか。
+   *
+   * ⚠️ **注ぎ始めはまだ完全に真下（真横）を向いていない**（`CUP_POUR_READY`）。傾き切っていない間は
+   *    口が斜めを向いているぶん、湧く場所が列ごと横へずれる（実測: R2の傾き 0.954π で +3.3px）。
+   *    一番ずれる姿勢＝注ぎ始めで見積もる。傾きが進むほどずれは減る＝安全側に外れる。
+   */
+  private spawnSpreadX(): { min: number; max: number } {
+    if (this.mode !== 'r2') {
+      // R1は1個ずつ。落ち始める場所はカップ中心から `dropOffsetX` だけ右
+      const d = this.dropOffsetX;
+      return { min: d, max: d };
+    }
+    const tilt = CONFIG.CUP_DUMP_TILT * CONFIG.CUP_POUR_READY;
+    let min = Infinity;
+    let max = -Infinity;
+    for (let i = 0; i < CONFIG.R2_DUMP_MAX; i++) {
+      const x = dumpSlotAt(0, tilt, i).x;
+      min = Math.min(min, x);
+      max = Math.max(max, x);
+    }
+    return { min, max };
   }
 
   /**
@@ -419,17 +471,11 @@ export class Session {
 
   /**
    * R2でまとめて出す時の、i番目の玉の湧く場所（世界座標）。
-   * 口の幅方向に `R2_DUMP_COLUMNS` 個並べ、あふれたぶんは口の**奥**へ積む。
-   * ⚠️ 奥へ積むこと。手前（口の外）へ足すと、バケツの外の宙から玉が湧いて見える。
+   * 🔑 実際に湧かせる時と、**壁からの余白を決める時**（`setCupX`）で同じ式を使う。
+   *    別々に持つと、片方だけ直した時に「端で玉が壁の外に湧く」が戻る（2026-07-26 に踏んだ）。
    */
   private dumpSlot(i: number): CupPoint {
-    const d = CONFIG.BALL_RADIUS * 2 * CONFIG.R2_DUMP_SPACING;
-    const cols = CONFIG.R2_DUMP_COLUMNS;
-    // ⚠️ 横の中心は**カップの軸**（ローカル0＝開口部の中心）。`CUP_SPAWN_OFFSET_X` は
-    //    1個ずつ出す時の調整点であって開口部の中心ではないので、ここに使うと左右非対称になる。
-    const lx = CONFIG.CUP_TILT_PIVOT_OFFSET_X + ((i % cols) - (cols - 1) / 2) * d;
-    const ly = CONFIG.CUP_SPAWN_OFFSET_Y + Math.floor(i / cols) * d;
-    return cupLocalToWorld(this.cupX, this.cupTilt, lx, ly);
+    return dumpSlotAt(this.cupX, this.cupTilt, i);
   }
 
   /**

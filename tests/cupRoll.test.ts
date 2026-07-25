@@ -111,6 +111,33 @@ describe('なぞった場所に玉が落ちる', () => {
     }
   });
 
+  /** 縁を離れて最初の1フレームの横向きの速さ（ここで初めて壁の判定が効く） */
+  function dropVxAt(target: number): number {
+    const s = new Session();
+    s.setCupX(target);
+    const { ball } = pourFirst(s);
+    for (let i = 1; i < cupRollFrames(); i++) s.update(1);
+    s.update(1);
+    return ball.x - ball.px;
+  }
+
+  it('⚠️ 端ギリギリを狙っても横に飛ばない（2026-07-26 れいあ指摘）', () => {
+    // 🔑 玉は**半径ぶんの大きさを持つ**。落ち始める場所を壁ぎわ(0や360)まで許すと、
+    //    生まれた瞬間から壁にめり込んでいる状態になる。
+    //    Verlet では位置を押し戻した量がそのまま速度になるので、
+    //    押し戻されたぶん**中央へ向かって飛ぶ**（実測: 狙い0 で +8.38px/フレーム）。
+    for (const target of [0, 2, 4, 356, 358, 360]) {
+      expect(Math.abs(dropVxAt(target))).toBeLessThan(1);
+    }
+  });
+
+  it('⚠️ 端を狙った玉は「壁に接する限界」に落ちる（半径ぶん内側が限界）', () => {
+    const r = CONFIG.BALL_RADIUS;
+    // 狙いが壁の外でも、玉の**縁**が壁に接する所までしか行けない＝そこが限界
+    expect(dropAt(0)).toBeCloseTo(r, 0);
+    expect(dropAt(360)).toBeCloseTo(CONFIG.BOARD_WIDTH - r, 0);
+  });
+
   it('⚠️ 左端を狙うとカップは画面から見切れる（それでよい・れいあ裁定 2026-07-25）', () => {
     // 玉は口の縁から出るので、カップ本体は指より左に居る。
     // ⚠️ カップを画面内に収める形に戻すと左端に落とせなくなる。
@@ -118,6 +145,27 @@ describe('なぞった場所に玉が落ちる', () => {
     const s = new Session();
     s.setCupX(10);
     expect(s.cupX).toBeLessThan(0);
+  });
+
+  it('⚠️ R2で端を狙っても、一番外の列が壁の外に湧かない（2026-07-26 れいあ指摘）', () => {
+    // R2は口の幅方向に何列も並べて落とすので、R1（玉1個）より広い余白が要る。
+    // ⚠️ 見るのは**最初の放出**（盤面が空＝玉同士の押し合いが無いので、
+    //    横向きの速さが出たらそれは壁に押し戻されたぶんしかない）。
+    for (const target of [0, 360]) {
+      const s = new Session(undefined, { mode: 'r2', supplyTotal: 400, maxBalls: 400 });
+      s.setCupX(target);
+      s.start();
+      for (let f = 0; f < 90 && s.supplied === 0; f++) {
+        s.setCupX(target);
+        s.update(1);
+      }
+      expect(s.supplied).toBeGreaterThan(0);
+      let peak = 0;
+      s.pool.forEachActive((b) => {
+        peak = Math.max(peak, Math.abs(b.x - b.px));
+      });
+      expect(peak).toBeLessThan(1);
+    }
   });
 
   it('R2はズレ無し（真下へ注ぐので、なぞった所の真下に落ちる）', () => {
