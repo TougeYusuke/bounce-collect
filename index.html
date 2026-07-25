@@ -7,7 +7,18 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"
     />
+    <!--
+      ホーム画面に追加すると全画面で開く（2026-07-26）。
+      🔑 スマホのブラウザは上下バーが画面の約1/4を占めていて、ページ側からは消せない。
+         盤面が小さいのはこれが主因なので、消したければホーム追加してもらうしかない。
+      ⚠️ `black-translucent` はステータスバーの下まで描く指定。`viewport-fit=cover` と
+         セットで効き、HUDは `env(safe-area-inset-*)` で内側に寄せてある。
+    -->
+    <link rel="manifest" href="manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Marble Mill" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
     <meta name="theme-color" content="#170e09" />
     <title>Marble Mill</title>
     <style>
@@ -119,6 +130,33 @@
         display: block; height: 100%; width: 0; border-radius: 6px;
         background: linear-gradient(90deg, #8a6420, var(--accent));
         transition: width 0.2s ease-out;
+      }
+
+      /*
+        横向きの案内（2026-07-26）。
+        ⚠️ 盤面は縦長（360×720）なので、横向きだと細い帯になってボタンや文字が盤面に重なる。
+           作り替えるとステージ9型を全部やり直すことになるので、**縦持ちに戻してもらう**方を採る。
+        ⚠️ 出す条件を「横向き」だけにしないこと。PCの横長ウィンドウでも出てしまう。
+           高さで絞る（スマホ横向き=393px前後 / ノートPC=600px以上）。
+      */
+      #rotate-hint { display: none; }
+      @media (orientation: landscape) and (max-height: 500px) {
+        #rotate-hint {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 18px;
+          background: var(--outer);
+          text-align: center;
+          padding: 20px;
+        }
+        #rotate-hint svg { width: 54px; height: 54px; color: var(--accent); }
+        #rotate-hint .rh-t { font: 800 19px/1.4 inherit; color: var(--ink); }
+        #rotate-hint .rh-s { font: 600 13px/1.6 inherit; color: var(--sub); }
       }
 
       /* ── オーバーレイ画面の共通枠 ── */
@@ -366,6 +404,17 @@
 
     <!-- デバッグ表示（URLに ?debug=1 を付けた時だけ出る） -->
     <div id="debug" hidden></div>
+
+    <!-- 横向きの案内（CSSだけで出す＝JSは関与しない） -->
+    <div id="rotate-hint">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="7" y="2" width="10" height="20" rx="2.2" />
+        <path d="M12 18.4h.01" />
+        <path d="M2.6 12a9.4 9.4 0 0 1 2.9-6.8" /><path d="M2.4 8.4 2.6 12l3.6-.4" />
+      </svg>
+      <div class="rh-t">画面を縦にしてね</div>
+      <div class="rh-s">盤面が縦長だから、横向きだと遊びにくいんだ</div>
+    </div>
 
     <!-- 読み込み中（⚠️ 画像を1枚も使わない＝これ自体は待ち時間ゼロで出る） -->
     <div class="screen" id="screen-loading">
