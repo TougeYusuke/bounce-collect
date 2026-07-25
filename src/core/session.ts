@@ -505,6 +505,8 @@ export class Session {
       step(this.pool, this.grid, this.world, STEP_OPTIONS);
       this.enforceWedges();
       applyGates(this.pool, this.stage, this.maxBalls, CONFIG.BALL_RADIUS * 2, this.grid);
+      // 増えた合図の光を減衰させる（描画がこれを見る）
+      for (const g of this.stage.gates) if (g.flash) g.flash--;
       applyJumpers(this.pool, this.stage, CONFIG.MAX_BOUNCE);
       this.tryRelease();
       this.collect();

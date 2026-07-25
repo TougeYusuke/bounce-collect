@@ -266,21 +266,25 @@ export class CanvasRenderer implements Renderer {
       const x = ox + gt.x1 * s;
       const w = (gt.x2 - gt.x1) * s;
       const y = oy + gt.y * s - h / 2;
+      // 増えた直後は帯もラベルも光らせる。⚠️ 玉の山に埋まると、これが無いと
+      //    「いま増えている」が画面に一切出ない（2026-07-25 本家の動画で判明）
+      const lit = (gt.flash ?? 0) / CONFIG.GATE_FLASH_FRAMES;
       g.save();
       g.shadowColor = SKIN.gateGlow;
-      g.shadowBlur = 16 * s;
+      g.shadowBlur = (16 + 26 * lit) * s;
       g.fillStyle = SKIN.gate;
       this.roundRect(g, x, y, w, h, h / 2);
       g.fill();
       g.restore();
       const gl = g.createLinearGradient(0, y, 0, y + h);
-      gl.addColorStop(0, 'rgba(255,255,255,.45)');
-      gl.addColorStop(0.5, 'rgba(255,255,255,0)');
+      gl.addColorStop(0, `rgba(255,255,255,${0.45 + 0.4 * lit})`);
+      gl.addColorStop(0.5, `rgba(255,255,255,${0.3 * lit})`);
       g.fillStyle = gl;
       this.roundRect(g, x, y, w, h, h / 2);
       g.fill();
       g.fillStyle = SKIN.gateInk;
-      g.font = `800 ${Math.max(9, Math.round(12 * s))}px ui-rounded, system-ui, sans-serif`;
+      const size = 12 * (1 + (CONFIG.GATE_FLASH_SCALE - 1) * lit);
+      g.font = `800 ${Math.max(9, Math.round(size * s))}px ui-rounded, system-ui, sans-serif`;
       g.fillText(`×${gt.multiplier}`, ox + ((gt.x1 + gt.x2) / 2) * s, oy + gt.y * s + 0.5);
     }
   }
@@ -401,14 +405,11 @@ export class CanvasRenderer implements Renderer {
     ctx.fillRect(ox, oy, W * s, H * s);
 
     if (stage) {
-      // 傾斜板 → 下バケツ → 仕切り の順（下バケツは玉より先＝中に溜まって見える）
+      // 傾斜板 → 下バケツ の順（下バケツは玉より先＝中に溜まって見える）
       this.drawWedges(ctx, stage, ox, oy, s);
       if (this.showBottomBucket) {
         this.drawBucket(ctx, ox, oy, s, W / 2, stage.collectY + this.bottomBucketOffsetY, 0.95);
       }
-      this.drawDividers(ctx, stage, ox, oy, s);
-      this.drawGates(ctx, stage, ox, oy, s);
-      this.drawJumpers(ctx, stage, ox, oy, s);
     }
 
     // 残像（玉より先に描く＝尾が玉の下に潜る）。
@@ -445,6 +446,16 @@ export class CanvasRenderer implements Renderer {
     pool.forEachActive((b) => {
       ctx.drawImage(sprite, ox + b.x * s - half, oy + b.y * s - half);
     });
+
+    // ⚠️ 仕切り・ゲート・ジャンプ台は**玉より後**（＝玉の上）に描く（2026-07-25）。
+    //    玉の下に描いていた頃は、山が積もると部品が完全に埋まって見えなくなり、
+    //    「山がゲートを押し越えて増える」という一番見たい瞬間が画面に出ていなかった
+    //    （本家も部品を玉の上に描いている・れいあの参考動画で確認）。
+    if (stage) {
+      this.drawDividers(ctx, stage, ox, oy, s);
+      this.drawGates(ctx, stage, ox, oy, s);
+      this.drawJumpers(ctx, stage, ox, oy, s);
+    }
 
     // 上バケツ（玉より後＝玉がバケツの下から出てくる）。玉を出している間は傾ける
     const cx = cupX ?? W / 2;
