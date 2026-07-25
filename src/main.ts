@@ -25,7 +25,7 @@ import {
   showScreen,
 } from './ui/screens';
 import { addScore } from './ui/scores';
-import { loadPrefs } from './ui/prefs';
+import { loadPrefs, loadSpeed, saveSpeed } from './ui/prefs';
 import { renderWorkshop } from './ui/workshopView';
 import { addTotal, getTotal, resetTotal } from './ui/totals';
 
@@ -80,7 +80,8 @@ function newRound(): void {
   renderer.setBallSkin(open.ball);
   renderer.setBucketSkin(open.bucket);
   match = new Match(undefined, open.stages);
-  speed = 1;
+  // ⚠️ ここで速さを1×に戻さない（2026-07-26 れいあ要望「毎回設定するのは面倒」）。
+  //    選んだ速さはラウンドをまたいで保つ。
   updateSpeedButton();
   shownResult = false;
   showScreen('play');
@@ -94,6 +95,8 @@ function moveCup(clientX: number): void {
 const DEBUG = new URLSearchParams(location.search).has('debug');
 // ⚠️ 0.5倍速はデバッグ時だけ。挙動をコマ送り気味に確かめるため（れいあ要望）
 const SPEEDS: number[] = DEBUG ? [0.5, 1, 2, 4] : [1, 2, 4];
+// 前に選んだ速さで始める。⚠️ いま選べない値（0.5はデバッグ時だけ）なら 1× に落ちる
+speed = loadSpeed(SPEEDS, 1);
 renderer.showDebug = DEBUG;
 const debugEl = document.getElementById('debug')!;
 debugEl.hidden = !DEBUG;
@@ -146,7 +149,10 @@ function updateSpeedButton(): void {
 speedBtn.addEventListener('click', () => {
   speed = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
   updateSpeedButton();
+  saveSpeed(speed); // 次に開いた時もこの速さで始める
 });
+// ⚠️ 覚えている速さをボタンにも出す（ここで呼ばないと、起動直後だけ表示が 1× のままズレる）
+updateSpeedButton();
 
 // ── リスタート（確認ダイアログを挟む） ──
 document.getElementById('restart')!.addEventListener('click', async () => {

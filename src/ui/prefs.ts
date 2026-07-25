@@ -26,3 +26,34 @@ export function savePrefs(p: SkinPrefs): void {
     // 保存できなくてもゲームは続ける
   }
 }
+
+/**
+ * 速さ（1× / 2× / 4×）の保持（2026-07-26 れいあ要望「毎回設定するのは面倒」）。
+ *
+ * ⚠️ スキンの好み（上の `KEY`）とは**別のキー**にする。工房で累計をリセットした時、
+ *    スキンだけ最初に戻って速さは残るのが自然なため。
+ */
+const SPEED_KEY = 'marble-mill.speed';
+
+/**
+ * 覚えている速さ。⚠️ `allowed` に無い値なら `fallback` に落とす。
+ *    0.5倍は `?debug=1` の時だけ出るので、そのまま普通に開くと
+ *    「ボタンを押しても切り替わらない」状態になる（一覧に無い値からは次へ進めない）。
+ */
+export function loadSpeed(allowed: number[], fallback: number): number {
+  try {
+    const raw = localStorage.getItem(SPEED_KEY);
+    const v = raw === null ? NaN : Number(raw);
+    return allowed.includes(v) ? v : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveSpeed(v: number): void {
+  try {
+    localStorage.setItem(SPEED_KEY, String(v));
+  } catch {
+    // 保存できなくてもゲームは続ける
+  }
+}
