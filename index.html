@@ -173,12 +173,40 @@
       /* 工房：未解放は沈めて、解放済みとの差を一目で出す */
       .rank-row.locked .v, .rank-row.locked .no { opacity: .38; }
       .rank-row.locked .d { opacity: .55; }
-      .ws-total { display: flex; align-items: baseline; justify-content: space-between; padding: 2px 2px 10px; }
-      .ws-total .ws-k { font: 700 13px/1 inherit; color: var(--sub); letter-spacing: .06em; }
-      .ws-total .ws-v { font: 800 30px/1 inherit; color: var(--accent); font-variant-numeric: tabular-nums; }
-      .ws-next { font: 600 14px/1.5 inherit; color: var(--ink); padding: 0 2px 4px; }
-      .ws-next b { color: var(--accent); font-variant-numeric: tabular-nums; }
-      .ws-prog { font: 700 12px/1 inherit; color: var(--sub); padding: 0 2px 12px; letter-spacing: .08em; }
+      /* ── 工房 ── */
+      .ws-top { padding: 10px 2px 14px; border-bottom: 1px solid var(--panel-line); margin-bottom: 14px; }
+      .ws-total { display: flex; align-items: baseline; gap: 10px; }
+      .ws-total .ws-k { font: 700 12px/1 inherit; color: var(--sub); letter-spacing: .1em; }
+      .ws-total .ws-v { font: 800 34px/1 inherit; color: var(--accent); font-variant-numeric: tabular-nums; }
+      .ws-next { font: 600 14px/1.5 inherit; color: var(--ink); margin-top: 10px; }
+      .ws-next b { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 17px; }
+      /* 次の解放までのバー。数字より「あとどれくらい」が一目で分かる */
+      .ws-bar { height: 10px; border-radius: 6px; background: rgba(0,0,0,.4);
+        border: 1px solid var(--panel-line); overflow: hidden; margin-top: 8px; }
+      .ws-bar i { display: block; height: 100%; border-radius: 6px;
+        background: linear-gradient(90deg, #8a6420, var(--accent)); }
+      .ws-prog { font: 700 12px/1 inherit; color: var(--sub); margin-top: 9px; letter-spacing: .08em; }
+
+      .ws-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 12px; }
+      .ws-card { display: flex; flex-direction: column; gap: 9px; align-items: center;
+        padding: 14px 10px 12px; border-radius: 14px; text-align: center;
+        border: 1px solid var(--panel-line); background: rgba(20,12,6,.55); }
+      .ws-card.got { border-color: rgba(232,193,101,.55); background: rgba(60,40,14,.5);
+        box-shadow: 0 0 0 1px rgba(232,193,101,.18) inset; }
+      .ws-card .ws-name { font: 800 14px/1.35 inherit; color: var(--ink); }
+      .ws-card .ws-cost { font: 700 12px/1 inherit; color: var(--sub); font-variant-numeric: tabular-nums; }
+      .ws-card.got .ws-cost { color: var(--accent); }
+      .ws-card.lock { opacity: .5; }
+      .ws-card .ws-kind { font: 700 10px/1 inherit; letter-spacing: .14em; color: var(--sub); }
+      /* プレビュー: 実物の見た目をそのまま出す（この画面の主役） */
+      .ws-pv { width: 62px; height: 62px; border-radius: 12px; display: grid; place-items: center;
+        background: rgba(0,0,0,.35); border: 1px solid var(--panel-line); overflow: hidden; }
+      .ws-pv.board { background-size: cover; background-position: center; }
+      .ws-pv .ball { width: 40px; height: 40px; border-radius: 50%;
+        box-shadow: 2px 3px 6px rgba(0,0,0,.45); }
+      .ws-pv svg { display: block; }
+      .ws-foot { margin: 18px 2px 6px; display: flex; justify-content: center; }
+      .ws-foot .btn { font-size: 13px; padding: 10px 16px; }
       .rank-empty { padding: 16px 4px; color: var(--sub); font-size: 13px; text-align: center; }
 
       /* ── タイトル画面 ── */
@@ -376,7 +404,10 @@
         </div>
         <div class="body">
           <div class="ws-top" id="workshop-top"></div>
-          <div class="rank-list" id="workshop-list"></div>
+          <div class="ws-grid" id="workshop-list"></div>
+          <div class="ws-foot">
+            <button class="btn ghost" id="workshop-reset">貯まったビー玉をリセット</button>
+          </div>
         </div>
       </div>
     </div>

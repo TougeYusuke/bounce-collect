@@ -62,6 +62,20 @@ export function addTotal(score: number): void {
   }
 }
 
+/**
+ * 累計を0に戻す。
+ * ⚠️ 工房の解放は累計から計算しているので、これを消すと**解放も最初に戻る**。
+ *    ハイスコアは別キー（`scores.ts`）なので消えない。
+ * ⚠️ 消す前に必ず確認ダイアログを挟むこと（押し間違いで進行が消える）。
+ */
+export function resetTotal(): void {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    // 消せなくてもゲームは続ける
+  }
+}
+
 /** 架空プレイヤー＋自分を累積で降順に並べる */
 export function totalRanking(): RankRow[] {
   const me: RankRow = { name: 'YOU', total: getTotal(), isMe: true };

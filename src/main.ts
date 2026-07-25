@@ -14,11 +14,11 @@ import {
   renderTitleScores,
   renderTitleTotal,
   renderTotalRanking,
-  renderWorkshop,
   showScreen,
 } from './ui/screens';
 import { addScore } from './ui/scores';
-import { addTotal, getTotal } from './ui/totals';
+import { renderWorkshop } from './ui/workshopView';
+import { addTotal, getTotal, resetTotal } from './ui/totals';
 
 const stageEl = document.getElementById('stage')!;
 const hintEl = document.getElementById('hint')!;
@@ -153,7 +153,18 @@ document.getElementById('title-workshop')!.addEventListener('click', () => {
   renderWorkshop();
   showScreen('workshop');
 });
-document.getElementById('workshop-back')!.addEventListener('click', () => showScreen('title'));
+document.getElementById('workshop-back')!.addEventListener('click', goToTitle);
+// ⚠️ 押し間違いで進行が消えるので必ず確認を挟む（ネイティブconfirmは使わない）
+document.getElementById('workshop-reset')!.addEventListener('click', async () => {
+  const ok = await confirmDialog(
+    'ビー玉をリセットする？',
+    `貯まった ${getTotal().toLocaleString('ja-JP')} 個が0に戻って、解放したものも最初からになるよ。ハイスコアは消えません。`,
+    'リセットする',
+  );
+  if (!ok) return;
+  resetTotal();
+  renderWorkshop();
+});
 
 document.getElementById('title-total')!.addEventListener('click', () => {
   renderTotalRanking();
