@@ -5,9 +5,17 @@ import { getTotal, myTotalRank, totalRanking } from './totals';
  * 画面遷移。表示状態を持つのはここだけに閉じ込める。
  * 'play' は「何も被せない」状態＝全オーバーレイを消すだけ。
  */
-export type ScreenName = 'title' | 'play' | 'result' | 'scores' | 'total' | 'workshop';
+export type ScreenName =
+  | 'loading'
+  | 'title'
+  | 'play'
+  | 'result'
+  | 'scores'
+  | 'total'
+  | 'workshop';
 
 const IDS: Record<Exclude<ScreenName, 'play'>, string> = {
+  loading: 'screen-loading',
   title: 'screen-title',
   result: 'screen-result',
   scores: 'screen-scores',
@@ -15,7 +23,8 @@ const IDS: Record<Exclude<ScreenName, 'play'>, string> = {
   workshop: 'screen-workshop',
 };
 
-let current: ScreenName = 'title';
+/** ⚠️ 起動直後は**読み込み中**（絵の準備ができるまで盤面は真っ黒なので、その上に被せる） */
+let current: ScreenName = 'loading';
 
 export function getScreen(): ScreenName {
   return current;
@@ -26,6 +35,11 @@ export function showScreen(name: ScreenName): void {
   for (const [key, id] of Object.entries(IDS)) {
     (document.getElementById(id) as HTMLDivElement).hidden = key !== name;
   }
+  // ⚠️ HUD（スコア・速度・やり直し）は**プレイ中だけ**出す。
+  //    以前は常に出ていたので、読み込み中の真っ黒な画面に HUD だけが浮いて
+  //    「壊れている画面」に見えていた（2026-07-25 れいあのiPhoneのスクショで判明）。
+  const hud = document.getElementById('hud');
+  if (hud) hud.hidden = name !== 'play';
 }
 
 /** 「2026-07-24」→「07-24」 */

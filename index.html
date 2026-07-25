@@ -106,6 +106,20 @@
         z-index: 5;
       }
       #debug[hidden] { display: none; }
+      /* ⚠️ HUDはプレイ中だけ出す（読み込み中の黒画面に浮くのを防ぐ） */
+      #hud[hidden] { display: none; }
+
+      /* 読み込みの進み具合。工房のバーと同じ見た目に揃える */
+      .load-bar {
+        width: 62%; height: 8px; margin: 4px auto 0;
+        border-radius: 6px; background: rgba(0, 0, 0, 0.4);
+        border: 1px solid var(--panel-line); overflow: hidden;
+      }
+      .load-bar i {
+        display: block; height: 100%; width: 0; border-radius: 6px;
+        background: linear-gradient(90deg, #8a6420, var(--accent));
+        transition: width 0.2s ease-out;
+      }
 
       /* ── オーバーレイ画面の共通枠 ── */
       .screen {
@@ -225,7 +239,7 @@
       #screen-title .backdrop {
         background:
           linear-gradient(rgba(18, 10, 4, 0.58), rgba(18, 10, 4, 0.58)),
-          url(assets/title-bg.png) center / cover no-repeat;
+          url(assets/title-bg.jpg) center / cover no-repeat;
       }
       .title-screen {
         position: relative;
@@ -327,8 +341,8 @@
     <!-- 盤面（canvas はここに挿入される） -->
     <div id="stage"></div>
 
-    <!-- プレイ中のHUD -->
-    <div id="hud">
+    <!-- プレイ中のHUD（⚠️ 起動時は隠す。読み込み中の黒画面に浮かせない） -->
+    <div id="hud" hidden>
       <div class="score-wrap">
         <div class="score-label" id="score-label">SCORE</div>
         <div id="score">0</div>
@@ -341,11 +355,31 @@
             <path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" />
           </svg>
         </button>
+        <!-- ⚠️ 新しいボタンは**右端に足す**（既存2つの位置を動かさない＝指が覚えた場所を壊さない） -->
+        <button id="to-title" class="icon-btn" aria-label="タイトルへ戻る">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 10.6 12 3.2l9 7.4" /><path d="M5.6 9.4V20.4h12.8V9.4" />
+          </svg>
+        </button>
       </div>
     </div>
 
     <!-- デバッグ表示（URLに ?debug=1 を付けた時だけ出る） -->
     <div id="debug" hidden></div>
+
+    <!-- 読み込み中（⚠️ 画像を1枚も使わない＝これ自体は待ち時間ゼロで出る） -->
+    <div class="screen" id="screen-loading">
+      <div class="backdrop" style="background: var(--outer); backdrop-filter: none"></div>
+      <div class="title-screen">
+        <div class="logo">
+          <div class="l1">MARBLE</div>
+          <div class="l2">MILL</div>
+          <div class="rule"></div>
+          <div class="sub">LOADING</div>
+        </div>
+        <div class="load-bar"><i id="load-bar-fill"></i></div>
+      </div>
+    </div>
 
     <!-- タイトル画面 -->
     <div class="screen" id="screen-title" hidden>

@@ -19,12 +19,12 @@ export interface Material {
 }
 
 export const MATERIALS: Material[] = [
-  { key: 'wood',      name: 'マホガニー',     board: 'board-wood.png',      wedge: '#5a3f26', wedgeTop: '#b98953', outer: '#170f0a' },
-  { key: 'cherry',    name: 'チェリー',       board: 'board-cherry.png',    wedge: '#6b4526', wedgeTop: '#c99a63', outer: '#170e09' },
-  { key: 'bamboo',    name: '竹',             board: 'board-bamboo.png',    wedge: '#8a7440', wedgeTop: '#e0cf92', outer: '#11150e' },
-  { key: 'walnut',    name: 'ウォールナット', board: 'board-walnut.png',    wedge: '#3a2718', wedgeTop: '#8f6d47', outer: '#0d0906' },
-  { key: 'maple',     name: 'メープル',       board: 'board-maple.png',     wedge: '#a8895c', wedgeTop: '#f0dcb8', outer: '#181410' },
-  { key: 'driftwood', name: '古材',           board: 'board-driftwood.png', wedge: '#6b6b66', wedgeTop: '#c2c2b8', outer: '#0f1113' },
+  { key: 'wood',      name: 'マホガニー',     board: 'board-wood.jpg',      wedge: '#5a3f26', wedgeTop: '#b98953', outer: '#170f0a' },
+  { key: 'cherry',    name: 'チェリー',       board: 'board-cherry.jpg',    wedge: '#6b4526', wedgeTop: '#c99a63', outer: '#170e09' },
+  { key: 'bamboo',    name: '竹',             board: 'board-bamboo.jpg',    wedge: '#8a7440', wedgeTop: '#e0cf92', outer: '#11150e' },
+  { key: 'walnut',    name: 'ウォールナット', board: 'board-walnut.jpg',    wedge: '#3a2718', wedgeTop: '#8f6d47', outer: '#0d0906' },
+  { key: 'maple',     name: 'メープル',       board: 'board-maple.jpg',     wedge: '#a8895c', wedgeTop: '#f0dcb8', outer: '#181410' },
+  { key: 'driftwood', name: '古材',           board: 'board-driftwood.jpg', wedge: '#6b6b66', wedgeTop: '#c2c2b8', outer: '#0f1113' },
 ];
 
 /**

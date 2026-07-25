@@ -158,6 +158,21 @@ document.getElementById('restart')!.addEventListener('click', async () => {
   if (ok) newRound();
 });
 
+// ── プレイ中にタイトルへ戻る（2026-07-25 れいあ要望） ──
+// ⚠️ 確認を出すのは**消えるものがある時だけ**。まだ0点なら黙って戻る
+//    （何も失わないのに「消えるよ」と聞かれるのは1手ぶんの邪魔にしかならない）。
+document.getElementById('to-title')!.addEventListener('click', async () => {
+  if (match.displayScore > 0) {
+    const ok = await confirmDialog(
+      'タイトルに戻る？',
+      `いま出てる ${match.displayScore.toLocaleString('ja-JP')} 点は記録されずに消えるよ。`,
+      'タイトルへ',
+    );
+    if (!ok) return;
+  }
+  goToTitle();
+});
+
 // ── タイトル ──
 document.getElementById('title-play')!.addEventListener('click', newRound);
 document.getElementById('title-scores')!.addEventListener('click', () => {
@@ -232,11 +247,18 @@ window.addEventListener('resize', () => {
 let halfTick = 0;
 
 function loop(): void {
-  if (speed < 1) {
-    halfTick++;
-    if (halfTick % 2 === 0) match.update(1);
-  } else {
-    match.update(speed);
+  // ⚠️ **プレイ画面の時だけ物理を進める**（2026-07-25）。
+  //    画面に関わらず進めていたので、プレイ中にタイトルへ戻ると裏でラウンドが走り続け、
+  //    数十秒後にリザルトが勝手に出てくる。止めておけば、次の PLAY で作り直される。
+  //    ⚠️ 描画は止めない（タイトルの背景で盤面が固まって見えるのは問題ないが、
+  //       止めると復帰時に1フレーム古い絵が残る）。
+  if (getScreen() === 'play') {
+    if (speed < 1) {
+      halfTick++;
+      if (halfTick % 2 === 0) match.update(1);
+    } else {
+      match.update(speed);
+    }
   }
   if (ready) {
     // R1→R2は「カメラが下へ降りていく」場面転換にする。
@@ -289,8 +311,17 @@ function loop(): void {
   requestAnimationFrame(loop);
 }
 
+// ⚠️ 絵が揃うまでは**読み込み画面**を出したまま進み具合を見せる（2026-07-25）。
+//    以前は真っ黒な盤面にHUDだけが浮いていて、壊れた画面に見えていた。
+//    ⚠️ タイトルの背景もここで先に読む（CSSの url() と同じファイル＝タイトルに移った瞬間に出揃う）。
+const loadFill = document.getElementById('load-bar-fill') as HTMLElement | null;
 void renderer.init(stageEl, match.session.world).then(() =>
-  loadArt([...MATERIALS.map((m) => m.board), ...BUCKET_IMAGES]).then(() => {
+  loadArt(
+    ['title-bg.jpg', ...MATERIALS.map((m) => m.board), ...BUCKET_IMAGES],
+    (done, total) => {
+      if (loadFill) loadFill.style.width = `${Math.round((done / total) * 100)}%`;
+    },
+  ).then(() => {
     ready = true;
     layoutHud();
     goToTitle();

@@ -382,6 +382,19 @@ export class CanvasRenderer implements Renderer {
 
     // 盤面（素材画像。無ければグラデでフォールバック）
     const board = getArt(t.board);
+    // ⚠️ 余白を**真っ黒のまま**にしない（2026-07-25 れいあのiPhoneのスクショ）。
+    //    スマホのブラウザは上下のバーで縦が削られるぶん盤面が縮み、左右に帯が出る。
+    //    そこへ同じ木目を暗く敷くと、盤面が「板の上に置かれている」ように見えて狭さが目立たない。
+    if (board) {
+      ctx.save();
+      // ⚠️ 濃くしすぎない。盤面（＝玉が入る範囲）との境目が分からなくなる
+      ctx.globalAlpha = 0.25;
+      const k = Math.max(this.canvas.width / board.width, this.canvas.height / board.height);
+      const bw = board.width * k;
+      const bh = board.height * k;
+      ctx.drawImage(board, (this.canvas.width - bw) / 2, (this.canvas.height - bh) / 2, bw, bh);
+      ctx.restore();
+    }
     if (board) {
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,.65)';
