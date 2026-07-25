@@ -25,23 +25,17 @@ export function integrate(
   gravity: number,
   damping: number,
   maxSpeed: number,
-  /** 転がりが終わる瞬間に横の勢いをどれだけ残すか（0で完全に真下へ） */
+  /** 転がりが終わる瞬間に勢いをどれだけ残すか（0で完全にその場から落下） */
   rollRelease = 0,
 ): void {
   let vx = (ball.x - ball.px) * damping;
-  // ⚠️ カップの中を転がっている間は重力を受けない（2026-07-24 れいあ要望）。
-  //    「縁までは横に転がって、そこから落ちる」という普通のボールの動きに見せるため。
-  //    受けないのは重力だけ＝横の減速も衝突も普通に効く。
+  // ⚠️ カップの底面を転がっている間は重力を受けない（2026-07-24 れいあ要望）。
+  //    「縁までは面に沿って進み、そこから落ちる」という普通のボールの動きに見せるため。
+  //    受けないのは重力だけ＝減速も衝突も普通に効く。
   let vy = (ball.y - ball.py) * damping;
-  if (ball.rollFrames > 0) {
-    ball.rollFrames--;
-    // ⚠️ 縁を離れる瞬間に横の勢いを捨てて、そこからは真下に落とす（2026-07-24 れいあ指定）。
-    //    「転がる → 口を出る → そのまま落下」。横に飛び続けるとカップから離れた所へ
-    //    弧を描いてしまうし、R2で全部の玉が右に流れて放流が来なくなる（実測）。
-    if (ball.rollFrames === 0) vx *= rollRelease;
-  } else {
-    vy += gravity;
-  }
+  const rolling = ball.rollFrames > 0;
+  if (rolling) ball.rollFrames--;
+  else vy += gravity;
 
   // 横: 左右対称に制限（落下速度の影響を受けない）
   if (vx > maxSpeed) vx = maxSpeed;
@@ -56,6 +50,16 @@ export function integrate(
   ball.py = ball.y;
   ball.x += vx;
   ball.y += vy;
+
+  // ⚠️ 縁に着いた**あと**で勢いを捨てる（2026-07-24 れいあ指定「カーブは省略して落下」）。
+  //    「面に沿って進む → 口を出る → そのまま落下」。飛び続けるとカップから離れた所へ弧を描く。
+  // ⚠️ 横だけでなく**縦も**弱めること。傾いた面は口へ向かって上っているので、
+  //    横だけ消すと縁で上へ跳ね上がってから落ちる（2026-07-25）。
+  // ⚠️ 順番が要。移動より先に弱めると最後の1フレームだけ進まず、縁の手前で落ち始める。
+  if (rolling && ball.rollFrames === 0) {
+    ball.px = ball.x - vx * rollRelease;
+    ball.py = ball.y - vy * rollRelease;
+  }
 }
 
 /** 眠っている玉を起こすのに必要なめり込みの深さ（直径に対する割合） */

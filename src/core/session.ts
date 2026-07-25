@@ -1,6 +1,12 @@
 import { BallPool } from './ball';
 import { CONFIG } from './config';
-import { cupSpawnPosition } from './cupPose';
+import {
+  cupLocalToWorld,
+  cupPourDirection,
+  cupRollFrames,
+  cupRollStart,
+  type CupPoint,
+} from './cupPose';
 import { applyGates } from './gates';
 import { SpatialGrid } from './grid';
 import { applyJumpers } from './jumpers';
@@ -77,8 +83,15 @@ export class Session {
   /** r2: 傾斜板が抜けて放流が始まったか。r1 では常に false */
   released = false;
   cupX = CONFIG.BOARD_WIDTH / 2;
-  /** 描画と揃える、次に出す玉の口の傾き（既にある玉には影響しない） */
-  private cupTilt = 0;
+  /**
+   * 上バケツの傾き（ラジアン）。目標角へ毎フレームじわっと寄る。
+   *
+   * ⚠️ **描画側から渡さない**（2026-07-25 に Session 持ちへ移した）。
+   *    傾きが main.ts のローカル変数だった頃、テストから `Session` を直接回すと
+   *    ずっと直立のままで、**本番と違う姿勢**でしか検証できなかった。
+   *    描画はこの値を読むだけ＝テストで見ている姿勢と実機の姿勢が必ず一致する。
+   */
+  cupTilt = 0;
   /** 最初の入力があるまで玉を出さない（勝手に始まらないように） */
   started = false;
 
@@ -174,7 +187,38 @@ export class Session {
 
   /** いま玉を出している最中か（上バケツを傾ける演出に使う） */
   get dispensing(): boolean {
-    return this.started && this.supplied < this.initialBalls;
+    return this.started && this.supplied < this.supplyBalls;
+  }
+
+  /**
+   * いま目指している傾き。タップ前は直立、注ぎ始めたら
+   * R1＝口が右を向く角度／R2＝**真下**（ひっくり返して大量に流す）。
+   */
+  get targetTilt(): number {
+    if (!this.started) return 0;
+    return this.mode === 'r2' ? CONFIG.CUP_DUMP_TILT : CONFIG.CUP_POUR_TILT;
+  }
+
+  /**
+   * 注げるところまで傾いたか。
+   * ⚠️ 直立のまま注ぐと「口の向き＝ほぼ真上」に転がり出て玉が上へ飛ぶ。
+   *    バケツは**傾いてから注ぐ**（約14フレーム＝0.23秒でここに来る）。
+   */
+  get pouring(): boolean {
+    const t = this.targetTilt;
+    return t !== 0 && this.cupTilt >= t * CONFIG.CUP_POUR_READY;
+  }
+
+  /**
+   * 1回に出す玉の数。
+   * R1は常に1個（4個しか配らないので刻む意味がない）。
+   * R2は「配り切るのにかけたい時間（`SUPPLY_SPREAD_FRAMES`）」に収まるよう、まとめて出す
+   * （＝れいあ要望「重い球でなく**出す量**で調整する」2026-07-25）。
+   */
+  get dumpCount(): number {
+    if (this.mode !== 'r2') return 1;
+    const ticks = Math.max(1, CONFIG.SUPPLY_SPREAD_FRAMES / this.supplyInterval);
+    return Math.min(CONFIG.R2_DUMP_MAX, Math.max(1, Math.ceil(this.supplyBalls / ticks)));
   }
 
   /** 盤面で一番重い玉の中身（デバッグ用）。1なら飽和がまだ起きていない */
@@ -205,15 +249,6 @@ export class Session {
     const m = CONFIG.CUP_MARGIN;
     const center = x - CONFIG.CUP_SPAWN_OFFSET_X;
     this.cupX = Math.min(CONFIG.BOARD_WIDTH - m, Math.max(m, center));
-  }
-
-  /**
-   * 描画と同じ傾きを、これから出す玉の座標にだけ渡す。
-   * ⚠️ 傾きで物理力を加えるためではない。画像上の口が動くのに発生点だけ固定だと
-   *    底から玉が出て見えるため、描画と同じ座標変換を使う。生成済みの玉・衝突・重力は変えない。
-   */
-  setCupTilt(tilt: number): void {
-    this.cupTilt = tilt;
   }
 
   /** 最初のタップで落とし始める */
@@ -339,18 +374,54 @@ export class Session {
   }
 
   /**
+   * その場所が既に埋まっているか。
+   * ⚠️ `pool.spawn` に位置の埋まりチェックは無い（空きスロット切れでしか失敗しない）。
+   *    埋まっているのに湧かせると、生まれた瞬間から玉が重なって物理が壊れる。
+   *    ⚠️ 見ているのは**前フレームの grid**（supply は step より先に走る）。1フレームぶんの
+   *    ズレはあるが、玉は1フレームで半径ほどしか動かないので実用上これで足りる。
+   */
+  private occupied(x: number, y: number): boolean {
+    const minSq = (CONFIG.BALL_RADIUS * 2 * 0.85) ** 2;
+    let hit = false;
+    this.grid.forEachNeighbor(x, y, (i) => {
+      if (hit) return;
+      const o = this.pool.balls[i];
+      if (!o.alive) return;
+      const dx = o.x - x;
+      const dy = o.y - y;
+      if (dx * dx + dy * dy < minSq) hit = true;
+    });
+    return hit;
+  }
+
+  /**
+   * R2でまとめて出す時の、i番目の玉の湧く場所（世界座標）。
+   * 口の幅方向に `R2_DUMP_COLUMNS` 個並べ、あふれたぶんは口の**奥**へ積む。
+   * ⚠️ 奥へ積むこと。手前（口の外）へ足すと、バケツの外の宙から玉が湧いて見える。
+   */
+  private dumpSlot(i: number): CupPoint {
+    const d = CONFIG.BALL_RADIUS * 2 * CONFIG.R2_DUMP_SPACING;
+    const cols = CONFIG.R2_DUMP_COLUMNS;
+    // ⚠️ 横の中心は**カップの軸**（ローカル0＝開口部の中心）。`CUP_SPAWN_OFFSET_X` は
+    //    1個ずつ出す時の調整点であって開口部の中心ではないので、ここに使うと左右非対称になる。
+    const lx = CONFIG.CUP_TILT_PIVOT_OFFSET_X + ((i % cols) - (cols - 1) / 2) * d;
+    const ly = CONFIG.CUP_SPAWN_OFFSET_Y + Math.floor(i / cols) * d;
+    return cupLocalToWorld(this.cupX, this.cupTilt, lx, ly);
+  }
+
+  /**
    * 玉を出す。
    *
    * ⚠️ 供給間隔は短くできない。玉が自分の直径ぶん落ちるのに
    *    √(直径 / (0.5×GRAVITY)) ≈ 9フレームかかり、それより速く同じ位置に出すと
    *    生まれた瞬間から玉が重なって物理が壊れる（設計書2026-07-23 §10.2）。
-   *    ⚠️ pool.spawn に位置の埋まりチェックは無い（空きスロット切れでしか失敗しない）。
-   *    止めてくれないので、呼ぶ側が間隔を守ること。
-   *    R2は大量に配る必要があるので、縦ではなく**横に並べて**1回に複数個出す。
+   *    R2は**同じ場所に重ねず並べて**出すので、1回の個数は増やせる。
    */
   private supply(): void {
     if (!this.started) return;
     if (this.supplied >= this.supplyBalls) return;
+    // ⚠️ 傾き切るまで注がない。直立のまま注ぐと口が真上を向いていて玉が上へ飛ぶ
+    if (!this.pouring) return;
     // R2は切り替わった直後に落ち始めないよう、コップの位置を選ぶ間を置く
     if (this.supplyDelay > 0) {
       this.supplyDelay--;
@@ -360,21 +431,51 @@ export class Session {
     if (this.supplyTimer < this.supplyInterval) return;
     this.supplyTimer = 0;
 
-    // 常に1個ずつ、バケツの口から出す。
-    // ⚠️ 横に並べて複数同時に出さない（1個ずつ流れてくる見た目を保つ）。
-    //    代わりに**口から右へ流してから落とす**ので、前の玉がどいていて間隔を詰められる。
-    const { x, y } = cupSpawnPosition(this.cupX, this.cupTilt);
-    // ⚠️ 転がりは **R1だけ**（2026-07-24）。R2は数百〜数千個を配るので、
-    //    全部に横向きの勢いを付けると盤面が右へ偏って放流条件に届かなくなる（実測でテストが落ちた）。
-    //    R1は4個しか配らないので偏りようがなく、見た目のためだけに使える。
-    const rolling = this.mode === 'r1';
-    const b = this.pool.spawn(x, y, { rollFrames: rolling ? CONFIG.CUP_ROLL_FRAMES : 0 });
-    if (b) {
-      // ⚠️ 横の勢いも R1 だけ。R2で全玉に付けると盤面が右へ偏って放流が来ない（実測）
-      b.px = b.x - (rolling ? CONFIG.CUP_SPAWN_VX : 0);
-      // ⚠️ テンポよく配っている時ほど強く落とす（れいあ要望 2026-07-24）。
-      //    遅いままだと口の下で次の玉に追いつかれて団子になる。
-      b.py = b.y - this.dropSpeed;
+    if (this.mode === 'r1') {
+      this.rollOut();
+      return;
+    }
+    this.dump();
+  }
+
+  /**
+   * R1: 底面の道の奥から1個出して、口の縁まで転がしてから落とす。
+   *
+   * ⚠️ 進む向きは**世界の真横ではなくカップのローカル -Y（口の向き）**
+   *    ＝「横に向けたときに底辺になる面に沿って移動する」（2026-07-25 れいあ指定）。
+   *    真横に流すと、傾いたカップの面から浮いて「発射」に見える。
+   */
+  private rollOut(): void {
+    const p = cupRollStart(this.cupX, this.cupTilt);
+    const b = this.pool.spawn(p.x, p.y, { rollFrames: cupRollFrames(CONFIG.CUP_SPAWN_VX) });
+    if (!b) return;
+    const d = cupPourDirection(this.cupTilt);
+    b.px = b.x - d.x * CONFIG.CUP_SPAWN_VX;
+    b.py = b.y - d.y * CONFIG.CUP_SPAWN_VX;
+    this.supplied++;
+  }
+
+  /**
+   * R2: ひっくり返したバケツから、口いっぱいに並べてまとめて落とす。
+   *
+   * ⚠️ 転がりも横向きの初速も付けない。傾きが `CUP_DUMP_TILT`（真下）なので
+   *    そのまま落とせば偏らない。斜めに勢いを付けると全部が片側へ流れる（実測）。
+   * ⚠️ 生まれたては当たり判定を小さくする（`SPAWN_GROW_START`）。まとめて出すぶん、
+   *    フル半径だと既にある玉を強く押し出して上へ弾け飛ぶ。
+   */
+  private dump(): void {
+    const n = this.dumpCount;
+    // ⚠️ まとめて出す時は強く落とす。遅いと口の下が渋滞して、次の回が湧く場所を塞ぐ
+    //    ＝1回の個数を増やしても実際の量が増えない（2026-07-25 実測）。
+    //    1個ずつの時（持ち玉が少ない時）はこれまで通りテンポに合わせた速さ。
+    const speed = n > 1 ? CONFIG.R2_DUMP_SPEED : this.dropSpeed;
+    for (let i = 0; i < n && this.supplied < this.supplyBalls; i++) {
+      const p = this.dumpSlot(i);
+      if (this.occupied(p.x, p.y)) continue;
+      const b = this.pool.spawn(p.x, p.y, { grow: CONFIG.SPAWN_GROW_START });
+      if (!b) return; // 盤面がいっぱい。回収で空くまで待つ
+      b.px = b.x;
+      b.py = b.y - speed;
       this.supplied++;
     }
   }
@@ -384,6 +485,8 @@ export class Session {
     if (this.finished) return;
 
     for (let s = 0; s < substeps; s++) {
+      // ⚠️ 玉を出す前に傾ける。同じフレームに描く姿勢から玉が出るようにするため
+      this.cupTilt += (this.targetTilt - this.cupTilt) * CONFIG.CUP_TILT_EASE;
       this.supply();
       step(this.pool, this.grid, this.world, STEP_OPTIONS);
       this.enforceWedges();

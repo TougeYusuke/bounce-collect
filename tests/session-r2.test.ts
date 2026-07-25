@@ -8,6 +8,16 @@ function run(s: Session, frames: number): void {
   for (let i = 0; i < frames; i++) s.update(1);
 }
 
+/**
+ * 最初の1回ぶんが出るまで進める。
+ * ⚠️ タップの次のフレームには出ない。バケツは**傾き切ってから注ぐ**（`CUP_POUR_READY`）ので、
+ *    約19フレームの傾き待ちが入る（2026-07-25。直立のまま注ぐと玉が上へ飛ぶため）。
+ */
+function pour(s: Session): void {
+  s.start();
+  for (let i = 0; i < 120 && s.supplied === 0; i++) s.update(1);
+}
+
 describe('R2モードの供給', () => {
   it('mode を省くと R1（既定）', () => {
     expect(new Session().mode).toBe('r1');
@@ -26,12 +36,12 @@ describe('R2モードの供給', () => {
     expect(s.remaining).toBe(30);
   });
 
-  it('⚠️ 重い玉は作らない（1個出したら残数はちょうど1減る）', () => {
+  it('⚠️ 重い玉は作らない（出した数だけ残数が減る）', () => {
     const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
-    s.start();
-    run(s, CONFIG.R2_START_DELAY_FRAMES + 1);
-    expect(s.supplied).toBe(1);
-    expect(s.remaining).toBe(9_999);
+    pour(s);
+    expect(s.supplied).toBeGreaterThan(0);
+    // 個数とスコアを一致させるため、出した数と残数の合計は常に総量
+    expect(s.supplied + s.remaining).toBe(10_000);
     s.pool.forEachActive((b) => {
       expect(b.weight).toBe(1);
     });
@@ -41,22 +51,84 @@ describe('R2モードの供給', () => {
     const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
     run(s, 120);
     expect(s.supplied).toBe(0);
-    s.start();
-    run(s, 2);
+    pour(s);
     expect(s.supplied).toBeGreaterThan(0);
   });
 
-  it('R2も1個ずつ出す（横並びで複数同時に出さない）', () => {
+  it('⚠️ 傾き切るまで注がない（直立のまま注ぐと口が真上を向いていて玉が上へ飛ぶ）', () => {
     const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
     s.start();
-    run(s, CONFIG.R2_START_DELAY_FRAMES + 1);
-    expect(s.supplied).toBe(1);
+    run(s, 1);
+    expect(s.supplied).toBe(0);
+    pour(s);
+    expect(s.cupTilt).toBeGreaterThanOrEqual(CONFIG.CUP_DUMP_TILT * CONFIG.CUP_POUR_READY);
   });
 
-  it('R1の供給も1個ずつ（待ちは無し）', () => {
+  it('⚠️ R2はまとめて出す（バケツをひっくり返して大量に流す・2026-07-25 れいあ要望）', () => {
+    // ⚠️ これは「R2も1個ずつ出す」という 2026-07-24 の決定を**れいあ本人が上書き**したもの。
+    //    1個ずつだと1900個で約5分かかる（重い玉を作らない方針は据え置きなので、量で調整する）。
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
+    expect(s.dumpCount).toBeGreaterThan(1);
+    pour(s);
+    expect(s.supplied).toBe(s.dumpCount);
+  });
+
+  it('持ち玉が少ない時はまとめない（R1と同じ1個ずつ）', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 30 });
+    expect(s.dumpCount).toBe(1);
+  });
+
+  it('⚠️ 口の幅の中から湧く（バケツの外の宙から湧かない）', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
+    pour(s);
+    // ⚠️ 傾き切る手前で注ぎ始める（`CUP_POUR_READY`）ぶん数pxはみ出す。傾き切れば収まる。
+    //    ここで捕まえたいのは「列を増やしすぎて口の外から湧く」＝桁で外れる壊れ方
+    const limit = CONFIG.CUP_WIDTH / 2 - CONFIG.BALL_RADIUS + CONFIG.BALL_RADIUS / 2;
+    s.pool.forEachActive((b) => {
+      expect(Math.abs(b.x - s.cupX)).toBeLessThanOrEqual(limit);
+    });
+  });
+
+  it('⚠️ 左右に偏らない（偏ると盤面が片側に寄って放流が来ない）', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
+    pour(s);
+    let sum = 0;
+    let n = 0;
+    s.pool.forEachActive((b) => {
+      sum += b.x - s.cupX;
+      n++;
+    });
+    // ⚠️ 傾き切る手前で注ぎ始める（`CUP_POUR_READY`）ので数pxはズレる。
+    //    玉の半径より小さければ「偏り」ではない。桁で外れたら注ぐ向きが斜めになっている
+    expect(Math.abs(sum / n)).toBeLessThan(CONFIG.BALL_RADIUS / 2);
+  });
+
+  it('⚠️ 増やした数がそのまま出る（口の下が渋滞していない）', () => {
+    // ⚠️ ここが落ちたら `R2_DUMP_MAX` を上げても**実際の量は増えていない**。
+    //    前の回が口の下に居残ると「湧く場所が埋まっている」で弾かれる（2026-07-25 実測）。
+    // ⚠️ 立ち上がりの数秒は見ない。ジャンプ台で打ち上がった玉が口のあたりを通るので
+    //    一時的に湧けない（実測: 2〜4秒だけ 24〜47個/秒 に落ち、その後 60個/秒 に戻る）。
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 10_000 });
+    pour(s);
+    run(s, 60 * 5);
+    const before = s.supplied;
+    run(s, 60 * 3);
+    const theory = (s.dumpCount / s.supplyInterval) * 60 * 3;
+    expect(s.supplied - before).toBeGreaterThan(theory * 0.9);
+  }, 60_000);
+
+  it('⚠️ 大量でも配り切りが数分にならない（1個ずつだと1900個で約5分）', () => {
+    const s = new Session(createFixedStage(), { mode: 'r2', supplyTotal: 1900 });
+    const frames = Math.ceil(s.supplyBalls / s.dumpCount) * s.supplyInterval;
+    const oneByOne = s.supplyBalls * s.supplyInterval; // 1個ずつだとこれだけかかる
+    // まとめて出すぶん、まとめた数ぶん速い（実測: 1900個の配り切りが 190秒 → 35秒）
+    expect(frames).toBeLessThanOrEqual(oneByOne / 5);
+  });
+
+  it('R1は1個ずつ（まとめない）', () => {
     const s = new Session();
-    s.start();
-    run(s, 1);
+    expect(s.dumpCount).toBe(1);
+    pour(s);
     expect(s.supplied).toBe(1);
   });
 });

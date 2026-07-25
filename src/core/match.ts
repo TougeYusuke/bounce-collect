@@ -62,13 +62,16 @@ export class Match {
     this.session.setCupX(x);
   }
 
-  /** 描画中の傾きと、次に出す玉の口の位置を同期する */
-  setCupTilt(tilt: number): void {
-    this.session.setCupTilt(tilt);
-  }
-
   get cupX(): number {
     return this.session.cupX;
+  }
+
+  /**
+   * 上バケツの傾き（ラジアン）。⚠️ 描画はこれを**読むだけ**。
+   * 傾きは Session が持つ（テストで見ている姿勢と実機の姿勢を必ず一致させるため・2026-07-25）。
+   */
+  get cupTilt(): number {
+    return this.session.cupTilt;
   }
 
   /** HUDに出す数字。R1は積み上げた弾数、R2は最終スコア（意味が変わるのでラベルで示す） */

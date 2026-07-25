@@ -27,7 +27,6 @@ let material: Material = MATERIALS[0];
 let speed = 1;
 let shownResult = false;
 let ready = false;
-let cupTilt = 0; // 上バケツの傾き（ラジアン）。タップ後はそのラウンド中ずっと傾けたまま
 
 renderer.setMaterial(material);
 
@@ -46,7 +45,6 @@ function newRound(): void {
   speed = 1;
   updateSpeedButton();
   shownResult = false;
-  cupTilt = 0; // 新ラウンドは直立から。最初のタップで傾き始める
   showScreen('play');
 }
 
@@ -175,20 +173,10 @@ window.addEventListener('resize', () => {
   layoutHud();
 });
 
-// タップして玉を出し始めたら、上バケツは傾けたままにする（注いだ後もその姿勢を保つ）。
-// 目標角へイージングで寄せるので「じわっと傾く」動きになる。新ラウンドで直立に戻る。
-const CUP_POUR_TILT = 1.4; // ラジアン（約80度）
-
 // 0.5倍速は「2フレームに1回だけ進める」で表す（物理は1ステップ単位でしか進められない）
 let halfTick = 0;
 
 function loop(): void {
-  if (ready) {
-    const target = match.session.started ? CUP_POUR_TILT : 0;
-    cupTilt += (target - cupTilt) * 0.15;
-    // 先に同期してから物理を進める。これでこのフレームに生まれる玉は、同じフレームに描く口の位置から出る。
-    match.setCupTilt(cupTilt);
-  }
   if (speed < 1) {
     halfTick++;
     if (halfTick % 2 === 0) match.update(1);
@@ -220,7 +208,14 @@ function loop(): void {
     // ⚠️ 「次に出る玉」は描かない（2026-07-24 れいあ指摘で廃止）。
     //    出しておくと、玉が落ちている最中もずっと発生位置に玉が居座って見える。
     //    実際に落ちている玉だけを見せる。
-    renderer.draw(match.session.pool, CONFIG.BALL_RADIUS, match.session.stage, match.cupX, cupTilt);
+    // ⚠️ 傾きは Session が持つ（描画は読むだけ）。タップ後にR1は横向き、R2は真下へ向く
+    renderer.draw(
+      match.session.pool,
+      CONFIG.BALL_RADIUS,
+      match.session.stage,
+      match.cupX,
+      match.cupTilt,
+    );
   }
   hud.setScore(match.displayScore);
   // R1もR2も「回収した玉の個数」なのでラベルは共通（2026-07-24 スコアの定義を統一）
