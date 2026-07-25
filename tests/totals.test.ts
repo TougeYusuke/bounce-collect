@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { addTotal, getTotal, myTotalRank, RIVALS, totalRanking } from '../src/ui/totals';
+import { UNLOCKS } from '../src/core/workshop';
 
 beforeEach(() => {
   const store = new Map<string, string>();
@@ -43,10 +44,35 @@ describe('疑似トータルランキング', () => {
     expect(myTotalRank()).toBe(1);
   });
 
-  it('1回遊ぶと最下位からは必ず上がる（下位が手の届く値になっている）', () => {
+  /**
+   * 1ゲームの平均スコア（2026-07-25 実測・工房の閾値と同じ根拠）。
+   * ⚠️ スコアの出方を変えたらこの値と `RIVALS` を作り直すこと。
+   */
+  const AVG_PER_GAME = 2_423;
+
+  it('1ゲーム遊べば最下位から上がる（最初の達成感）', () => {
+    // ⚠️ ここは以前 100,000 を足していて、実測(2,423)と桁が2つ違うため
+    //    「下位が手の届く値か」を全く見張れていなかった（2026-07-26 是正）
     const before = myTotalRank();
-    addTotal(100_000); // 1ラウンドの現実的なスコア規模
+    addTotal(AVG_PER_GAME);
     expect(myTotalRank()).toBeLessThan(before);
+  });
+
+  it('工房を全部解放するころには上位に入っている（メタ進行と歩調を合わせる）', () => {
+    addTotal(Math.max(...UNLOCKS.map((u) => u.cost)));
+    expect(myTotalRank()).toBeLessThanOrEqual(2);
+  });
+
+  it('⚠️ てっぺんが遠すぎない（放置すると世界ランクが永久に上がらない）', () => {
+    const top = Math.max(...RIVALS.map((r) => r.total));
+    expect(top / AVG_PER_GAME).toBeLessThan(200); // 200ゲーム以内で届く
+  });
+
+  it('間隔が詰まりすぎない（1ゲームで何人も飛び越さない）', () => {
+    const sorted = [...RIVALS].sort((a, b) => a.total - b.total);
+    for (let i = 1; i < sorted.length; i++) {
+      expect(sorted[i].total - sorted[i - 1].total).toBeGreaterThan(AVG_PER_GAME * 0.3);
+    }
   });
 
   it('保存データが壊れていても0として扱う', () => {
