@@ -1,6 +1,7 @@
 import { BallPool } from './ball';
 import { CONFIG } from './config';
 import {
+  cupDropOffsetX,
   cupLocalToWorld,
   cupPourDirection,
   cupRollFrames,
@@ -192,7 +193,7 @@ export class Session {
 
   /**
    * いま目指している傾き。タップ前は直立、注ぎ始めたら
-   * R1＝口が右を向く角度／R2＝**真下**（ひっくり返して大量に流す）。
+   * R1＝口が横を向く角度（なぞる位置で左右が入れ替わる）／R2＝**真下**（ひっくり返して大量に流す）。
    */
   get targetTilt(): number {
     if (!this.started) return 0;
@@ -202,7 +203,7 @@ export class Session {
   /**
    * 注げるところまで傾いたか。
    * ⚠️ 直立のまま注ぐと「口の向き＝ほぼ真上」に転がり出て玉が上へ飛ぶ。
-   *    バケツは**傾いてから注ぐ**（約14フレーム＝0.23秒でここに来る）。
+   *    バケツは**傾いてから注ぐ**（約19フレーム＝0.32秒でここに来る）。
    */
   get pouring(): boolean {
     const t = this.targetTilt;
@@ -241,14 +242,27 @@ export class Session {
 
   /**
    * バケツの位置。
+   *
    * ⚠️ 受け取るのは「**玉を落としたい場所**」であって、バケツの中心ではない。
-   *    玉は口（`CUP_SPAWN_OFFSET_X` ぶん右）から出るので、その分だけ左へ寄せて置く。
-   *    こうしないと、触った場所より右に玉が落ちる（2026-07-24 れいあ指摘）。
+   *    玉は口の**縁**から出るので、カップ中心から約48px ずれた所に落ちる。その分だけ逆へ寄せる。
+   *
+   * 🔑 **止めるのはカップの位置ではなく「落ちる場所」**（2026-07-25 れいあ指摘
+   *    「左端に球を落とすことができなかった」）。カップの中心を画面内に収める形だと、
+   *    左端に落とすには届かなかった（届く一番左が x=72 だった）。
+   * ⚠️ そのぶん左端を狙うと**カップが画面から見切れる**。れいあ裁定で見切れてよい
+   *    （左右で注ぐ向きを入れ替える案は「挙動が気持ち悪い」で不採用）。
    */
   setCupX(x: number): void {
-    const m = CONFIG.CUP_MARGIN;
-    const center = x - CONFIG.CUP_SPAWN_OFFSET_X;
-    this.cupX = Math.min(CONFIG.BOARD_WIDTH - m, Math.max(m, center));
+    const drop = Math.min(CONFIG.BOARD_WIDTH, Math.max(0, x));
+    this.cupX = drop - this.dropOffsetX;
+  }
+
+  /**
+   * 玉が実際に落ち始める場所と、カップ中心とのズレ。
+   * R2は真下へ注ぐのでズレは無い（口の中心＝カップの軸）。
+   */
+  get dropOffsetX(): number {
+    return this.mode === 'r2' ? 0 : cupDropOffsetX();
   }
 
   /** 最初のタップで落とし始める */

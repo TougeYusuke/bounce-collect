@@ -77,6 +77,24 @@ export function cupRollStart(cupX: number, tilt: number): CupPoint {
 }
 
 /**
+ * 玉が実際に落ち始める場所と、カップ中心とのズレ（約48px 右）。
+ *
+ * 🔑 **玉は口の縁から出るのでカップの中心には落ちない**。なぞった所に落とすには、
+ *    この値ぶんカップを左へ寄せる（`setCupX`）。左端を狙うとカップは画面から見切れるが、
+ *    **見切れてよい**（2026-07-25 れいあ裁定。左右で注ぐ向きを入れ替える案は
+ *    「挙動が気持ち悪い」で不採用＝傾きは常に同じ向き）。
+ * ⚠️ 傾き切った姿勢で計算する。途中の傾きで計算するとカップが横に泳ぐ。
+ */
+export function cupDropOffsetX(): number {
+  return cupLocalToWorld(
+    0,
+    CONFIG.CUP_POUR_TILT,
+    CONFIG.CUP_ROLL_LANE_X,
+    CONFIG.CUP_ROLL_EXIT_Y,
+  ).x;
+}
+
+/**
  * 底面の道を転がるフレーム数。
  * 🔑 距離（始まり→縁）÷ 速さ で**自動計算**する。距離とフレーム数を別々に持つと
  *    片方だけ変えた時に「縁より手前で落ちる／宙を滑る」が再発するため。

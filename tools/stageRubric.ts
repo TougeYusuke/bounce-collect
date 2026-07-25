@@ -14,8 +14,11 @@ import { rollStage } from '../src/core/stageRoll';
  * ⚠️ これは**れいあの手間を減らすための内部ツール**。汎用のステージ評価器を作るのが目的ではない。
  */
 export const RUBRIC = {
-  /** 見る「玉が落ち始める位置」。盤面は横360なので端から端まで */
-  DROPS: [90, 160, 230, 300, 370],
+  /**
+   * 見る「玉が落ち始める位置」。盤面は横360。
+   * ⚠️ **端を含めること**（2026-07-25 に左端も落とせるようになった）。端が死んでいる型を見逃す。
+   */
+  DROPS: [10, 95, 180, 265, 350],
   /** 倍率の抽選違いを何回ならすか。⚠️ 1だと当たり倍率を引いたかどうかで結果がぶれる */
   SEEDS: 2,
   /** 当たりの位置でこれだけ稼げること（低いと「増える気持ちよさ」が出ない） */
@@ -44,17 +47,12 @@ export const RUBRIC = {
 } as const;
 
 /**
- * 玉が落ち始める位置と、なぞる位置のズレ。
- * ⚠️ 玉は口の縁から出るのでカップ中心より右に落ちる。さらに `setCupX` は
- *    直立時の口の位置ぶんだけ左へ寄せるので、両方を戻さないと狙った所に落ちない。
+ * その位置に落としたい時に、なぞるべきx。
+ * ⚠️ `setCupX` は「**玉を落としたい場所**」を受け取るので、いまはそのまま渡すだけ
+ *    （2026-07-25 に「なぞった所に落ちる」へ直した）。
  */
-export const DROP_OFFSET =
-  cupLocalToWorld(0, CONFIG.CUP_POUR_TILT, CONFIG.CUP_ROLL_LANE_X, CONFIG.CUP_ROLL_EXIT_Y).x -
-  CONFIG.CUP_SPAWN_OFFSET_X;
-
-/** その位置に落としたい時に、なぞるべきx */
 export function tapForDrop(drop: number): number {
-  return drop - DROP_OFFSET;
+  return drop;
 }
 
 export interface StageReport {

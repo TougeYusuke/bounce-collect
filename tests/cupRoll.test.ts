@@ -93,6 +93,40 @@ describe('カップの底面に沿った転がり', () => {
   });
 });
 
+describe('なぞった場所に玉が落ちる', () => {
+  /** その位置を狙って、実際に玉が落ち始めた x を返す */
+  function dropAt(target: number): number {
+    const s = new Session();
+    s.setCupX(target);
+    const { ball } = pourFirst(s);
+    for (let i = 1; i < cupRollFrames(); i++) s.update(1);
+    return ball.x; // 縁を離れて落下に移る瞬間の位置
+  }
+
+  it('⚠️ 盤面の端から端まで届く（左端に落とせなかった・れいあ指摘 2026-07-25）', () => {
+    // ⚠️ 玉は口の**縁**から出るのでカップ中心には落ちない。右へ注ぐ一方通行だと
+    //    左端に落とすにはカップを画面外へ出すしかなく、x=72 より左に落とせなかった。
+    for (const target of [10, 90, 180, 270, 350]) {
+      expect(Math.abs(dropAt(target) - target)).toBeLessThan(6);
+    }
+  });
+
+  it('⚠️ 左端を狙うとカップは画面から見切れる（それでよい・れいあ裁定 2026-07-25）', () => {
+    // 玉は口の縁から出るので、カップ本体は指より左に居る。
+    // ⚠️ カップを画面内に収める形に戻すと左端に落とせなくなる。
+    //    左右で注ぐ向きを入れ替える案は「挙動が気持ち悪い」で不採用。
+    const s = new Session();
+    s.setCupX(10);
+    expect(s.cupX).toBeLessThan(0);
+  });
+
+  it('R2はズレ無し（真下へ注ぐので、なぞった所の真下に落ちる）', () => {
+    const s = new Session(undefined, { mode: 'r2', supplyTotal: 50 });
+    s.setCupX(40);
+    expect(s.cupX).toBe(40);
+  });
+});
+
 describe('R2は転がさずひっくり返して落とす', () => {
   it('⚠️ R2の玉は道に乗せない（大量に配るので偏りが盤面に出る）', () => {
     const s = new Session(undefined, { mode: 'r2', supplyTotal: 50 });

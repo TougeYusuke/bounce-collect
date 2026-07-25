@@ -124,12 +124,14 @@ describe('Session', () => {
     expect(s.score).toBe(before + 9);
   });
 
-  it('コップの位置は盤面の内側に収まる', () => {
+  it('⚠️ 盤面の内側に収めるのは「玉が落ちる場所」（カップ本体は見切れてよい）', () => {
+    // 2026-07-25 れいあ裁定: カップ中心を画面内に収める形だと左端に落とせなかった。
+    // 玉は口の縁から出る＝カップ本体は落下点より左に居るので、左端を狙うと見切れる。
     const s = new Session();
     s.setCupX(-999);
-    expect(s.cupX).toBeGreaterThanOrEqual(0);
+    expect(s.cupX + s.dropOffsetX).toBe(0);
     s.setCupX(99999);
-    expect(s.cupX).toBeLessThanOrEqual(CONFIG.BOARD_WIDTH);
+    expect(s.cupX + s.dropOffsetX).toBe(CONFIG.BOARD_WIDTH);
   });
 
   it('コップの位置を変えると玉の落ちる場所が変わる', () => {
