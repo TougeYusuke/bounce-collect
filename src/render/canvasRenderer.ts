@@ -1,11 +1,12 @@
 import type { BallPool } from '../core/ball';
 import { CONFIG } from '../core/config';
-import { cupTiltPivot } from '../core/cupPose';
+import { cupSpawnPosition, cupTiltPivot } from '../core/cupPose';
 import type { Stage } from '../core/stage';
 import type { World } from '../core/world';
 import { getArt } from './art';
 import { drawBall, skinVariants } from './ballArt';
-import { BALL_SKINS, MATERIALS, SKIN, type BallSkin, type Material } from './theme';
+import { drawVessel } from './vesselArt';
+import { BALL_SKINS, BUCKET_SKINS, MATERIALS, SKIN, type BallSkin, type BucketSkin, type Material } from './theme';
 import type { Renderer } from './types';
 
 /**
@@ -34,6 +35,8 @@ export class CanvasRenderer implements Renderer {
   private material: Material = MATERIALS[0];
   /** 玉の見た目（工房で解放していく）。⚠️ 変えたらスプライトを焼き直す */
   private ballSkin: BallSkin = BALL_SKINS[0];
+  /** 器の見た目（上のカップ・下の受け皿で共通） */
+  private bucketSkin: BucketSkin = BUCKET_SKINS[0];
 
   async init(container: HTMLElement, world: World): Promise<void> {
     this.world = world;
@@ -52,6 +55,11 @@ export class CanvasRenderer implements Renderer {
   /** 素材テーマを差し替える。盤面画像・傾斜板の色・背景色が変わる */
   setMaterial(m: Material): void {
     this.material = m;
+  }
+
+  /** 器の見た目を差し替える */
+  setBucketSkin(b: BucketSkin): void {
+    this.bucketSkin = b;
   }
 
   /** 玉の見た目を差し替える。⚠️ 焼いてあるスプライトを捨てて焼き直す */
@@ -153,7 +161,6 @@ export class CanvasRenderer implements Renderer {
     const x = ox + cx * s;
     const y = oy + cyTop * s;
     const hw = 27 * k * s;
-    const hh = 34 * k * s;
 
     g.save();
     if (tilt !== 0) {
@@ -167,37 +174,21 @@ export class CanvasRenderer implements Renderer {
       g.translate(-px, -py);
     }
 
-    const im = getArt('bucket-wood.png');
+    const im = this.bucketSkin.form === 'image' ? getArt('bucket-wood.png') : null;
+    g.save();
+    g.shadowColor = 'rgba(0,0,0,.5)';
+    g.shadowBlur = 12 * s;
+    g.shadowOffsetY = 5 * s;
     if (im) {
       const w = hw * 2.15;
       const h = w * (im.height / im.width);
-      g.save();
-      g.shadowColor = 'rgba(0,0,0,.5)';
-      g.shadowBlur = 12 * s;
-      g.shadowOffsetY = 5 * s;
       g.drawImage(im, x - w / 2, y - h * 0.17, w, h);
-      g.restore();
-      g.restore();
-      return;
+    } else {
+      // ⚠️ 画像が無い器は輪郭から描く。口の中心・半幅は画像版と揃えてある
+      //    （玉の湧く位置がこの寸法に合わせて詰めてあるため）
+      drawVessel(g, x, y, hw, this.bucketSkin);
     }
-
-    // フォールバック（画像が無いとき）
-    const grad = g.createLinearGradient(x - hw, 0, x + hw, 0);
-    grad.addColorStop(0, '#7a5228');
-    grad.addColorStop(0.38, '#b5814a');
-    grad.addColorStop(1, '#7a5228');
-    g.fillStyle = grad;
-    g.beginPath();
-    g.moveTo(x - hw, y);
-    g.lineTo(x + hw, y);
-    g.lineTo(x + hw * 0.66, y + hh);
-    g.lineTo(x - hw * 0.66, y + hh);
-    g.closePath();
-    g.fill();
-    g.fillStyle = '#4a2f14';
-    g.beginPath();
-    g.ellipse(x, y, hw * 0.94, hw * 0.27, 0, 0, Math.PI * 2);
-    g.fill();
+    g.restore();
     g.restore();
   }
 
@@ -419,13 +410,21 @@ export class CanvasRenderer implements Renderer {
       }
     }
 
+    const cx0 = cupX ?? W / 2;
     // 残像（玉より先に描く＝尾が玉の下に潜る）。
     // ⚠️ 玉ごとに stroke すると1000個で1000回の描画呼び出しになるので、
     //    1本のパスにまとめて**1回**で塗る。速い玉だけを対象にして本数も抑える。
     if (CONFIG.TRAIL_ALPHA > 0) {
       const minSq = CONFIG.TRAIL_MIN_SPEED * CONFIG.TRAIL_MIN_SPEED;
+      /**
+       * バケツの口の高さ。ここより上に居る玉は**まだバケツの中**なので尾を描かない。
+       * ⚠️ R2でバケツをひっくり返すと、口の奥に湧いた玉の尾がバケツの上へ突き出して見えた
+       *    （2026-07-25 れいあ指摘）。玉自体はバケツの絵に隠れるが、尾は上向きに伸びるので飛び出す。
+       */
+      const mouthY = cupSpawnPosition(cx0, cupTilt).y;
       ctx.beginPath();
       pool.forEachActive((b) => {
+        if (b.y < mouthY) return; // まだバケツの中
         const vx = b.x - b.px;
         const vy = b.y - b.py;
         const sq = vx * vx + vy * vy;
@@ -468,7 +467,7 @@ export class CanvasRenderer implements Renderer {
     }
 
     // 上バケツ（玉より後＝玉がバケツの下から出てくる）。玉を出している間は傾ける
-    const cx = cupX ?? W / 2;
+    const cx = cx0;
     this.drawBucket(ctx, ox, oy, s, cx, CONFIG.CUP_Y, 1.0, cupTilt);
     // バケツの中に残っている玉の数（バケツの左に置く）
     if (this.cupCount !== null) {

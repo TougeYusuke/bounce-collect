@@ -6,12 +6,16 @@ import { DEFAULT_PREFS, resolvePrefs, type SkinPrefs } from '../core/workshop';
  */
 const KEY = 'marble-mill.prefs';
 
-export function loadPrefs(ownedBalls: string[], ownedThemes: string[]): SkinPrefs {
+export function loadPrefs(
+  ownedBalls: string[],
+  ownedThemes: string[],
+  ownedBuckets: string[],
+): SkinPrefs {
   try {
     const raw = localStorage.getItem(KEY);
-    return resolvePrefs(raw ? JSON.parse(raw) : null, ownedBalls, ownedThemes);
+    return resolvePrefs(raw ? JSON.parse(raw) : null, ownedBalls, ownedThemes, ownedBuckets);
   } catch {
-    return resolvePrefs(DEFAULT_PREFS, ownedBalls, ownedThemes);
+    return resolvePrefs(DEFAULT_PREFS, ownedBalls, ownedThemes, ownedBuckets);
   }
 }
 

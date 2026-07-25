@@ -50,11 +50,51 @@ function squirclePath(g: CanvasRenderingContext2D, cx: number, cy: number, r: nu
   g.closePath();
 }
 
+/** ハート。⚠️ 外接を r に収める（円の玉と大きさが揃う） */
+function heartPath(g: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
+  const s = r * 0.95;
+  g.beginPath();
+  g.moveTo(cx, cy + s * 0.92);
+  g.bezierCurveTo(cx - s * 1.5, cy - s * 0.2, cx - s * 0.55, cy - s * 1.25, cx, cy - s * 0.42);
+  g.bezierCurveTo(cx + s * 0.55, cy - s * 1.25, cx + s * 1.5, cy - s * 0.2, cx, cy + s * 0.92);
+  g.closePath();
+}
+
+/** 六角（尖った角が上下） */
+function hexPath(g: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
+  g.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI * i) / 3 - Math.PI / 2;
+    const x = cx + Math.cos(a) * r;
+    const y = cy + Math.sin(a) * r;
+    if (i === 0) g.moveTo(x, y);
+    else g.lineTo(x, y);
+  }
+  g.closePath();
+}
+
 function shapePath(g: CanvasRenderingContext2D, cx: number, cy: number, r: number, skin: BallSkin): void {
   if (skin.shape === 'star') return starPath(g, cx, cy, r);
   if (skin.shape === 'squircle') return squirclePath(g, cx, cy, r);
+  if (skin.shape === 'heart') return heartPath(g, cx, cy, r);
+  if (skin.shape === 'hex') return hexPath(g, cx, cy, r);
   g.beginPath();
   g.arc(cx, cy, r, 0, Math.PI * 2);
+}
+
+/** コインの縁と中央の窪み。平べったい金属に見せる */
+function coinFace(g: CanvasRenderingContext2D, cx: number, cy: number, r: number, edge: string): void {
+  g.save();
+  g.strokeStyle = edge;
+  g.lineWidth = Math.max(1, r * 0.16);
+  g.beginPath();
+  g.arc(cx, cy, r * 0.74, 0, Math.PI * 2);
+  g.stroke();
+  g.lineWidth = Math.max(1, r * 0.1);
+  g.beginPath();
+  g.arc(cx, cy, r * 0.34, 0, Math.PI * 2);
+  g.stroke();
+  g.restore();
 }
 
 /** 野球ボールの赤い縫い目（左右に弧を2本） */
@@ -101,6 +141,14 @@ export function drawBall(
   g.fillStyle = grad;
   shapePath(g, cx, cy, r, skin);
   g.fill();
+
+  if (skin.pattern === 'coin') {
+    g.save();
+    shapePath(g, cx, cy, r, skin);
+    g.clip();
+    coinFace(g, cx, cy, r, skin.accent ?? '#8a6420');
+    g.restore();
+  }
 
   if (skin.pattern === 'baseball') {
     // 縫い目は玉の中だけに出す（形からはみ出させない）

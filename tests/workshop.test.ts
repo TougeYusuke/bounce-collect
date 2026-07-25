@@ -10,10 +10,11 @@ import {
   unlockedKeys,
 } from '../src/core/workshop';
 import { STAGES } from '../src/core/stages';
-import { BALL_SKINS, MATERIALS } from '../src/render/theme';
+import { BALL_SKINS, BUCKET_SKINS, MATERIALS } from '../src/render/theme';
 
 describe('工房の解放', () => {
   it('最初は無料のものだけ使える', () => {
+    expect(unlockedKeys('bucket', 0)).toEqual(FREE.bucket);
     expect(unlockedKeys('theme', 0)).toEqual(FREE.theme);
     expect(unlockedKeys('stage', 0)).toEqual(FREE.stage);
     expect(unlockedKeys('ball', 0)).toEqual(FREE.ball);
@@ -36,6 +37,7 @@ describe('工房の解放', () => {
     expect(unlockedKeys('theme', max).length).toBe(MATERIALS.length);
     expect(unlockedKeys('stage', max).length).toBe(STAGES.length);
     expect(unlockedKeys('ball', max).length).toBe(BALL_SKINS.length);
+    expect(unlockedKeys('bucket', max).length).toBe(BUCKET_SKINS.length);
   });
 
   /**
@@ -48,6 +50,7 @@ describe('工房の解放', () => {
       theme: MATERIALS.map((m) => m.key),
       stage: STAGES.map((s) => s.name),
       ball: BALL_SKINS.map((b) => b.key),
+      bucket: BUCKET_SKINS.map((b) => b.key),
     };
     for (const u of [...UNLOCKS, ...Object.entries(FREE).flatMap(([k, keys]) => keys.map((key) => ({ kind: k, key, name: key })))]) {
       expect(known[u.kind], `${u.kind} の一覧`).toContain(u.key);
@@ -89,24 +92,28 @@ describe('工房の解放', () => {
 
 describe('スキンの好み', () => {
   it('持っているものが選べる', () => {
-    expect(resolvePrefs({ ball: 'amber', theme: 'bamboo' }, ['plain', 'amber'], ['wood', 'bamboo']))
-      .toEqual({ ball: 'amber', theme: 'bamboo' });
+    expect(
+      resolvePrefs({ ball: 'amber', theme: 'bamboo', bucket: 'iron' }, ['plain', 'amber'], ['wood', 'bamboo'], ['wood', 'iron']),
+    ).toEqual({ ball: 'amber', theme: 'bamboo', bucket: 'iron' });
   });
 
   it('⚠️ 持っていないものが選ばれていたら落とす（累計リセット後に起きる）', () => {
     // 玉は持っている中でいちばん新しいものへ、素材はおまかせへ
-    expect(resolvePrefs({ ball: 'glow', theme: 'maple' }, ['plain', 'amber'], ['wood'])).toEqual({
-      ball: 'amber',
-      theme: RANDOM,
-    });
+    expect(
+      resolvePrefs({ ball: 'glow', theme: 'maple', bucket: 'jade' }, ['plain', 'amber'], ['wood'], ['wood']),
+    ).toEqual({ ball: 'amber', theme: RANDOM, bucket: 'wood' });
   });
 
   it('未設定なら玉は最新・素材はおまかせ', () => {
-    expect(resolvePrefs(null, ['plain'], ['wood'])).toEqual({ ball: 'plain', theme: RANDOM });
+    expect(resolvePrefs(null, ['plain'], ['wood'], ['wood'])).toEqual({
+      ball: 'plain',
+      theme: RANDOM,
+      bucket: 'wood',
+    });
   });
 
   it('おまかせは持ち物に関係なく選べる', () => {
-    expect(resolvePrefs({ ball: 'plain', theme: RANDOM }, ['plain'], ['wood']).theme).toBe(RANDOM);
+    expect(resolvePrefs({ ball: 'plain', theme: RANDOM }, ['plain'], ['wood'], ['wood']).theme).toBe(RANDOM);
   });
 
   it('⚠️ おまかせの予約語が素材テーマのキーと衝突しない', () => {
@@ -128,6 +135,50 @@ describe('工房に出す種類', () => {
   it('⚠️ 次の解放に型が出てこない（サプライズを潰さない）', () => {
     for (const t of [0, 5_000, 20_000, 50_000, 90_000]) {
       expect(nextUnlock(t)?.kind).not.toBe('stage');
+    }
+  });
+});
+
+describe('形と色は別の軸', () => {
+  it('⚠️ 形（星・ハート等）にも色のパレットを付けられる', () => {
+    const mixed = BALL_SKINS.filter((b) => b.shape && b.shape !== 'circle' && b.palette);
+    expect(mixed.length).toBeGreaterThan(0);
+  });
+
+  it('⚠️ パレットは2色以上（1色なら単色スキンと同じで焼くスプライトが無駄に増える）', () => {
+    for (const b of BALL_SKINS) {
+      if (b.palette) expect(b.palette.length).toBeGreaterThan(1);
+    }
+  });
+
+  it('⚠️ 器は画像を増やさず輪郭から描く（形を足すたびに素材を用意しない方針・2026-07-25）', () => {
+    const drawn = BUCKET_SKINS.filter((b) => b.form !== 'image');
+    expect(drawn.length).toBeGreaterThan(3);
+    // 描く器は色が4つそろっていること（欠けると真っ黒や透明になる）
+    for (const b of drawn) {
+      for (const k of ['body', 'shade', 'rim', 'inner'] as const) expect(b[k]).toBeTruthy();
+    }
+  });
+
+  it('⚠️ 木製だけにしない（れいあ方針「木製にこだわらない」）', () => {
+    expect(new Set(BUCKET_SKINS.map((b) => b.form)).size).toBeGreaterThan(3);
+  });
+});
+
+describe('名前のズレ', () => {
+  /**
+   * ⚠️ 解放リストは自分で名前を持っている（無料のぶんは持ち物側の名前を使う）ので、
+   *    片方だけ直すと**工房で2つの名前が混ざる**（実測: 「鉄のバケツ」と「黒鉄のバケツ」が併存した）。
+   */
+  it('解放リストと持ち物の名前が一致する', () => {
+    const names: Record<string, Map<string, string>> = {
+      ball: new Map(BALL_SKINS.map((b) => [b.key, b.name])),
+      bucket: new Map(BUCKET_SKINS.map((b) => [b.key, b.name])),
+    };
+    for (const u of UNLOCKS) {
+      const m = names[u.kind];
+      if (!m) continue; // 素材と型は接頭辞を付けて出すので対象外
+      expect(u.name, `${u.kind}:${u.key}`).toBe(m.get(u.key));
     }
   });
 });

@@ -9,7 +9,8 @@ import {
   type UnlockKind,
 } from '../core/workshop';
 import { drawBall } from '../render/ballArt';
-import { BALL_SKINS, MATERIALS, findBallSkin } from '../render/theme';
+import { BALL_SKINS, BUCKET_SKINS, MATERIALS, findBallSkin, findBucketSkin } from '../render/theme';
+import { drawVessel } from '../render/vesselArt';
 import { loadPrefs, savePrefs } from './prefs';
 import { getTotal } from './totals';
 
@@ -39,10 +40,11 @@ interface Item {
 /** その種類の全部（無料 → 解放コストの小さい順） */
 function catalog(kind: UnlockKind): Item[] {
   const paid = UNLOCKS.filter((u) => u.kind === kind).map((u) => ({ ...u }));
-  const nameOf = (key: string): string =>
-    kind === 'ball'
-      ? (BALL_SKINS.find((b) => b.key === key)?.name ?? key)
-      : `素材：${MATERIALS.find((m) => m.key === key)?.name ?? key}`;
+  const nameOf = (key: string): string => {
+    if (kind === 'ball') return BALL_SKINS.find((b) => b.key === key)?.name ?? key;
+    if (kind === 'bucket') return BUCKET_SKINS.find((b) => b.key === key)?.name ?? key;
+    return `素材：${MATERIALS.find((m) => m.key === key)?.name ?? key}`;
+  };
   const free = FREE[kind].map((key) => ({ kind, key, name: nameOf(key), cost: 0 }));
   return [...free, ...paid];
 }
@@ -90,8 +92,34 @@ function randomPreview(): string {
   return `<div class="ws-pv" style="background:linear-gradient(135deg,${g})"></div>`;
 }
 
+/**
+ * 器。⚠️ **実物と同じ `drawVessel` で焼く**（CSSで真似ない）。
+ *    真似ていると、器の形を足した時にプレビューだけ古い見た目のまま残る。
+ *    ⚠️ 木のバケツだけは画像なので `<img>` で出す。
+ */
+function bucketPreview(key: string): string {
+  const b = findBucketSkin(key);
+  if (b.form === 'image') {
+    return (
+      `<div class="ws-pv">` +
+      `<img alt="" src="assets/bucket-wood.png" style="width:46px;height:46px;object-fit:contain">` +
+      `</div>`
+    );
+  }
+  const c = document.createElement('canvas');
+  c.width = 100;
+  c.height = 100;
+  const g = c.getContext('2d');
+  if (g) {
+    g.scale(2, 2);
+    drawVessel(g, 25, 12, 17, b);
+  }
+  return `<div class="ws-pv"><img alt="" width="50" height="50" src="${c.toDataURL()}"></div>`;
+}
+
 function preview(kind: UnlockKind, key: string): string {
   if (kind === 'ball') return ballPreview(key);
+  if (kind === 'bucket') return bucketPreview(key);
   return key === RANDOM ? randomPreview() : themePreview(key);
 }
 
@@ -130,7 +158,8 @@ export function renderWorkshop(): void {
   const next = nextUnlock(total);
   const ownedBalls = unlockedKeys('ball', total);
   const ownedThemes = unlockedKeys('theme', total);
-  const prefs = loadPrefs(ownedBalls, ownedThemes);
+  const ownedBuckets = unlockedKeys('bucket', total);
+  const prefs = loadPrefs(ownedBalls, ownedThemes, ownedBuckets);
 
   // 直前に解放したものを起点にすると、バーが「前回からどこまで来たか」を表す
   // ⚠️ 見える種類だけで数える。隠している型の解放を混ぜるとバーが理由なく飛ぶ
@@ -158,16 +187,20 @@ export function renderWorkshop(): void {
     catalog('theme')
       .map((it) => card(it, ownedThemes.includes(it.key), prefs.theme === it.key, true))
       .join('');
+  const buckets = catalog('bucket')
+    .map((it) => card(it, ownedBuckets.includes(it.key), prefs.bucket === it.key, true))
+    .join('');
   const list = document.getElementById('workshop-list') as HTMLElement;
   list.innerHTML =
     section('玉', '好きなものを選べる', balls) +
+    section('バケツ', '上のカップの見た目', buckets) +
     section('素材', 'おまかせなら毎回変わる', themes);
 
   // ⚠️ カードは描き直すたびに作り直すので、リスナーは親に1つだけ付ける（多重登録を防ぐ）
   list.onclick = (e) => {
     const el = (e.target as HTMLElement).closest('.ws-card.pick') as HTMLElement | null;
     if (!el) return;
-    const kind = el.dataset.kind as 'ball' | 'theme';
+    const kind = el.dataset.kind as 'ball' | 'theme' | 'bucket';
     const key = el.dataset.key as string;
     savePrefs({ ...prefs, [kind]: key });
     renderWorkshop();

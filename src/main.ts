@@ -2,7 +2,14 @@ import { CONFIG } from './core/config';
 import { Match } from './core/match';
 import { CanvasRenderer } from './render/canvasRenderer';
 import { loadArt } from './render/art';
-import { BALL_SKINS, MATERIALS, findBallSkin, pickMaterial, type Material } from './render/theme';
+import {
+  BALL_SKINS,
+  MATERIALS,
+  findBallSkin,
+  findBucketSkin,
+  pickMaterial,
+  type Material,
+} from './render/theme';
 import { confirmDialog } from './ui/dialog';
 import { Hud } from './ui/hud';
 import { STAGES } from './core/stages';
@@ -52,14 +59,16 @@ function unlocked() {
   const themeKeys = unlockedKeys('theme', total);
   const stageKeys = new Set(unlockedKeys('stage', total));
   const ballKeys = unlockedKeys('ball', total);
+  const bucketKeys = unlockedKeys('bucket', total);
   // ⚠️ 好みは持っていないものが選ばれていることがある（累計リセット後）。loadPrefs が落としてくれる
-  const prefs = loadPrefs(ballKeys, themeKeys);
+  const prefs = loadPrefs(ballKeys, themeKeys, bucketKeys);
   const owned = MATERIALS.filter((m) => themeKeys.includes(m.key));
   return {
     // 「おまかせ」なら解放済みから抽選、指定があればそれだけ（＝毎回同じ素材で遊べる）
     materials: prefs.theme === RANDOM ? owned : owned.filter((m) => m.key === prefs.theme),
     stages: STAGES.filter((s) => stageKeys.has(s.name)),
     ball: findBallSkin(prefs.ball ?? BALL_SKINS[0].key),
+    bucket: findBucketSkin(prefs.bucket),
   };
 }
 
@@ -68,6 +77,7 @@ function newRound(): void {
   material = pickMaterial(Math.random, open.materials);
   renderer.setMaterial(material);
   renderer.setBallSkin(open.ball);
+  renderer.setBucketSkin(open.bucket);
   match = new Match(undefined, open.stages);
   speed = 1;
   updateSpeedButton();
