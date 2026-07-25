@@ -21,6 +21,14 @@ export function skinVariants(skin: BallSkin): number {
   return Math.max(1, skin.palette?.length ?? 1);
 }
 
+/**
+ * 見た目の半径（当たり判定の半径 × スキンの倍率）。
+ * ⚠️ 焼くキャンバスの大きさもこれで決めること。当たり判定の半径で余白を取ると絵が切れる。
+ */
+export function visualRadius(skin: BallSkin, collisionRadius: number): number {
+  return collisionRadius * (skin.scale ?? 1);
+}
+
 /** 星（5角）の輪郭。⚠️ 外接半径を r に合わせるので、円と同じ大きさに見える */
 function starPath(g: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
   const inner = r * 0.46;

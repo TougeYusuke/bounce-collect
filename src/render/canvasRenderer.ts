@@ -4,7 +4,7 @@ import { cupSpawnPosition, cupTiltPivot } from '../core/cupPose';
 import type { Stage } from '../core/stage';
 import type { World } from '../core/world';
 import { getArt } from './art';
-import { drawBall, skinVariants } from './ballArt';
+import { drawBall, skinVariants, visualRadius } from './ballArt';
 import { drawVessel } from './vesselArt';
 import { BALL_SKINS, BUCKET_SKINS, MATERIALS, SKIN, type BallSkin, type BucketSkin, type Material } from './theme';
 import type { Renderer } from './types';
@@ -75,7 +75,8 @@ export class CanvasRenderer implements Renderer {
    */
   private buildSprites(radius: number): HTMLCanvasElement[] {
     const dpr = window.devicePixelRatio || 1;
-    const r = Math.max(1, radius * this.scale * dpr);
+    // ⚠️ 見た目は当たり判定より大きいことがある（星・ハート）。絵が切れないよう見た目側で余白を取る
+    const r = Math.max(1, visualRadius(this.ballSkin, radius) * this.scale * dpr);
     const pad = Math.ceil(r * 0.5) + 2; // 影のオフセットぶんの余白
     const size = Math.ceil(r * 2) + pad * 2;
     const out: HTMLCanvasElement[] = [];
@@ -174,15 +175,18 @@ export class CanvasRenderer implements Renderer {
       g.translate(-px, -py);
     }
 
-    const im = this.bucketSkin.form === 'image' ? getArt('bucket-wood.png') : null;
+    const skin = this.bucketSkin;
+    const im = skin.image ? getArt(skin.image) : null;
     g.save();
     g.shadowColor = 'rgba(0,0,0,.5)';
     g.shadowBlur = 12 * s;
     g.shadowOffsetY = 5 * s;
     if (im) {
-      const w = hw * 2.15;
+      // ⚠️ 口の**幅**を hw に合わせて拡大率を決め、口の**高さ**を cyTop に合わせて置く。
+      //    器ごとに口の位置と幅が違うので、画像の外形で合わせると玉が器の外から出て見える。
+      const w = (hw * 2.15) / (skin.mouthW ?? 1);
       const h = w * (im.height / im.width);
-      g.drawImage(im, x - w / 2, y - h * 0.17, w, h);
+      g.drawImage(im, x - w / 2, y - h * (skin.mouthY ?? 0.17), w, h);
     } else {
       // ⚠️ 画像が無い器は輪郭から描く。口の中心・半幅は画像版と揃えてある
       //    （玉の湧く位置がこの寸法に合わせて詰めてあるため）

@@ -57,7 +57,7 @@ function catalog(kind: UnlockKind): Item[] {
 function ballPreview(key: string): string {
   const skin = findBallSkin(key);
   const n = skin.palette ? 3 : 1;
-  const r = skin.palette ? 13 : 20;
+  const r = (skin.palette ? 13 : 20) * (skin.scale ?? 1);
   const c = document.createElement('canvas');
   const w = skin.palette ? 58 : 50;
   c.width = w * 2;
@@ -93,16 +93,15 @@ function randomPreview(): string {
 }
 
 /**
- * 器。⚠️ **実物と同じ `drawVessel` で焼く**（CSSで真似ない）。
- *    真似ていると、器の形を足した時にプレビューだけ古い見た目のまま残る。
- *    ⚠️ 木のバケツだけは画像なので `<img>` で出す。
+ * 器。⚠️ 実物と同じ**画像**を出す（2026-07-25 に手描きから画像へ移した）。
+ *    画像が読めない時だけ `drawVessel` にフォールバックする＝実物と同じ扱い。
  */
 function bucketPreview(key: string): string {
   const b = findBucketSkin(key);
-  if (b.form === 'image') {
+  if (b.image) {
     return (
       `<div class="ws-pv">` +
-      `<img alt="" src="assets/bucket-wood.png" style="width:46px;height:46px;object-fit:contain">` +
+      `<img alt="" src="assets/${b.image}" style="width:46px;height:46px;object-fit:contain">` +
       `</div>`
     );
   }

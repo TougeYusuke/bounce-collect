@@ -4,6 +4,7 @@ import { CanvasRenderer } from './render/canvasRenderer';
 import { loadArt } from './render/art';
 import {
   BALL_SKINS,
+  BUCKET_IMAGES,
   MATERIALS,
   findBallSkin,
   findBucketSkin,
@@ -289,7 +290,7 @@ function loop(): void {
 }
 
 void renderer.init(stageEl, match.session.world).then(() =>
-  loadArt([...MATERIALS.map((m) => m.board), 'bucket-wood.png']).then(() => {
+  loadArt([...MATERIALS.map((m) => m.board), ...BUCKET_IMAGES]).then(() => {
     ready = true;
     layoutHud();
     goToTitle();

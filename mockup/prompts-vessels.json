@@ -1,0 +1,32 @@
+[
+  {
+    "filename": "vessel-iron-v2",
+    "appendNoiseSuppression": false,
+    "prompt": "A single empty galvanized steel bucket, isolated on a pure white background, seen from a slightly high three-quarter angle so the round opening is visible as an ellipse at the top and the tapered body narrows toward the base. Photorealistic 3D game-asset render, soft studio lighting from the upper left. Brushed cool grey metal with subtle vertical brush marks, two horizontal reinforcing ribs around the body, a smooth rolled rim at the mouth, dark shaded interior visible through the opening. No handle, no text, no logo, no reflections of a room, no props, nothing else in frame. No cast shadow on the ground, no contact shadow, no reflection, no floor plane, the object floats on plain white. Centered, fills about 80 percent of the frame, square image."
+  },
+  {
+    "filename": "vessel-copper-v2",
+    "appendNoiseSuppression": false,
+    "prompt": "A single empty hammered copper pail, isolated on a pure white background, seen from a slightly high three-quarter angle so the round opening is visible as an ellipse at the top and the tapered body narrows toward the base. Photorealistic 3D game-asset render, soft studio lighting from the upper left. Warm reddish copper with a faint hammered texture and a polished brass rim, one horizontal band around the lower body, dark shaded interior visible through the opening. No handle, no text, no logo, no props, nothing else in frame. No cast shadow on the ground, no contact shadow, no reflection, no floor plane, the object floats on plain white. Centered, fills about 80 percent of the frame, square image."
+  },
+  {
+    "filename": "vessel-tumbler-v2",
+    "appendNoiseSuppression": false,
+    "prompt": "A single empty stainless steel tumbler cup, isolated on a pure white background, seen from a slightly high three-quarter angle so the round opening is visible as an ellipse at the top and the straight body tapers only slightly toward the base. Photorealistic 3D game-asset render, soft studio lighting from the upper left. Satin brushed stainless surface with one soft vertical highlight, a thin polished rim at the mouth, dark shaded interior visible through the opening. No handle, no lid, no straw, no text, no logo, no props, nothing else in frame. No cast shadow on the ground, no contact shadow, no reflection, no floor plane, the object floats on plain white. Centered, fills about 80 percent of the frame, square image."
+  },
+  {
+    "filename": "vessel-mug-v2",
+    "appendNoiseSuppression": false,
+    "prompt": "A single empty white ceramic mug with a rounded side handle on the right, isolated on a pure white background, seen from a slightly high three-quarter angle so the round opening is visible as an ellipse at the top and the straight body sits on a small foot. Photorealistic 3D game-asset render, soft studio lighting from the upper left. Glossy off-white glaze with a soft blue-grey rim line, dark shaded interior visible through the opening. No text, no logo, no pattern, no saucer, no props, nothing else in frame. No cast shadow on the ground, no contact shadow, no reflection, no floor plane, the object floats on plain white. Centered, fills about 80 percent of the frame, square image."
+  },
+  {
+    "filename": "vessel-glass-v2",
+    "appendNoiseSuppression": false,
+    "prompt": "A single empty clear drinking glass, isolated on a pure white background, seen from a slightly high three-quarter angle so the round opening is visible as an ellipse at the top and the straight body tapers slightly toward the thick base. Photorealistic 3D game-asset render, soft studio lighting from the upper left. Transparent pale blue-green glass with a thick bottom, clean vertical highlights, visible refraction at the rim, no liquid inside. No text, no logo, no straw, no props, nothing else in frame. No cast shadow on the ground, no contact shadow, no reflection, no floor plane, the object floats on plain white. Centered, fills about 80 percent of the frame, square image."
+  },
+  {
+    "filename": "vessel-jade-v2",
+    "appendNoiseSuppression": false,
+    "prompt": "A single empty jade green ceramic jar, isolated on a pure white background, seen from a slightly high three-quarter angle so the round opening is visible as an ellipse at the top and the rounded body narrows toward a small foot. Photorealistic 3D game-asset render, soft studio lighting from the upper left. Deep celadon green glaze with a soft crackle sheen and a pale mint rim, dark shaded interior visible through the opening. No handle, no lid, no text, no logo, no props, nothing else in frame. No cast shadow on the ground, no contact shadow, no reflection, no floor plane, the object floats on plain white. Centered, fills about 80 percent of the frame, square image."
+  }
+]

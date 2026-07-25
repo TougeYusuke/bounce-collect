@@ -26,3 +26,6 @@ dist-ssr
 # ステージ量産の道具が書き出すレポート（一時ファイル）
 stage-report.txt
 stage-lane.txt
+
+# 器の生成画像の作業フォルダ（中間ファイルが重い。プロンプトJSONから作り直せる）
+mockup/vessels/

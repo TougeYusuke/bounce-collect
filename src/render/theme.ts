@@ -70,6 +70,13 @@ export interface BallSkin {
   pattern?: 'none' | 'baseball' | 'coin';
   /** 模様に使う色（縫い目など） */
   accent?: string;
+  /**
+   * 見た目の大きさ（当たり判定の半径の何倍で描くか）。
+   * 🔑 **星やハートは円に内接するので、そのまま描くと盤面がスカスカに見える**
+   *    （2026-07-25 れいあ指摘）。当たり判定より**大きく描いて**詰まって見せる。
+   * ⚠️ 当たり判定は変わらない＝物理はそのまま。隣と重なって見えるが、それが「ギチギチ感」。
+   */
+  scale?: number;
 }
 
 /** 五色。⚠️ 盤面の木の色に負けないよう彩度を落としすぎない。複数のスキンで使い回す */
@@ -103,36 +110,48 @@ export const BALL_SKINS: BallSkin[] = [
     name: '星のかけら',
     hi: '#fffdf0', mid: '#ffd85e', lo: '#c08a10',
     shape: 'star',
+    scale: 1.5,
   },
   { key: 'glow',  name: '蛍のビー玉',   hi: '#ffffff', mid: '#a8ffe2', lo: '#2bb98f' },
-  { key: 'heart', name: 'ハート',       hi: '#fff0f3', mid: '#ff7d97', lo: '#a81f3c', shape: 'heart' },
-  { key: 'hex',   name: '六角ガラス',   hi: '#f2ffff', mid: '#8fe4e0', lo: '#2b7f7c', shape: 'hex' },
+  { key: 'heart', name: 'ハート',       hi: '#fff0f3', mid: '#ff7d97', lo: '#a81f3c', shape: 'heart', scale: 1.4 },
+  { key: 'hex',   name: '六角ガラス',   hi: '#f2ffff', mid: '#8fe4e0', lo: '#2b7f7c', shape: 'hex', scale: 1.15 },
   {
     key: 'coin',
     name: '金貨',
     hi: '#fff8d8', mid: '#f0c04a', lo: '#8f6412',
     pattern: 'coin',
     accent: '#7d5410',
+    scale: 1.08,
   },
   // ⚠️ 形とパレットは自由に組める（形＝shape／色＝palette は別の軸）
-  { key: 'star-mix',  name: '五色の星',     hi: '#fffdf0', mid: '#ffd85e', lo: '#c08a10', shape: 'star',  palette: FIVE },
-  { key: 'heart-mix', name: '五色のハート', hi: '#fff0f3', mid: '#ff7d97', lo: '#a81f3c', shape: 'heart', palette: FIVE },
+  { key: 'star-mix',  name: '五色の星',     hi: '#fffdf0', mid: '#ffd85e', lo: '#c08a10', shape: 'star',  palette: FIVE, scale: 1.5 },
+  { key: 'heart-mix', name: '五色のハート', hi: '#fff0f3', mid: '#ff7d97', lo: '#a81f3c', shape: 'heart', palette: FIVE, scale: 1.4 },
 ];
 
 /**
  * 玉を入れる器（上のカップ／下の受け皿）の見た目。
  *
  * 🔑 **木製にこだわらない**（2026-07-25 れいあ方針「タンブラーとか、それこそ鉄のバケツとか」）。
- * 🔑 **画像は増やさない**。`form` で輪郭を、色で素材感を出して `render/vesselArt.ts` が描く。
- *    種類を足すたびに画像を用意する形にすると、増やすほど手間が増える（型のサムネイルをやめたのと同じ）。
- * ⚠️ `form: 'image'` だけは既存の `bucket-wood.png` を使う（看板の見た目なので残す）。
+ * 🔑 **画像で持つ**（2026-07-25 れいあ判断「バケツについては画像生成したほうがいい。
+ *    今の状態だと少し見た目的に違和感がある」）。輪郭を手で描いた版は**フォールバック**として残す
+ *    ＝画像が読めなくてもゲームは動く（`render/art.ts` の方針と同じ）。
+ *
+ * ⚠️ **`mouthY` と `mouthW` は画像から実測した値**。ここがズレると玉が器の外から出るように見える。
+ *    測り方＝アルファの上端から「口のリングがいちばん広くなる行」を探す（`mockup/vessels/` の作業ログ参照）。
+ *    ⚠️ 画像を差し替えたら必ず測り直すこと。
  */
 export interface BucketSkin {
   key: string;
   name: string;
-  /** 輪郭。`image` は既存の木のバケツ画像 */
+  /** 画像ファイル名（`public/assets/`）。無ければ `form` で手描きにフォールバック */
+  image?: string;
+  /** 口の中心が画像の高さの何割の位置にあるか */
+  mouthY?: number;
+  /** 口の幅が画像の幅の何割か（壺やマグは胴より口が狭い） */
+  mouthW?: number;
+  /** 手描きフォールバックの輪郭 */
   form: 'image' | 'barrel' | 'pail' | 'tumbler' | 'mug' | 'glass';
-  /** 胴の色／陰／縁・たが／口の内側 */
+  /** 胴の色／陰／縁・たが／口の内側（手描き用。プレビューの下地にも使う） */
   body: string;
   shade: string;
   rim: string;
@@ -140,14 +159,19 @@ export interface BucketSkin {
 }
 
 export const BUCKET_SKINS: BucketSkin[] = [
-  { key: 'wood', name: '木のバケツ', form: 'image', body: '#b5814a', shade: '#7a5228', rim: '#e8c165', inner: '#4a2f14' },
-  { key: 'iron', name: '鉄のバケツ', form: 'pail', body: '#8d949c', shade: '#4a5058', rim: '#d3dae1', inner: '#23282e' },
-  { key: 'copper', name: '銅のバケツ', form: 'pail', body: '#c97a4a', shade: '#7d4425', rim: '#f0b07a', inner: '#3a1e10' },
-  { key: 'tumbler', name: 'タンブラー', form: 'tumbler', body: '#b9c3cc', shade: '#6d7883', rim: '#eef3f7', inner: '#2a3138' },
-  { key: 'mug', name: 'マグカップ', form: 'mug', body: '#f2f4f7', shade: '#c3cbd4', rim: '#8fb7d6', inner: '#5d6a76' },
-  { key: 'glass', name: 'ガラスのコップ', form: 'glass', body: '#cfeaf5', shade: '#8fbccd', rim: '#eafaff', inner: '#5e8b9c' },
-  { key: 'jade', name: '翡翠の壺', form: 'barrel', body: '#5cbfa0', shade: '#2f7d67', rim: '#bff0e0', inner: '#164034' },
+  { key: 'wood', name: '木のバケツ', image: 'bucket-wood.png', mouthY: 0.168, mouthW: 1.0, form: 'barrel', body: '#b5814a', shade: '#7a5228', rim: '#e8c165', inner: '#4a2f14' },
+  { key: 'iron', name: '鉄のバケツ', image: 'bucket-iron.png', mouthY: 0.106, mouthW: 1.0, form: 'pail', body: '#8d949c', shade: '#4a5058', rim: '#d3dae1', inner: '#23282e' },
+  { key: 'copper', name: '銅のバケツ', image: 'bucket-copper.png', mouthY: 0.113, mouthW: 1.0, form: 'pail', body: '#c97a4a', shade: '#7d4425', rim: '#f0b07a', inner: '#3a1e10' },
+  { key: 'tumbler', name: 'タンブラー', image: 'bucket-tumbler.png', mouthY: 0.08, mouthW: 1.0, form: 'tumbler', body: '#b9c3cc', shade: '#6d7883', rim: '#eef3f7', inner: '#2a3138' },
+  { key: 'mug', name: 'マグカップ', image: 'bucket-mug.png', mouthY: 0.094, mouthW: 0.689, form: 'mug', body: '#f2f4f7', shade: '#c3cbd4', rim: '#8fb7d6', inner: '#5d6a76' },
+  { key: 'glass', name: 'ガラスのコップ', image: 'bucket-glass.png', mouthY: 0.089, mouthW: 1.0, form: 'glass', body: '#cfeaf5', shade: '#8fbccd', rim: '#eafaff', inner: '#5e8b9c' },
+  { key: 'jade', name: '翡翠の壺', image: 'bucket-jade.png', mouthY: 0.11, mouthW: 0.718, form: 'barrel', body: '#5cbfa0', shade: '#2f7d67', rim: '#bff0e0', inner: '#164034' },
 ];
+
+/** 読み込む器の画像ファイル一覧 */
+export const BUCKET_IMAGES: string[] = BUCKET_SKINS.map((b) => b.image).filter(
+  (v): v is string => !!v,
+);
 
 export function findBucketSkin(key: string): BucketSkin {
   return BUCKET_SKINS.find((b) => b.key === key) ?? BUCKET_SKINS[0];
