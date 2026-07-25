@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { FREE, RANDOM, UNLOCKS, nextUnlock, resolvePrefs, unlockProgress, unlockedKeys } from '../src/core/workshop';
+import {
+  FREE,
+  RANDOM,
+  UNLOCKS,
+  VISIBLE_KINDS,
+  nextUnlock,
+  resolvePrefs,
+  unlockProgress,
+  unlockedKeys,
+} from '../src/core/workshop';
 import { STAGES } from '../src/core/stages';
 import { BALL_SKINS, MATERIALS } from '../src/render/theme';
 
@@ -64,7 +73,9 @@ describe('工房の解放', () => {
   it('次の解放とその進み具合が出る', () => {
     expect(nextUnlock(0)).toBe(UNLOCKS[0]);
     expect(nextUnlock(UNLOCKS[UNLOCKS.length - 1].cost)).toBeNull();
-    expect(unlockProgress(0)).toEqual({ done: 0, all: UNLOCKS.length });
+    // ⚠️ 型は工房に出さないので数に入らない（2026-07-25）
+    const visibleAll = UNLOCKS.filter((u) => VISIBLE_KINDS.includes(u.kind)).length;
+    expect(unlockProgress(0)).toEqual({ done: 0, all: visibleAll });
     expect(unlockProgress(UNLOCKS[0].cost).done).toBe(1);
   });
 
@@ -100,5 +111,23 @@ describe('スキンの好み', () => {
 
   it('⚠️ おまかせの予約語が素材テーマのキーと衝突しない', () => {
     expect(MATERIALS.map((m) => m.key)).not.toContain(RANDOM);
+  });
+});
+
+describe('工房に出す種類', () => {
+  it('⚠️ 型は出さない（内部で管理する・知らない方がワクワクする・2026-07-25 れいあ判断）', () => {
+    expect(VISIBLE_KINDS).not.toContain('stage');
+  });
+
+  it('⚠️ 型の解放は続いている（黙って盤面が増える）', () => {
+    expect(UNLOCKS.some((u) => u.kind === 'stage')).toBe(true);
+    const max = UNLOCKS[UNLOCKS.length - 1].cost;
+    expect(unlockedKeys('stage', max).length).toBeGreaterThan(FREE.stage.length);
+  });
+
+  it('⚠️ 次の解放に型が出てこない（サプライズを潰さない）', () => {
+    for (const t of [0, 5_000, 20_000, 50_000, 90_000]) {
+      expect(nextUnlock(t)?.kind).not.toBe('stage');
+    }
   });
 });

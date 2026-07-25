@@ -41,18 +41,33 @@ export const FREE: Record<UnlockKind, string[]> = {
 export const UNLOCKS: Unlock[] = [
   { kind: 'ball', key: 'amber', name: '琥珀のビー玉', cost: 1_500 },
   { kind: 'stage', key: 'type-04-tall-post', name: '型：長い柱', cost: 4_000 },
-  { kind: 'theme', key: 'bamboo', name: '素材：竹', cost: 8_000 },
-  { kind: 'stage', key: 'type-05-center-jump', name: '型：中央跳ね', cost: 13_000 },
-  { kind: 'ball', key: 'steel', name: '鋼のビー玉', cost: 19_000 },
-  { kind: 'theme', key: 'walnut', name: '素材：ウォールナット', cost: 26_000 },
-  { kind: 'stage', key: 'type-06-zigzag', name: '型：ジグザグ', cost: 34_000 },
-  { kind: 'theme', key: 'maple', name: '素材：メープル', cost: 43_000 },
-  { kind: 'stage', key: 'type-07-cascade', name: '型：滝', cost: 53_000 },
-  { kind: 'ball', key: 'glow', name: '蛍のビー玉', cost: 64_000 },
-  { kind: 'theme', key: 'driftwood', name: '素材：古材', cost: 76_000 },
-  { kind: 'stage', key: 'type-08-compact', name: '型：詰め合わせ', cost: 89_000 },
-  { kind: 'stage', key: 'type-03-sparse', name: '型：まばら', cost: 103_000 },
+  { kind: 'theme', key: 'bamboo', name: '素材：竹', cost: 7_000 },
+  { kind: 'ball', key: 'marble', name: '五色マーブル', cost: 11_000 },
+  { kind: 'stage', key: 'type-05-center-jump', name: '型：中央跳ね', cost: 16_000 },
+  { kind: 'theme', key: 'walnut', name: '素材：ウォールナット', cost: 22_000 },
+  { kind: 'ball', key: 'baseball', name: '野球ボール', cost: 29_000 },
+  { kind: 'stage', key: 'type-06-zigzag', name: '型：ジグザグ', cost: 37_000 },
+  { kind: 'theme', key: 'maple', name: '素材：メープル', cost: 46_000 },
+  { kind: 'ball', key: 'steel', name: '鋼のビー玉', cost: 56_000 },
+  { kind: 'stage', key: 'type-07-cascade', name: '型：滝', cost: 67_000 },
+  { kind: 'theme', key: 'driftwood', name: '素材：古材', cost: 79_000 },
+  { kind: 'ball', key: 'star', name: '星のかけら', cost: 92_000 },
+  { kind: 'stage', key: 'type-08-compact', name: '型：詰め合わせ', cost: 103_000 },
+  { kind: 'ball', key: 'glow', name: '蛍のビー玉', cost: 115_000 },
+  { kind: 'stage', key: 'type-03-sparse', name: '型：まばら', cost: 128_000 },
 ];
+
+/**
+ * 工房に出す種類。
+ * 🔑 **型（ステージ）は出さない**（2026-07-25 れいあ判断
+ *    「これは内部で管理すればいい。作るたびにサムネイルを用意するのも面倒だし、
+ *    何より知らないほうがワクワク感はありそう」）。
+ *    ⚠️ 型の解放そのものは続ける＝遊ぶほど**黙って**新しい盤面が混ざる。
+ *    だから「次の解放」「解放 N/M」も**見える種類だけ**で数える（見えないものを数えると数が合わない）。
+ */
+export const VISIBLE_KINDS: UnlockKind[] = ['ball', 'theme'];
+
+const visible = (u: Unlock): boolean => VISIBLE_KINDS.includes(u.kind);
 
 /** その種類でいま使えるキー（最初から使えるもの＋累計で解放したもの） */
 export function unlockedKeys(kind: UnlockKind, total: number): string[] {
@@ -62,14 +77,15 @@ export function unlockedKeys(kind: UnlockKind, total: number): string[] {
   ];
 }
 
-/** 次に解放されるもの（全部解放済みなら null） */
+/** 次に解放される「見えるもの」（全部解放済みなら null）。⚠️ 型は数に入れない */
 export function nextUnlock(total: number): Unlock | null {
-  return UNLOCKS.find((u) => total < u.cost) ?? null;
+  return UNLOCKS.find((u) => visible(u) && total < u.cost) ?? null;
 }
 
-/** 解放済みの数 / 全体 */
+/** 解放済みの数 / 全体。⚠️ 型は数に入れない（工房に出さないため） */
 export function unlockProgress(total: number): { done: number; all: number } {
-  return { done: UNLOCKS.filter((u) => total >= u.cost).length, all: UNLOCKS.length };
+  const list = UNLOCKS.filter(visible);
+  return { done: list.filter((u) => total >= u.cost).length, all: list.length };
 }
 
 /**

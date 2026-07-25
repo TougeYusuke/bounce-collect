@@ -52,16 +52,56 @@ export const SKIN = {
 export interface BallSkin {
   key: string;
   name: string;
-  /** 中心のハイライト／中間／縁。`SKIN.ball*` と同じ役割 */
+  /** 中心のハイライト／中間／縁 */
   hi: string;
   mid: string;
   lo: string;
+  /**
+   * 複数色（マーブル）。入れると**玉ごとに色が変わる**（玉の番号で振り分ける）。
+   * ⚠️ 焼くスプライトが色数ぶん増える。増やしすぎない（色数ぶん drawImage の元が増える）。
+   */
+  palette?: { hi: string; mid: string; lo: string }[];
+  /**
+   * 見た目の形。⚠️ **当たり判定は常に円**（れいあ指定「当たり判定は今のままでいい」）。
+   * ここは絵だけの話なので、星でも物理は丸のまま。
+   */
+  shape?: 'circle' | 'star' | 'squircle';
+  /** 模様 */
+  pattern?: 'none' | 'baseball';
+  /** 模様に使う色（縫い目など） */
+  accent?: string;
 }
 
 export const BALL_SKINS: BallSkin[] = [
   { key: 'plain', name: 'ビー玉',       hi: '#ffffff', mid: '#eef3f7', lo: '#a9bac9' },
   { key: 'amber', name: '琥珀のビー玉', hi: '#fff6de', mid: '#f4c96c', lo: '#a06f1c' },
+  {
+    key: 'marble',
+    name: '五色マーブル',
+    hi: '#ffffff', mid: '#eef3f7', lo: '#a9bac9',
+    // 玉ごとに色が変わる。⚠️ 盤面の木の色に負けないよう、彩度を落としすぎない
+    palette: [
+      { hi: '#fff1f2', mid: '#f68ea0', lo: '#a3324a' },
+      { hi: '#eefaff', mid: '#7fc4ef', lo: '#2b5f88' },
+      { hi: '#f3ffe9', mid: '#a3d97a', lo: '#3f7a2a' },
+      { hi: '#fff9e2', mid: '#f5cf6a', lo: '#9b7314' },
+      { hi: '#f8f0ff', mid: '#c39bef', lo: '#5b3390' },
+    ],
+  },
+  {
+    key: 'baseball',
+    name: '野球ボール',
+    hi: '#ffffff', mid: '#f4f1ea', lo: '#b9b2a4',
+    pattern: 'baseball',
+    accent: '#c8362f',
+  },
   { key: 'steel', name: '鋼のビー玉',   hi: '#ffffff', mid: '#c7d5df', lo: '#556777' },
+  {
+    key: 'star',
+    name: '星のかけら',
+    hi: '#fffdf0', mid: '#ffd85e', lo: '#c08a10',
+    shape: 'star',
+  },
   { key: 'glow',  name: '蛍のビー玉',   hi: '#ffffff', mid: '#a8ffe2', lo: '#2bb98f' },
 ];
 
