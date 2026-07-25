@@ -46,6 +46,30 @@ export function hash01(n: number): number {
   return x / 4294967296;
 }
 
+/**
+ * ゲートで何が起きたかの内訳（調整用の計器）。
+ * ⚠️ 「増えない」の原因は毎回ちがう場所にある（実測で3つ外した経緯あり）。
+ *    仮説で config をいじる前にここを見る。`resetGateStats()` で0に戻す。
+ */
+export const gateStats = {
+  /** ゲートを横切った回数（増えたかどうかに関わらず） */
+  crossed: 0,
+  /** そのうち**下から上へ**抜けた回数＝詰まって押し上げられた玉 */
+  up: 0,
+  /** 「この玉はこのゲートを使用済み」で弾いた回数＝**盛り返しが止まっている量** */
+  reused: 0,
+  /** そのうち上向きだったぶん（押し上げられたのに増えなかった回数） */
+  reusedUp: 0,
+  /** 混んでいて生めなかった玉の数 */
+  crowded: 0,
+  /** 実際に生まれた玉の数 */
+  born: 0,
+};
+
+export function resetGateStats(): void {
+  for (const k of Object.keys(gateStats) as (keyof typeof gateStats)[]) gateStats[k] = 0;
+}
+
 export function applyGates(
   pool: BallPool,
   stage: Stage,
@@ -63,7 +87,7 @@ export function applyGates(
    */
   const occupied = (x: number, y: number): boolean => {
     if (!grid) return false;
-    const minSq = (ballDiameter * 0.85) ** 2;
+    const minSq = (ballDiameter * CONFIG.GATE_SPAWN_CLEARANCE) ** 2;
     let hit = false;
     grid.forEachNeighbor(x, y, (i) => {
       if (hit) return;
@@ -103,8 +127,23 @@ export function applyGates(
     for (const gate of stage.gates) {
       // 1つの玉につき1回だけ反応する（使用回数の上限は持たない・2026-07-24）
       const bit = 1 << gate.id;
-      if (ball.gateMask & bit) continue;
+      const used = (ball.gateMask & bit) !== 0;
       if (!crossedGate(ball.px, ball.py, ball.x, ball.y, gate)) continue;
+      const goingUp = ball.y < ball.py;
+      gateStats.crossed++;
+      if (goingUp) gateStats.up++;
+      if (used) {
+        gateStats.reused++;
+        if (goingUp) gateStats.reusedUp++;
+        // 🔑 詰まって**押し上げられて**ゲートを上へ抜けたら、そのゲートをもう一度使えるようにする。
+        //    落ちてくる時にまた増える＝「山が盛り上がってモリモリ増える」のループ
+        //    （2026-07-25 れいあ要望）。⚠️ 回数は子へ継承するので系譜ごとに必ず止まる。
+        if (goingUp && ball.pushUps < CONFIG.MAX_PUSH_UPS) {
+          ball.gateMask &= ~bit;
+          ball.pushUps++;
+        }
+        continue;
+      }
 
       const extra = gate.multiplier - 1;
       gained += ball.weight * extra;
@@ -140,7 +179,10 @@ export function applyGates(
           const ang = (Math.PI * (k + 0.5 + jitter * 0.6)) / extra;
           const cx = ball.x + Math.cos(ang) * offset;
           const cy = ball.y + Math.sin(ang) * offset;
-          if (occupied(cx, cy)) continue; // 混んでいる場所には生まない
+          if (occupied(cx, cy)) {
+            gateStats.crowded++;
+            continue; // 混んでいる場所には生まない
+          }
           const child = pool.spawn(cx, cy, {
             weight: ball.weight,
             // ⚠️ 小さく生む。フル半径だと密集地帯で既存の玉を強く押し出し、
@@ -149,9 +191,11 @@ export function applyGates(
             gateMask: 0, // ★新品（別のゲートでまた増える）
             jumperMask: 0, // ★新品（ジャンプ台も使える）
             bounce: ball.bounce, // ★継承（跳ね返りの総数を有限に保つ）
+            pushUps: ball.pushUps, // ★継承（押し上げ増殖も系譜ごとに有限に保つ）
             flying: ball.flying, // ★継承（上昇中に増えた玉も叩き落されない）
           });
           if (!child) break;
+          gateStats.born++;
           if (ball.flying) {
             // 上昇中の親から生まれた子は、そのまま上向きの勢いを継ぐ（跳ね上げの演出）
             child.px = child.x;

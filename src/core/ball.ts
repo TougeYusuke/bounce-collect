@@ -13,6 +13,12 @@ export interface Ball {
   /** ジャンプ台を使った回数 */
   bounce: number;
   /**
+   * 詰まって押し上げられ、ゲートを**下から上へ**抜けた回数。
+   * 抜けるたびにそのゲートをもう一度使えるようになる＝「盛り返してモリモリ増える」の源。
+   * ⚠️ `bounce` と同じく**子へ継承**する。継承しないと系譜が無限に増え続けてラウンドが終わらない。
+   */
+  pushUps: number;
+  /**
    * ジャンプ台で打ち上げられて上昇している最中か。
    * この間は他の玉とぶつからない（落ちてくる玉に叩き落されるのを防ぐ）。
    * 下降に転じた時点で解除される。
@@ -47,6 +53,7 @@ export interface SpawnOptions {
   gateMask?: number;
   jumperMask?: number;
   bounce?: number;
+  pushUps?: number;
   flying?: boolean;
   rollFrames?: number;
 }
@@ -74,6 +81,7 @@ export class BallPool {
         gateMask: 0,
         jumperMask: 0,
         bounce: 0,
+        pushUps: 0,
         flying: false,
         rollFrames: 0,
         grow: 1,
@@ -100,6 +108,7 @@ export class BallPool {
     b.gateMask = opts?.gateMask ?? 0;
     b.jumperMask = opts?.jumperMask ?? 0;
     b.bounce = opts?.bounce ?? 0;
+    b.pushUps = opts?.pushUps ?? 0;
     b.flying = opts?.flying ?? false;
     b.rollFrames = opts?.rollFrames ?? 0;
     b.grow = opts?.grow ?? 1;

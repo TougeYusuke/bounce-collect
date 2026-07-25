@@ -87,12 +87,21 @@ function tidy(def: StageDef, side: (typeof SIDES)[number]): StageDef {
   const gates = def.gates.map((g) => ({ ...g, y: nearestRow(g.y) }));
   const bottomY = Math.max(...gates.map((g) => g.y));
   const [x1, x2] = side === 'left' ? [0, JUMPER_WIDTH] : [W - JUMPER_WIDTH, W];
+  const kept = gates.flatMap((g) => (g.y === bottomY ? cut(g, x1 - GAP, x2 + GAP) : [g]));
 
-  return {
-    ...def,
-    gates: gates.flatMap((g) => (g.y === bottomY ? cut(g, x1 - GAP, x2 + GAP) : [g])),
-    jumpers: [{ ...def.jumpers[0], x1, x2, y: bottomY }],
-  };
+  // ⚠️ 最下段がジャンプ台だけになったら、台の反対側にゲートを1枚立て直す。
+  //    ここを抜くと「最下段のゲートの1つとして台を置く」形が崩れる
+  //    （実測: 一度整えた型にもう一度かけると、細くなった破片が捨てられて最下段が空になった）。
+  if (!kept.some((g) => g.y === bottomY)) {
+    const mult = gates.find((g) => g.y === bottomY)?.multiplier ?? 4;
+    kept.push(
+      side === 'left'
+        ? { x1: x2 + GAP, x2: W, y: bottomY, multiplier: mult }
+        : { x1: 0, x2: x1 - GAP, y: bottomY, multiplier: mult },
+    );
+  }
+
+  return { ...def, gates: kept, jumpers: [{ ...def.jumpers[0], x1, x2, y: bottomY }] };
 }
 
 /** 仕切りで囲った細い道を1本入れる。⚠️ 道の下がジャンプ台では意味がない */
