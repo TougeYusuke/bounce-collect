@@ -6,7 +6,7 @@ import { BALL_SKINS, MATERIALS, findBallSkin, pickMaterial, type Material } from
 import { confirmDialog } from './ui/dialog';
 import { Hud } from './ui/hud';
 import { STAGES } from './core/stages';
-import { unlockedKeys } from './core/workshop';
+import { RANDOM, unlockedKeys } from './core/workshop';
 import {
   getScreen,
   renderResult,
@@ -17,6 +17,7 @@ import {
   showScreen,
 } from './ui/screens';
 import { addScore } from './ui/scores';
+import { loadPrefs } from './ui/prefs';
 import { renderWorkshop } from './ui/workshopView';
 import { addTotal, getTotal, resetTotal } from './ui/totals';
 
@@ -48,14 +49,17 @@ function today(): string {
  */
 function unlocked() {
   const total = getTotal();
-  const themes = new Set(unlockedKeys('theme', total));
-  const stages = new Set(unlockedKeys('stage', total));
-  const balls = unlockedKeys('ball', total);
+  const themeKeys = unlockedKeys('theme', total);
+  const stageKeys = new Set(unlockedKeys('stage', total));
+  const ballKeys = unlockedKeys('ball', total);
+  // ⚠️ 好みは持っていないものが選ばれていることがある（累計リセット後）。loadPrefs が落としてくれる
+  const prefs = loadPrefs(ballKeys, themeKeys);
+  const owned = MATERIALS.filter((m) => themeKeys.includes(m.key));
   return {
-    materials: MATERIALS.filter((m) => themes.has(m.key)),
-    stages: STAGES.filter((s) => stages.has(s.name)),
-    // 玉は「最後に解放したもの」を使う（毎回いちばん新しい見た目で遊べる）
-    ball: findBallSkin(balls[balls.length - 1] ?? BALL_SKINS[0].key),
+    // 「おまかせ」なら解放済みから抽選、指定があればそれだけ（＝毎回同じ素材で遊べる）
+    materials: prefs.theme === RANDOM ? owned : owned.filter((m) => m.key === prefs.theme),
+    stages: STAGES.filter((s) => stageKeys.has(s.name)),
+    ball: findBallSkin(prefs.ball ?? BALL_SKINS[0].key),
   };
 }
 

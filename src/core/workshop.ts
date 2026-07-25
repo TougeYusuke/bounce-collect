@@ -71,3 +71,34 @@ export function nextUnlock(total: number): Unlock | null {
 export function unlockProgress(total: number): { done: number; all: number } {
   return { done: UNLOCKS.filter((u) => total >= u.cost).length, all: UNLOCKS.length };
 }
+
+/**
+ * 見た目の好み（どのスキンを使うか）。
+ * ⚠️ **保存した選択をそのまま信じない**。累計をリセットすると解放が最初に戻るので、
+ *    持っていないスキンが選ばれたままになる。使う直前に必ずここを通す。
+ */
+export interface SkinPrefs {
+  /** 玉のキー */
+  ball: string;
+  /** 素材テーマのキー。`RANDOM` で毎回抽選（既定・毎ラウンド景色が変わる） */
+  theme: string;
+}
+
+/** 「おまかせ（毎回抽選）」を表す予約語。⚠️ 素材テーマのキーと衝突しない値にすること */
+export const RANDOM = 'random';
+
+export const DEFAULT_PREFS: SkinPrefs = { ball: FREE.ball[0], theme: RANDOM };
+
+/** 持っていないものが選ばれていたら、持っているものへ落とす */
+export function resolvePrefs(
+  prefs: Partial<SkinPrefs> | null | undefined,
+  ownedBalls: string[],
+  ownedThemes: string[],
+): SkinPrefs {
+  const ball = prefs?.ball && ownedBalls.includes(prefs.ball) ? prefs.ball : ownedBalls[ownedBalls.length - 1] ?? DEFAULT_PREFS.ball;
+  const theme =
+    prefs?.theme === RANDOM || (prefs?.theme && ownedThemes.includes(prefs.theme))
+      ? prefs.theme
+      : RANDOM;
+  return { ball, theme };
+}

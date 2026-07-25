@@ -187,6 +187,11 @@
         background: linear-gradient(90deg, #8a6420, var(--accent)); }
       .ws-prog { font: 700 12px/1 inherit; color: var(--sub); margin-top: 9px; letter-spacing: .08em; }
 
+      .ws-list { display: block; }
+      .ws-sec { margin-bottom: 20px; }
+      .ws-sec-h { display: flex; align-items: baseline; gap: 10px; margin: 0 2px 10px;
+        font: 800 15px/1 inherit; color: var(--ink); }
+      .ws-sec-h span { font: 600 11px/1 inherit; color: var(--sub); letter-spacing: .06em; }
       .ws-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 12px; }
       .ws-card { display: flex; flex-direction: column; gap: 9px; align-items: center;
         padding: 14px 10px 12px; border-radius: 14px; text-align: center;
@@ -197,7 +202,14 @@
       .ws-card .ws-cost { font: 700 12px/1 inherit; color: var(--sub); font-variant-numeric: tabular-nums; }
       .ws-card.got .ws-cost { color: var(--accent); }
       .ws-card.lock { opacity: .5; }
-      .ws-card .ws-kind { font: 700 10px/1 inherit; letter-spacing: .14em; color: var(--sub); }
+      /* 選べるカードは押せると分かるように。選択中は金の縁を太くして帯を出す */
+      .ws-card.pick { cursor: pointer; }
+      .ws-card.pick:hover { border-color: rgba(232,193,101,.8); }
+      .ws-card.sel { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(232,193,101,.35); }
+      .ws-card.sel .ws-cost { color: var(--accent); font-weight: 800; }
+      .ws-card.sel::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 6px;
+        height: 3px; border-radius: 2px; background: var(--accent); }
+      .ws-card { position: relative; }
       /* プレビュー: 実物の見た目をそのまま出す（この画面の主役） */
       .ws-pv { width: 62px; height: 62px; border-radius: 12px; display: grid; place-items: center;
         background: rgba(0,0,0,.35); border: 1px solid var(--panel-line); overflow: hidden; }
@@ -404,7 +416,7 @@
         </div>
         <div class="body">
           <div class="ws-top" id="workshop-top"></div>
-          <div class="ws-grid" id="workshop-list"></div>
+          <div class="ws-list" id="workshop-list"></div>
           <div class="ws-foot">
             <button class="btn ghost" id="workshop-reset">貯まったビー玉をリセット</button>
           </div>

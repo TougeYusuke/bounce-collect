@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FREE, UNLOCKS, nextUnlock, unlockProgress, unlockedKeys } from '../src/core/workshop';
+import { FREE, RANDOM, UNLOCKS, nextUnlock, resolvePrefs, unlockProgress, unlockedKeys } from '../src/core/workshop';
 import { STAGES } from '../src/core/stages';
 import { BALL_SKINS, MATERIALS } from '../src/render/theme';
 
@@ -73,5 +73,32 @@ describe('工房の解放', () => {
       const same = UNLOCKS[i].kind === UNLOCKS[i - 1].kind && UNLOCKS[i].kind === UNLOCKS[i - 2].kind;
       expect(same, `${i} 番目で ${UNLOCKS[i].kind} が3連続`).toBe(false);
     }
+  });
+});
+
+describe('スキンの好み', () => {
+  it('持っているものが選べる', () => {
+    expect(resolvePrefs({ ball: 'amber', theme: 'bamboo' }, ['plain', 'amber'], ['wood', 'bamboo']))
+      .toEqual({ ball: 'amber', theme: 'bamboo' });
+  });
+
+  it('⚠️ 持っていないものが選ばれていたら落とす（累計リセット後に起きる）', () => {
+    // 玉は持っている中でいちばん新しいものへ、素材はおまかせへ
+    expect(resolvePrefs({ ball: 'glow', theme: 'maple' }, ['plain', 'amber'], ['wood'])).toEqual({
+      ball: 'amber',
+      theme: RANDOM,
+    });
+  });
+
+  it('未設定なら玉は最新・素材はおまかせ', () => {
+    expect(resolvePrefs(null, ['plain'], ['wood'])).toEqual({ ball: 'plain', theme: RANDOM });
+  });
+
+  it('おまかせは持ち物に関係なく選べる', () => {
+    expect(resolvePrefs({ ball: 'plain', theme: RANDOM }, ['plain'], ['wood']).theme).toBe(RANDOM);
+  });
+
+  it('⚠️ おまかせの予約語が素材テーマのキーと衝突しない', () => {
+    expect(MATERIALS.map((m) => m.key)).not.toContain(RANDOM);
   });
 });
