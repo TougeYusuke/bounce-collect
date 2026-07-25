@@ -24,8 +24,14 @@ const DIR = 'src/stages';
 const W = CONFIG.BOARD_WIDTH;
 /** ゲートを置く段。⚠️ これより上へ戻さない（R2のバケツと重なる） */
 const ROWS = [300, 410, 520];
-/** ジャンプ台の幅。最下段の約半分（type-01 は170） */
-const JUMPER_WIDTH = 170;
+/**
+ * ジャンプ台の幅の候補。最下段の約半分（type-01 は170）。
+ * ⚠️ 2026-07-26 追加: **狭い幅も試す**。170固定だと `default` と `type-04` が
+ *    どうやっても「差2倍以上」に届かなかった（22通り全部外れ）。
+ *    ⚠️ 「幅では差がつかない」という実測(2026-07-25)は**台を中央に置いた場合**の話で、
+ *       壁に寄せた状態で幅を変える組み合わせは試していなかった。
+ */
+const JUMPER_WIDTHS = [170, 120, 80];
 /** 部品どうしの隙間 */
 const GAP = 8;
 /** レーンの上端・下端。⚠️ 下げすぎると漏斗に食い込む */
@@ -91,11 +97,11 @@ function cut(g: StageDef['gates'][number], a: number, b: number): StageDef['gate
  * - ジャンプ台を最下段へ上げ、指定した壁にぴったり寄せる
  * - 最下段のゲートからジャンプ台のぶんを抜く（＝横並びのタイルにする）
  */
-function tidy(def: StageDef, side: (typeof SIDES)[number]): StageDef {
+function tidy(def: StageDef, side: (typeof SIDES)[number], jw: number): StageDef {
   const toRow = rowMapper(def);
   const gates = def.gates.map((g) => ({ ...g, y: toRow(g.y) }));
   const bottomY = Math.max(...gates.map((g) => g.y));
-  const [x1, x2] = side === 'left' ? [0, JUMPER_WIDTH] : [W - JUMPER_WIDTH, W];
+  const [x1, x2] = side === 'left' ? [0, jw] : [W - jw, W];
   const kept = gates.flatMap((g) => (g.y === bottomY ? cut(g, x1 - GAP, x2 + GAP) : [g]));
 
   // ⚠️ 最下段がジャンプ台だけになったら、台の反対側にゲートを1枚立て直す。
@@ -144,13 +150,15 @@ interface Cand {
 function candidates(base: StageDef): Cand[] {
   const out: Cand[] = [];
   for (const side of SIDES) {
-    const t = tidy(base, side);
-    const wall = side === 'left' ? '左端' : '右端';
-    out.push({ label: `台${wall}・レーン無し`, def: t });
-    for (const w of LANE_WIDTHS) {
-      for (const x of LANE_STARTS) {
-        const def = withLane(t, x, x + w);
-        if (def) out.push({ label: `台${wall}・レーン x${x}〜${x + w}`, def });
+    for (const jw of JUMPER_WIDTHS) {
+      const t = tidy(base, side, jw);
+      const wall = side === 'left' ? '左端' : '右端';
+      out.push({ label: `台${wall}幅${jw}・レーン無し`, def: t });
+      for (const w of LANE_WIDTHS) {
+        for (const x of LANE_STARTS) {
+          const def = withLane(t, x, x + w);
+          if (def) out.push({ label: `台${wall}幅${jw}・レーン x${x}〜${x + w}`, def });
+        }
       }
     }
   }
