@@ -34,12 +34,16 @@ export class Match {
   /** 抽選に使った種。⚠️ 同じ種なら型も中身も丸ごと同じ＝「さっきのをもう一度」が作れる */
   readonly seed: number;
 
-  constructor(seed: number = Date.now()) {
+  /**
+   * @param stagePool 工房で解放済みの型。省くと全部から引く。
+   *   ⚠️ 抽選をここで受け取るのは、core が localStorage を読まないようにするため。
+   */
+  constructor(seed: number = Date.now(), stagePool?: StageDef[]) {
     this.seed = seed >>> 0;
     // ⚠️ 型を選ぶのも中身を振るのも**同じ乱数**から順に引く。種が同じなら丸ごと同じゲームになる
     const rng = createRng(this.seed);
-    this.def = rollStage(pickStageDef(rng), rng);
-    this.r2Def = rollStage(pickStageDef(rng), rng);
+    this.def = rollStage(pickStageDef(rng, stagePool), rng);
+    this.r2Def = rollStage(pickStageDef(rng, stagePool), rng);
     this.session = new Session(buildStage(this.def));
   }
 

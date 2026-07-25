@@ -2,9 +2,11 @@ import { CONFIG } from './core/config';
 import { Match } from './core/match';
 import { CanvasRenderer } from './render/canvasRenderer';
 import { loadArt } from './render/art';
-import { MATERIALS, pickMaterial, type Material } from './render/theme';
+import { BALL_SKINS, MATERIALS, findBallSkin, pickMaterial, type Material } from './render/theme';
 import { confirmDialog } from './ui/dialog';
 import { Hud } from './ui/hud';
+import { STAGES } from './core/stages';
+import { unlockedKeys } from './core/workshop';
 import {
   getScreen,
   renderResult,
@@ -12,10 +14,11 @@ import {
   renderTitleScores,
   renderTitleTotal,
   renderTotalRanking,
+  renderWorkshop,
   showScreen,
 } from './ui/screens';
 import { addScore } from './ui/scores';
-import { addTotal } from './ui/totals';
+import { addTotal, getTotal } from './ui/totals';
 
 const stageEl = document.getElementById('stage')!;
 const hintEl = document.getElementById('hint')!;
@@ -38,10 +41,30 @@ function today(): string {
 }
 
 /** 新しいラウンドを始める（テーマを引き直す） */
+/**
+ * 工房で解放済みのものだけを使う（2026-07-25）。
+ * ⚠️ 解放の判定は累計スコアから計算する（別に保存しない）。
+ *    core は localStorage を読まないので、ここで引いて渡す。
+ */
+function unlocked() {
+  const total = getTotal();
+  const themes = new Set(unlockedKeys('theme', total));
+  const stages = new Set(unlockedKeys('stage', total));
+  const balls = unlockedKeys('ball', total);
+  return {
+    materials: MATERIALS.filter((m) => themes.has(m.key)),
+    stages: STAGES.filter((s) => stages.has(s.name)),
+    // 玉は「最後に解放したもの」を使う（毎回いちばん新しい見た目で遊べる）
+    ball: findBallSkin(balls[balls.length - 1] ?? BALL_SKINS[0].key),
+  };
+}
+
 function newRound(): void {
-  material = pickMaterial(Math.random);
+  const open = unlocked();
+  material = pickMaterial(Math.random, open.materials);
   renderer.setMaterial(material);
-  match = new Match();
+  renderer.setBallSkin(open.ball);
+  match = new Match(undefined, open.stages);
   speed = 1;
   updateSpeedButton();
   shownResult = false;
@@ -126,6 +149,12 @@ document.getElementById('title-scores')!.addEventListener('click', () => {
   renderScoresList();
   showScreen('scores');
 });
+document.getElementById('title-workshop')!.addEventListener('click', () => {
+  renderWorkshop();
+  showScreen('workshop');
+});
+document.getElementById('workshop-back')!.addEventListener('click', () => showScreen('title'));
+
 document.getElementById('title-total')!.addEventListener('click', () => {
   renderTotalRanking();
   showScreen('total');

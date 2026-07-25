@@ -170,6 +170,15 @@
       .rank-row .v { flex: 1; font: 800 19px/1 inherit; color: var(--ink); }
       .rank-row .d { font: 400 12px/1 inherit; color: var(--sub); }
       .rank-row.me .v, .rank-row.me .no { color: var(--accent); }
+      /* 工房：未解放は沈めて、解放済みとの差を一目で出す */
+      .rank-row.locked .v, .rank-row.locked .no { opacity: .38; }
+      .rank-row.locked .d { opacity: .55; }
+      .ws-total { display: flex; align-items: baseline; justify-content: space-between; padding: 2px 2px 10px; }
+      .ws-total .ws-k { font: 700 13px/1 inherit; color: var(--sub); letter-spacing: .06em; }
+      .ws-total .ws-v { font: 800 30px/1 inherit; color: var(--accent); font-variant-numeric: tabular-nums; }
+      .ws-next { font: 600 14px/1.5 inherit; color: var(--ink); padding: 0 2px 4px; }
+      .ws-next b { color: var(--accent); font-variant-numeric: tabular-nums; }
+      .ws-prog { font: 700 12px/1 inherit; color: var(--sub); padding: 0 2px 12px; letter-spacing: .08em; }
       .rank-empty { padding: 16px 4px; color: var(--sub); font-size: 13px; text-align: center; }
 
       /* ── タイトル画面 ── */
@@ -319,6 +328,7 @@
           <span class="tl-rank" id="title-total-rank">世界 #—</span>
         </button>
         <div class="title-foot">
+          <button id="title-workshop">工房</button>
           <button id="title-editor">ステージエディタ</button>
         </div>
       </div>
@@ -353,6 +363,21 @@
           <h2>TOTAL RANKING</h2>
         </div>
         <div class="body"><div class="rank-list" id="total-list"></div></div>
+      </div>
+    </div>
+
+    <!-- 工房（やればやるだけ解放されていく見た目） -->
+    <div class="screen" id="screen-workshop" hidden>
+      <div class="backdrop"></div>
+      <div class="sheet">
+        <div class="head">
+          <button class="back" id="workshop-back" aria-label="戻る">‹</button>
+          <h2>WORKSHOP</h2>
+        </div>
+        <div class="body">
+          <div class="ws-top" id="workshop-top"></div>
+          <div class="rank-list" id="workshop-list"></div>
+        </div>
       </div>
     </div>
 

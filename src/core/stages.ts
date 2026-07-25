@@ -22,6 +22,7 @@ export const STAGES: StageDef[] = [
  * ⚠️ 選ぶだけ＝**配置は生成しない**（型は人が作る）。れいあの整理では
  *    ランダムなのは「①どの型か ②各ゲートの倍率 ③素材テーマ」の3つだけ。
  */
-export function pickStageDef(rng: () => number): StageDef {
-  return STAGES[Math.min(STAGES.length - 1, Math.floor(rng() * STAGES.length))];
+export function pickStageDef(rng: () => number, pool: StageDef[] = STAGES): StageDef {
+  const list = pool.length > 0 ? pool : STAGES;
+  return list[Math.min(list.length - 1, Math.floor(rng() * list.length))];
 }

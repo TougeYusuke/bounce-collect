@@ -1,3 +1,4 @@
+import { UNLOCKS, nextUnlock, unlockProgress } from '../core/workshop';
 import { loadScores, type ScoreEntry } from './scores';
 import { getTotal, myTotalRank, totalRanking } from './totals';
 
@@ -5,13 +6,14 @@ import { getTotal, myTotalRank, totalRanking } from './totals';
  * 画面遷移。表示状態を持つのはここだけに閉じ込める。
  * 'play' は「何も被せない」状態＝全オーバーレイを消すだけ。
  */
-export type ScreenName = 'title' | 'play' | 'result' | 'scores' | 'total';
+export type ScreenName = 'title' | 'play' | 'result' | 'scores' | 'total' | 'workshop';
 
 const IDS: Record<Exclude<ScreenName, 'play'>, string> = {
   title: 'screen-title',
   result: 'screen-result',
   scores: 'screen-scores',
   total: 'screen-total',
+  workshop: 'screen-workshop',
 };
 
 let current: ScreenName = 'title';
@@ -110,4 +112,42 @@ export function renderResult(score: number, rank: number): void {
   // 累積スコアはこの時点で加算済み（main の loop 参照）。ここでは表示するだけ
   fillTotal('result-total-val', 'result-total-rank');
   showScreen('result');
+}
+
+/**
+ * 工房。解放済み／未解放を一覧で見せる。
+ *
+ * 🔑 **埋まっていく過程が見えること自体が報酬**（2026-07-25 れいあ方針
+ *    「視覚的な楽しさをベースに、やればやるだけ楽しくなる仕組み」）。
+ *    だから未解放も伏せずに並べる＝「次に何が来るか」が常に見える。
+ * ⚠️ 解放の状態は保存していない。累計スコアから毎回計算する（`core/workshop.ts`）。
+ */
+export function renderWorkshop(): void {
+  const total = getTotal();
+  const { done, all } = unlockProgress(total);
+  const next = nextUnlock(total);
+
+  const top = document.getElementById('workshop-top') as HTMLElement;
+  top.innerHTML =
+    `<div class="ws-total"><span class="ws-k">貯まったビー玉</span>` +
+    `<span class="ws-v">${total.toLocaleString('ja-JP')}</span></div>` +
+    `<div class="ws-next">${
+      next
+        ? `次は「${next.name}」まで あと <b>${(next.cost - total).toLocaleString('ja-JP')}</b>`
+        : 'ぜんぶ解放したよ！'
+    }</div>` +
+    `<div class="ws-prog">${done} / ${all}</div>`;
+
+  const KIND: Record<string, string> = { ball: '玉', theme: '素材', stage: '型' };
+  const list = document.getElementById('workshop-list') as HTMLElement;
+  list.innerHTML = UNLOCKS.map((u) => {
+    const got = total >= u.cost;
+    return (
+      `<div class="rank-row${got ? ' me' : ' locked'}">` +
+      `<div class="no">${KIND[u.kind]}</div>` +
+      `<div class="v">${u.name}</div>` +
+      `<div class="d">${got ? '解放済み' : `${u.cost.toLocaleString('ja-JP')} で解放`}</div>` +
+      `</div>`
+    );
+  }).join('');
 }

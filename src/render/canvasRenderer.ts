@@ -4,7 +4,7 @@ import { cupTiltPivot } from '../core/cupPose';
 import type { Stage } from '../core/stage';
 import type { World } from '../core/world';
 import { getArt } from './art';
-import { MATERIALS, SKIN, type Material } from './theme';
+import { BALL_SKINS, MATERIALS, SKIN, type BallSkin, type Material } from './theme';
 import type { Renderer } from './types';
 
 /**
@@ -27,6 +27,8 @@ export class CanvasRenderer implements Renderer {
   private spriteRadius = 0;
   private spriteHalf = 0;
   private material: Material = MATERIALS[0];
+  /** 玉の見た目（工房で解放していく）。⚠️ 変えたらスプライトを焼き直す */
+  private ballSkin: BallSkin = BALL_SKINS[0];
 
   async init(container: HTMLElement, world: World): Promise<void> {
     this.world = world;
@@ -45,6 +47,13 @@ export class CanvasRenderer implements Renderer {
   /** 素材テーマを差し替える。盤面画像・傾斜板の色・背景色が変わる */
   setMaterial(m: Material): void {
     this.material = m;
+  }
+
+  /** 玉の見た目を差し替える。⚠️ 焼いてあるスプライトを捨てて焼き直す */
+  setBallSkin(b: BallSkin): void {
+    if (this.ballSkin.key === b.key) return;
+    this.ballSkin = b;
+    this.sprite = null;
   }
 
   /** 玉1個ぶん（落ち影込み）を焼く。影のぶん余白を取る */
@@ -66,9 +75,9 @@ export class CanvasRenderer implements Renderer {
     g.fill();
     // 玉本体
     const grad = g.createRadialGradient(cx - r * 0.35, cx - r * 0.35, r * 0.1, cx, cx, r);
-    grad.addColorStop(0, SKIN.ballHi);
-    grad.addColorStop(0.62, SKIN.ballMid);
-    grad.addColorStop(1, SKIN.ballLo);
+    grad.addColorStop(0, this.ballSkin.hi);
+    grad.addColorStop(0.62, this.ballSkin.mid);
+    grad.addColorStop(1, this.ballSkin.lo);
     g.fillStyle = grad;
     g.beginPath();
     g.arc(cx, cx, r, 0, Math.PI * 2);

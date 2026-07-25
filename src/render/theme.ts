@@ -45,8 +45,35 @@ export const SKIN = {
   ballLo: '#a9bac9',
 } as const;
 
-/** rand は 0以上1未満を返す関数。1.0 が来ても範囲外にならないように締める */
-export function pickMaterial(rand: () => number): Material {
-  const i = Math.min(MATERIALS.length - 1, Math.floor(rand() * MATERIALS.length));
-  return MATERIALS[i];
+/**
+ * 玉の見た目。工房で解放していく（2026-07-25）。
+ * ⚠️ 一番よく見る物なので、報酬としての効きが一番大きい。色だけで別物に見える。
+ */
+export interface BallSkin {
+  key: string;
+  name: string;
+  /** 中心のハイライト／中間／縁。`SKIN.ball*` と同じ役割 */
+  hi: string;
+  mid: string;
+  lo: string;
+}
+
+export const BALL_SKINS: BallSkin[] = [
+  { key: 'plain', name: 'ビー玉',       hi: '#ffffff', mid: '#eef3f7', lo: '#a9bac9' },
+  { key: 'amber', name: '琥珀のビー玉', hi: '#fff6de', mid: '#f4c96c', lo: '#a06f1c' },
+  { key: 'steel', name: '鋼のビー玉',   hi: '#ffffff', mid: '#c7d5df', lo: '#556777' },
+  { key: 'glow',  name: '蛍のビー玉',   hi: '#ffffff', mid: '#a8ffe2', lo: '#2bb98f' },
+];
+
+export function findBallSkin(key: string): BallSkin {
+  return BALL_SKINS.find((b) => b.key === key) ?? BALL_SKINS[0];
+}
+
+/**
+ * rand は 0以上1未満を返す関数。1.0 が来ても範囲外にならないように締める。
+ * ⚠️ `pool` は工房で解放済みのものだけを渡す（省くと全部から引く＝テスト用）。
+ */
+export function pickMaterial(rand: () => number, pool: Material[] = MATERIALS): Material {
+  const list = pool.length > 0 ? pool : MATERIALS;
+  return list[Math.min(list.length - 1, Math.floor(rand() * list.length))];
 }
