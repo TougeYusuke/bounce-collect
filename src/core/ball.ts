@@ -27,6 +27,12 @@ export interface Ball {
   /** カップの中を転がっている残りフレーム。0より大きい間は重力を受けない */
   rollFrames: number;
   /**
+   * 見た目の回転角（ラジアン）。転がりの見立てで横の移動から作る（`solver.updateSpin`）。
+   * ⚠️ **当たり判定は円のまま**＝回しても物理は1ミリも変わらない（れいあ指定）。
+   * ⚠️ 乱数を使わない＝同じ状況なら同じ向きになる。
+   */
+  spin: number;
+  /**
    * 当たり判定の大きさの割合（0〜1）。生まれた直後は小さく、徐々に 1 へ育つ。
    * ⚠️ 密集地帯でゲートが一度に何個も玉を生むと、フル半径だと既存の玉を強く押し出して
    *    上へ弾け飛ぶ（れいあ指摘）。生まれたてを小さくして押し出しを和らげる。
@@ -56,6 +62,8 @@ export interface SpawnOptions {
   pushUps?: number;
   flying?: boolean;
   rollFrames?: number;
+  /** 生まれた時点の回転角。⚠️ ゲートの子は**親から継承する**（一斉に0度＝同じ向きに揃うのを防ぐ） */
+  spin?: number;
 }
 
 /**
@@ -84,6 +92,7 @@ export class BallPool {
         pushUps: 0,
         flying: false,
         rollFrames: 0,
+        spin: 0,
         grow: 1,
         anchorX: 0,
         anchorY: 0,
@@ -111,6 +120,7 @@ export class BallPool {
     b.pushUps = opts?.pushUps ?? 0;
     b.flying = opts?.flying ?? false;
     b.rollFrames = opts?.rollFrames ?? 0;
+    b.spin = opts?.spin ?? 0;
     b.grow = opts?.grow ?? 1;
     b.anchorX = x;
     b.anchorY = y;

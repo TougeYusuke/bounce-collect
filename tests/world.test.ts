@@ -6,7 +6,7 @@ function makeBall(x: number, y: number): Ball {
   return {
     x, y, px: x, py: y,
     weight: 1, gateMask: 0, jumperMask: 0, bounce: 0, pushUps: 0, flying: false, rollFrames: 0,
-    grow: 1, anchorX: x, anchorY: y,
+    spin: 0, grow: 1, anchorX: x, anchorY: y,
     sleepFrames: 0, sleeping: false, alive: true, index: 0,
   };
 }

@@ -4,7 +4,7 @@ import { cupSpawnPosition, cupTiltPivot } from '../core/cupPose';
 import type { Stage } from '../core/stage';
 import type { World } from '../core/world';
 import { getArt } from './art';
-import { drawBall, skinVariants, visualRadius } from './ballArt';
+import { drawBall, skinVariants, spinIndex, spinSteps, visualRadius } from './ballArt';
 import { drawVessel } from './vesselArt';
 import { BALL_SKINS, BUCKET_SKINS, MATERIALS, SKIN, type BallSkin, type BucketSkin, type Material } from './theme';
 import type { Renderer } from './types';
@@ -26,12 +26,16 @@ export class CanvasRenderer implements Renderer {
   private offsetX = 0;
   private offsetY = 0;
   /**
-   * 焼いた玉の絵。マーブル（複数色）は色数ぶん持って、玉の番号で振り分ける。
+   * 焼いた玉の絵 `[色][回転の段]`。
+   * マーブル（複数色）は色数ぶん持って玉の番号で振り分け、回転は段ごとに焼いておいて選ぶ。
+   * 🔑 **玉ごとに ctx.rotate はしない**（800個ぶんの座標変換は重い）。
    * ⚠️ 半径・拡大率・スキンのどれかが変わったら捨てて焼き直す。
    */
-  private sprites: HTMLCanvasElement[] | null = null;
+  private sprites: HTMLCanvasElement[][] | null = null;
   private spriteRadius = 0;
   private spriteHalf = 0;
+  /** 焼いてある回転の段数（1なら回さないスキン） */
+  private spriteSteps = 1;
   private material: Material = MATERIALS[0];
   /** 玉の見た目（工房で解放していく）。⚠️ 変えたらスプライトを焼き直す */
   private ballSkin: BallSkin = BALL_SKINS[0];
@@ -73,24 +77,31 @@ export class CanvasRenderer implements Renderer {
    * 玉の絵（落ち影込み）を焼く。影のぶん余白を取る。
    * ⚠️ 描くのは `ballArt.drawBall` に任せる＝工房のプレビューと同じ絵になる。
    */
-  private buildSprites(radius: number): HTMLCanvasElement[] {
+  private buildSprites(radius: number): HTMLCanvasElement[][] {
     const dpr = window.devicePixelRatio || 1;
     // ⚠️ 見た目は当たり判定より大きいことがある（星・ハート）。絵が切れないよう見た目側で余白を取る
     const r = Math.max(1, visualRadius(this.ballSkin, radius) * this.scale * dpr);
     const pad = Math.ceil(r * 0.5) + 2; // 影のオフセットぶんの余白
     const size = Math.ceil(r * 2) + pad * 2;
-    const out: HTMLCanvasElement[] = [];
+    // 回しても見た目が変わらない玉（円＋模様なし）は1枚だけ焼く
+    const steps = spinSteps(this.ballSkin);
+    const out: HTMLCanvasElement[][] = [];
     for (let v = 0; v < skinVariants(this.ballSkin); v++) {
-      const c = document.createElement('canvas');
-      c.width = size;
-      c.height = size;
-      const g = c.getContext('2d');
-      if (!g) throw new Error('スプライト用のコンテキストを取得できませんでした');
-      drawBall(g, size / 2, size / 2, r, this.ballSkin, v);
-      out.push(c);
+      const frames: HTMLCanvasElement[] = [];
+      for (let a = 0; a < steps; a++) {
+        const c = document.createElement('canvas');
+        c.width = size;
+        c.height = size;
+        const g = c.getContext('2d');
+        if (!g) throw new Error('スプライト用のコンテキストを取得できませんでした');
+        drawBall(g, size / 2, size / 2, r, this.ballSkin, v, true, (Math.PI * 2 * a) / steps);
+        frames.push(c);
+      }
+      out.push(frames);
     }
     this.spriteRadius = radius;
     this.spriteHalf = size / 2;
+    this.spriteSteps = steps;
     return out;
   }
 
@@ -450,13 +461,16 @@ export class CanvasRenderer implements Renderer {
     // 玉（落ち影はスプライトに焼き込み済み）
     const sprites = this.sprites;
     const variants = sprites.length;
+    const steps = this.spriteSteps;
     const half = this.spriteHalf;
     // ⚠️ 見た目は常に通常サイズ・不透明で描く（れいあ指定 2026-07-24）。
     //    小さくしているのは当たり判定だけ＝生まれた瞬間に周りを押しのけないため。
     //    （一時期フェードインを入れていたが、すぐ出る方を見たいとの判断で外した）
     pool.forEachActive((b) => {
       // ⚠️ 色の振り分けは**プールの番号**で決める（乱数を使わない＝同じ状況なら同じ絵）
-      const sp = variants === 1 ? sprites[0] : sprites[b.index % variants];
+      const frames = variants === 1 ? sprites[0] : sprites[b.index % variants];
+      // 回転は「焼いてある角度から一番近いもの」を選ぶだけ（座標変換をしない）
+      const sp = steps === 1 ? frames[0] : frames[spinIndex(b.spin, steps)];
       ctx.drawImage(sp, ox + b.x * s - half, oy + b.y * s - half);
     });
 

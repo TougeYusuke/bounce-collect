@@ -195,6 +195,7 @@ export function applyGates(
             bounce: ball.bounce, // ★継承（跳ね返りの総数を有限に保つ）
             pushUps: ball.pushUps, // ★継承（押し上げ増殖も系譜ごとに有限に保つ）
             flying: ball.flying, // ★継承（上昇中に増えた玉も叩き落されない）
+            spin: ball.spin, // ★継承（見た目だけ。0から始めると分身が一斉に同じ向きに揃う）
           });
           if (!child) break;
           gateStats.born++;

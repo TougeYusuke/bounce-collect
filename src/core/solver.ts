@@ -62,6 +62,18 @@ export function integrate(
   }
 }
 
+/**
+ * 見た目の回転角を進める（2026-07-25 れいあ要望「星とかだと動かないのは違和感」）。
+ *
+ * 🔑 **転がりの見立て**＝床の上を滑らずに転がった時の角度。横に半径ぶん進めば1ラジアン回る。
+ *    乱数を使わないので、同じ状況なら必ず同じ向きになる（設計書 §4.4）。
+ * ⚠️ 当たり判定は円のまま。ここは**絵だけ**の話で、物理には一切影響しない。
+ * ⚠️ 縦の動きでは回さない。真下に落ちる玉が回るのは転がりではないため。
+ */
+export function updateSpin(ball: Ball, radius: number): void {
+  ball.spin += (ball.x - ball.px) / radius;
+}
+
 /** 眠っている玉を起こすのに必要なめり込みの深さ（直径に対する割合） */
 const WAKE_OVERLAP_RATIO = 0.12;
 
@@ -269,6 +281,8 @@ export function step(
     // 生まれたての玉を通常サイズへ育てる（押し出しを和らげるため小さく生まれる）
     if (b.grow < 1) b.grow = Math.min(1, b.grow + (opts.growPerFrame ?? 1));
     integrate(b, opts.gravity, opts.damping, opts.maxSpeed, opts.rollRelease ?? 0);
+    // 見た目の回転（絵だけ・物理には影響しない）。眠っている玉は上で弾いてある＝止まれば回転も止まる
+    updateSpin(b, opts.radius);
     // 頂点を過ぎて落ち始めたら、すり抜けを解除して普通の玉に戻す
     if (b.flying && b.y >= b.py) b.flying = false;
   });
