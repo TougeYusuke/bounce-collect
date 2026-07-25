@@ -15,21 +15,29 @@ import { step, wake, wakeUnsupported } from './solver';
 import { createFixedStage, stageToWorld, type Stage } from './stage';
 import type { World } from './world';
 
-const STEP_OPTIONS = {
-  gravity: CONFIG.GRAVITY,
-  damping: CONFIG.DAMPING,
-  radius: CONFIG.BALL_RADIUS,
-  maxSpeed: CONFIG.MAX_SPEED,
-  restitution: CONFIG.WALL_RESTITUTION,
-  iterations: CONFIG.COLLISION_ITERATIONS,
-  sleepVelocity: CONFIG.SLEEP_VELOCITY,
-  // 眠りを切ると玉は常に動き続ける（宙で固まる違和感を無くす・れいあ判断）
-  sleepFrames: CONFIG.SLEEP_ENABLED ? CONFIG.SLEEP_FRAMES : 0,
-  growPerFrame: (1 - CONFIG.SPAWN_GROW_START) / CONFIG.SPAWN_GROW_FRAMES,
-  sideRestitution: CONFIG.WALL_SIDE_RESTITUTION,
-  sidePush: CONFIG.WALL_SIDE_PUSH,
-  rollRelease: CONFIG.CUP_ROLL_RELEASE,
-};
+/**
+ * 物理に渡す設定。
+ * ⚠️ **Session ごとに作る**（モジュール読み込み時に1回作らない）。固定していた頃は、
+ *    道具から `CONFIG` を振って比べても値が反映されず、「ツマミが効かない」と誤診した
+ *    （2026-07-25 実測: `SPAWN_GROW_FRAMES` を 14〜3 で振っても結果が1bitも変わらなかった）。
+ */
+function stepOptions() {
+  return {
+    gravity: CONFIG.GRAVITY,
+    damping: CONFIG.DAMPING,
+    radius: CONFIG.BALL_RADIUS,
+    maxSpeed: CONFIG.MAX_SPEED,
+    restitution: CONFIG.WALL_RESTITUTION,
+    iterations: CONFIG.COLLISION_ITERATIONS,
+    sleepVelocity: CONFIG.SLEEP_VELOCITY,
+    // 眠りを切ると玉は常に動き続ける（宙で固まる違和感を無くす・れいあ判断）
+    sleepFrames: CONFIG.SLEEP_ENABLED ? CONFIG.SLEEP_FRAMES : 0,
+    growPerFrame: (1 - CONFIG.SPAWN_GROW_START) / CONFIG.SPAWN_GROW_FRAMES,
+    sideRestitution: CONFIG.WALL_SIDE_RESTITUTION,
+    sidePush: CONFIG.WALL_SIDE_PUSH,
+    rollRelease: CONFIG.CUP_ROLL_RELEASE,
+  };
+}
 
 /** 何も動かなくなってから、終了と判断するまでの猶予 */
 const QUIET_FRAMES = 45;
@@ -71,6 +79,7 @@ export class Session {
    */
   readonly supplyInterval: number;
   private grid: SpatialGrid;
+  private readonly stepOpts = stepOptions();
 
   score = 0;
   /**
@@ -502,7 +511,7 @@ export class Session {
       // ⚠️ 玉を出す前に傾ける。同じフレームに描く姿勢から玉が出るようにするため
       this.cupTilt += (this.targetTilt - this.cupTilt) * CONFIG.CUP_TILT_EASE;
       this.supply();
-      step(this.pool, this.grid, this.world, STEP_OPTIONS);
+      step(this.pool, this.grid, this.world, this.stepOpts);
       this.enforceWedges();
       applyGates(this.pool, this.stage, this.maxBalls, CONFIG.BALL_RADIUS * 2, this.grid);
       // 増えた合図の光を減衰させる（描画がこれを見る）
