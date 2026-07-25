@@ -16,6 +16,14 @@ describe('遊べる型', () => {
     }
   });
 
+  it('⚠️ 同じ名前の型が2つ入らない（既定ステージをエディタで保存すると重なる）', () => {
+    // 🔑 既定ステージは**コードの中**にもある。エディタで開いて調整して保存すると
+    //    `src/stages/default.json` ができ、そのままだと**同じ名前で中身の違う型が2つ**
+    //    混ざる（2026-07-26 れいあが調整して発覚）。工房の解放キーとも数が合わなくなる。
+    const names = STAGES.map((s) => s.name);
+    expect(new Set(names).size, names.join(' / ')).toBe(names.length);
+  });
+
   it('選ばれるのは必ずリストの中の型（配置は生成しない）', () => {
     for (let seed = 1; seed <= 30; seed++) {
       expect(STAGES).toContain(pickStageDef(createRng(seed)));
