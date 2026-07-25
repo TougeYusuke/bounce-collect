@@ -8,7 +8,7 @@ import { RUBRIC, judge, line, type StageReport } from './stageRubric';
  * ステージを「決めた形」に組み直して、狙う意味のあるステージにする。`npm run stages:lane`
  *
  * ── 形の決まり（2026-07-25 れいあ指定）──
- *  1. ゲートは**最大3段**（255 / 375 / 500）
+ *  1. ゲートは**最大3段**（300 / 410 / 520）
  *  2. ジャンプ台は**最下段に1つだけ**
  *  3. ジャンプ台は**最下段のゲートの1つ**として置く（同じ高さに横並び・重ねない）
  *
@@ -23,14 +23,14 @@ import { RUBRIC, judge, line, type StageReport } from './stageRubric';
 const DIR = 'src/stages';
 const W = CONFIG.BOARD_WIDTH;
 /** ゲートを置く段。⚠️ これより上へ戻さない（R2のバケツと重なる） */
-const ROWS = [255, 375, 500];
+const ROWS = [300, 410, 520];
 /** ジャンプ台の幅。最下段の約半分（type-01 は170） */
 const JUMPER_WIDTH = 170;
 /** 部品どうしの隙間 */
 const GAP = 8;
 /** レーンの上端・下端。⚠️ 下げすぎると漏斗に食い込む */
-const LANE_TOP = 250;
-const LANE_BOTTOM = 512;
+const LANE_TOP = 290;
+const LANE_BOTTOM = 532;
 /** レーンの幅（玉5個ぶんくらい）。狭いと詰まり、広いと当たりの場所が無くなる */
 const LANE_WIDTHS = [80, 120];
 const LANE_STARTS = [40, 90, 140, 190, 240];
@@ -66,8 +66,16 @@ const load = (name: string): StageDef =>
 const save = (name: string, def: StageDef): void =>
   writeFileSync(`${DIR}/${name}.json`, `${JSON.stringify(def, null, 2)}\n`, 'utf-8');
 
-const nearestRow = (y: number): number =>
-  ROWS.reduce((a, b) => (Math.abs(b - y) < Math.abs(a - y) ? b : a));
+/**
+ * 段を**並び順で**付け替える。
+ * ⚠️ 高さの近さで寄せてはいけない。段をまとめて下げた時に2段が同じ所へ潰れる
+ *    （実測: 255/375 を 340/450 へ寄せようとして、375 が 340 に吸われた）。
+ */
+function rowMapper(def: StageDef): (y: number) => number {
+  const from = [...new Set(def.gates.map((g) => g.y))].sort((a, b) => a - b);
+  const to = from.length === 2 ? [ROWS[0], ROWS[ROWS.length - 1]] : ROWS.slice(0, from.length);
+  return (y) => to[from.indexOf(y)] ?? y;
+}
 
 /** ゲートから区間 [a,b] を抜く。細くなりすぎた破片は捨てる */
 function cut(g: StageDef['gates'][number], a: number, b: number): StageDef['gates'] {
@@ -79,12 +87,13 @@ function cut(g: StageDef['gates'][number], a: number, b: number): StageDef['gate
 
 /**
  * 決まりの形に組み直す。
- * - 段を 255/375/500 のいちばん近いところへ寄せる（最大3段）
+ * - 段を 300/410/520 へ並び順で付け替える（最大3段）
  * - ジャンプ台を最下段へ上げ、指定した壁にぴったり寄せる
  * - 最下段のゲートからジャンプ台のぶんを抜く（＝横並びのタイルにする）
  */
 function tidy(def: StageDef, side: (typeof SIDES)[number]): StageDef {
-  const gates = def.gates.map((g) => ({ ...g, y: nearestRow(g.y) }));
+  const toRow = rowMapper(def);
+  const gates = def.gates.map((g) => ({ ...g, y: toRow(g.y) }));
   const bottomY = Math.max(...gates.map((g) => g.y));
   const [x1, x2] = side === 'left' ? [0, JUMPER_WIDTH] : [W - JUMPER_WIDTH, W];
   const kept = gates.flatMap((g) => (g.y === bottomY ? cut(g, x1 - GAP, x2 + GAP) : [g]));
@@ -121,7 +130,7 @@ function withLane(def: StageDef, x1: number, x2: number): StageDef | null {
 
 /** 下見の点数（本判定より粗く速い）。合格に近いほど高い */
 function screen(def: StageDef): number {
-  const r = judge(def, { drops: [90, 230, 370], seeds: 1 });
+  const r = judge(def, { drops: [10, 180, 350], seeds: 1 });
   if (r.best < 700) return -1; // そもそも増えない案は捨てる
   return Math.min(r.best, 1800) * Math.min(r.spread, 6);
 }
@@ -161,12 +170,21 @@ it('形を揃えて、いちばん良い置き方を探す', () => {
       .sort((a, b) => b.s - a.s)
       .slice(0, 3);
 
+    /**
+     * 良さの順位。
+     * ⚠️ 合格が無い時に「スコアが高い方」を選んではいけない。**一番暴走している案**が選ばれる
+     *    （実測: type-05 で 13,878点・228秒 の案が採用された）。落ちた理由の数が少なく、
+     *    当たりのスコアが真ん中に近いものを選ぶ。
+     */
+    const rank = (r: StageReport): number =>
+      r.pass
+        ? 1e9 + r.best
+        : -r.ng.length * 1e6 - Math.abs(r.best - (RUBRIC.BEST_MIN + RUBRIC.BEST_MAX) / 2);
+
     let best: (Cand & { r: StageReport }) | null = null;
     for (const c of short) {
       const r = judge(c.def);
-      if (!best || (r.pass && !best.r.pass) || (r.pass === best.r.pass && r.best > best.r.best)) {
-        best = { ...c, r };
-      }
+      if (!best || rank(r) > rank(best.r)) best = { ...c, r };
     }
     if (!best) {
       log.push(`不可 ${name}: 置ける形が無かった（そのまま）`);
