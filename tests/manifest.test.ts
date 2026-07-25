@@ -39,16 +39,33 @@ describe('ホーム画面に追加した時の設定', () => {
     expect(manifest().icons.some((i) => i.purpose === 'maskable')).toBe(true);
   });
 
-  it('⚠️ パスは相対にする（公開先が /bounce-collect/ 配下なので絶対だと外れる）', () => {
+  it('⚠️ manifest の中のパスは相対にする（manifest自身の位置から解決されるため）', () => {
     const m = manifest();
     expect(m.start_url.startsWith('/')).toBe(false);
     for (const icon of m.icons) expect(icon.src.startsWith('/')).toBe(false);
   });
 
   it('iOSのホーム画面用アイコンが実在する（manifestを見ないため別に要る）', () => {
-    const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
-    const m = html.match(/rel="apple-touch-icon"\s+href="([^"]+)"/);
+    const m = appleIcon();
     expect(m).not.toBeNull();
-    expect(existsSync(join(PUBLIC, m![1]))).toBe(true);
+    expect(existsSync(join(PUBLIC, m!))).toBe(true);
+  });
+
+  it('⚠️ index.html の中のパスは `/` から書く（Viteが base を足すのはそれだけ）', () => {
+    // 🔑 2026-07-26: `assets/…` の相対で書いていたら、iOSがホーム画面のアイコンを拾えず
+    //    頭文字の「M」になった。画像は正常で、`/`始まりの favicon だけ効いていた。
+    const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+    for (const re of [/rel="manifest"[^>]*href="([^"]+)"/, /rel="apple-touch-icon"[^>]*href="([^"]+)"/]) {
+      const m = html.match(re);
+      expect(m, String(re)).not.toBeNull();
+      expect(m![1].startsWith('/'), m![1]).toBe(true);
+    }
   });
 });
+
+/** index.html が指している apple-touch-icon のパス（public からの相対に直して返す） */
+function appleIcon(): string | null {
+  const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  const m = html.match(/rel="apple-touch-icon"[^>]*href="([^"]+)"/);
+  return m ? m[1].replace(/^\//, '') : null;
+}

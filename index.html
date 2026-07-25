@@ -14,11 +14,18 @@
       ⚠️ `black-translucent` はステータスバーの下まで描く指定。`viewport-fit=cover` と
          セットで効き、HUDは `env(safe-area-inset-*)` で内側に寄せてある。
     -->
-    <link rel="manifest" href="manifest.webmanifest" />
+    <!--
+      ⚠️ **パスは必ず `/` から書く**（2026-07-26 れいあのiPhoneでアイコンが「M」になった）。
+         Vite が base（/bounce-collect/）を足すのは**`/`始まりだけ**で、`assets/…` のような
+         相対のままだと iOS がホーム画面のアイコンとして拾ってくれなかった。
+         画像自体は正常（180×180・8bit RGB）で、favicon だけ効いていたのが手がかり。
+      ⚠️ iOSは**追加した時点のアイコンを焼き付ける**。直したら一度ホーム画面から消して追加し直す。
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Marble Mill" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
     <meta name="theme-color" content="#170e09" />
     <title>Marble Mill</title>
     <style>
