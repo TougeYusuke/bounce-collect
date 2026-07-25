@@ -47,13 +47,30 @@ describe('置いていい高さ', () => {
     }
   });
 
-  it('⚠️ ジャンプ台は最下段に1台だけ（複数あると跳ね上げ→再増殖が長引く）', () => {
+  /**
+   * ── 形の決まり（2026-07-25 れいあ指定）──
+   *  1. ゲートは**最大3段**
+   *  2. ジャンプ台は**最下段に1つだけ**
+   *  3. ジャンプ台は**最下段のゲートの1つ**として置く（同じ高さに横並び・重ねない）
+   */
+  it('⚠️ ゲートは最大3段', () => {
     for (const def of STAGES) {
-      expect(def.jumpers.length).toBeLessThanOrEqual(1);
-      for (const j of def.jumpers) {
-        expect(j.y).toBeGreaterThan(CONFIG.JUMPER_ZONE_TOP);
-        // 漏斗に埋まると玉が乗る前に流れてしまう
-        expect(j.y).toBeLessThan(CONFIG.BOARD_HEIGHT - CONFIG.FUNNEL_BOTTOM_MARGIN - 60);
+      expect(new Set(def.gates.map((g) => g.y)).size).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('⚠️ ジャンプ台は最下段のゲートの1つ（1台だけ・同じ高さ・横に重ねない）', () => {
+    for (const def of STAGES) {
+      expect(def.jumpers.length).toBe(1);
+      const j = def.jumpers[0];
+      const bottomY = Math.max(...def.gates.map((g) => g.y));
+      // 最下段と同じ高さに、ゲートと並べて置く
+      expect(j.y).toBe(bottomY);
+      expect(j.y).toBeGreaterThan(CONFIG.JUMPER_ZONE_TOP);
+      for (const g of def.gates) {
+        if (g.y !== bottomY) continue;
+        // 重なっていると同じ玉が同じ高さで増殖と打ち上げの両方を受ける
+        expect(g.x1 >= j.x2 || g.x2 <= j.x1).toBe(true);
       }
     }
   });

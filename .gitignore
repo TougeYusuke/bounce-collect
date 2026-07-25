@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ステージ量産の道具が書き出すレポート（一時ファイル）
+stage-report.txt
+stage-lane.txt

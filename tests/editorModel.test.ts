@@ -243,10 +243,13 @@ describe('仕切り棒の編集', () => {
   it('⚠️ ゲートと重なる所ではゲートが優先される（細い線に取られると掴めない）', () => {
     const m = model();
     const d = m.def.dividers[0];
-    m.def.gates[0].y = d.y1 + 10;
+    // ⚠️ 段（255/375/500）から離れた高さへ動かす。段の上だと、そこに元からある
+    //    別のゲートも掴めてしまい「どのゲートが優先か」の判定にならない
+    const y = d.y1 + 40;
+    m.def.gates[0].y = y;
     m.def.gates[0].x1 = d.x1 - 40;
     m.def.gates[0].x2 = d.x1 + 40;
-    expect(m.pick(d.x1, d.y1 + 10)).toEqual({ kind: 'gate', index: 0 });
+    expect(m.pick(d.x1, y)).toEqual({ kind: 'gate', index: 0 });
   });
 
   it('端点をつかむと長さを変えるモードになる', () => {
