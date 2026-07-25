@@ -38,7 +38,10 @@ describe('Session', () => {
     // 本番の2000個で600フレーム回すと、増殖のぶん重くて CI がタイムアウトする。
     const s = new Session(createFixedStage(), { maxBalls: 150 });
     s.start();
-    for (let i = 0; i < 600; i++) s.update(1);
+    // ⚠️ 「配り切るまで」回す。固定フレーム数だと持ち玉を増やした時に途中で切れる
+    //    （2026-07-25 に 4 → 40 個へ増やして実際に落ちた）
+    const frames = CONFIG.INITIAL_BALLS * s.supplyInterval + 120;
+    for (let i = 0; i < frames; i++) s.update(1);
     expect(s.supplied).toBe(CONFIG.INITIAL_BALLS);
   });
 
