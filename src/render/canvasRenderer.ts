@@ -482,7 +482,7 @@ export class CanvasRenderer implements Renderer {
     //    （一時期フェードインを入れていたが、すぐ出る方を見たいとの判断で外した）
     // 🔑 増えた瞬間、そのゲートの真上の玉を**描画上だけ**持ち上げる＝「隆起」（れいあ要望 2026-07-26）。
     // ⚠️ いま光っているゲートが無ければ何もしない（ふだんは1つも無い）。
-    const heaving = stage ? stage.gates.filter((g) => (g.flash ?? 0) > 0) : [];
+    const heaving = stage ? stage.gates.filter((g) => (g.heave ?? 0) > 0) : [];
     pool.forEachActive((b) => {
       // ⚠️ 色の振り分けは**プールの番号**で決める（乱数を使わない＝同じ状況なら同じ絵）
       const frames = variants === 1 ? sprites[0] : sprites[b.index % variants];

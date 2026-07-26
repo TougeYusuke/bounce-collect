@@ -17,7 +17,9 @@ import type { Gate } from '../core/stage';
  * ⚠️ **物理は1ミリも変わらない**＝ステージの採点にも当たり判定にも影響しない。
  *
  * 形＝ゲートの真上ほど高く、`GATE_HEAVE_VISUAL_RANGE` px 上で0。
- *     光り（`gate.flash`）が減るのに合わせて戻る＝「ボコッと上がってスッと戻る」。
+ *     `gate.heave` が減るのに合わせて戻る＝「ボコッと上がってスッと戻る」。
+ * ⚠️ **光り（`gate.flash`）とは別のタイマーを見る**。れいあ判定 2026-07-26「動きが速すぎる」で
+ *    隆起だけ 0.2秒 → 0.5秒 に伸ばしたため（共用のままだと光りまで伸びる）。
  */
 export function heaveLift(gates: readonly Gate[], x: number, y: number): number {
   const max = CONFIG.GATE_HEAVE_VISUAL;
@@ -28,7 +30,7 @@ export function heaveLift(gates: readonly Gate[], x: number, y: number): number 
     if (x < gate.x1 || x > gate.x2) continue;
     const up = gate.y - y; // ゲートより上なら正
     if (up < 0 || up > range) continue;
-    const t = (gate.flash ?? 0) / CONFIG.GATE_FLASH_FRAMES;
+    const t = (gate.heave ?? 0) / CONFIG.GATE_HEAVE_FRAMES;
     const v = max * t * (1 - up / range);
     if (v > lift) lift = v;
   }

@@ -561,7 +561,10 @@ export class Session {
       this.enforceWedges();
       applyGates(this.pool, this.stage, this.maxBalls, CONFIG.BALL_RADIUS * 2, this.grid);
       // 増えた合図の光を減衰させる（描画がこれを見る）
-      for (const g of this.stage.gates) if (g.flash) g.flash--;
+      for (const g of this.stage.gates) {
+        if (g.flash) g.flash--;
+        if (g.heave) g.heave--; // ⚠️ 光りとは別の長さで減らす（隆起の方が長い）
+      }
       applyJumpers(this.pool, this.stage, CONFIG.MAX_BOUNCE);
       this.tryRelease();
       this.collect();

@@ -155,6 +155,8 @@ export function applyGates(
         slowDown = true;
         // 増えた合図を描画へ渡す（玉の山に埋まっても「いま増えた」が見えるように）
         gate.flash = CONFIG.GATE_FLASH_FRAMES;
+        // 増えた瞬間、真上の山を持ち上げて見せる（描画だけ・物理は変わらない）
+        gate.heave = CONFIG.GATE_HEAVE_FRAMES;
 
         // ⚠️ 生まれた玉を上へ飛ばさない（れいあ指摘）。
         //    親が上向きに弾かれている瞬間にゲートを通ると、子まで上へ打ち上がって
