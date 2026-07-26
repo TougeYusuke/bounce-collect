@@ -30,7 +30,7 @@ jobs:
       #    本番は Vercel（ルート直下＝既定の `/`）へ移した（2026-07-26）。
       - run: npm run build
         env:
-          VITE_BASE: /bounce-collect/
+          VITE_BASE: /marble-mill/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
