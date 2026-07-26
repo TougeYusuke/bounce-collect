@@ -25,7 +25,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # ⚠️ GitHub Pages は `<user>.github.io/bounce-collect/` の下に出るので、
+      #    起点をリポジトリ名に合わせる（ここがズレると JS/CSS が 404）。
+      #    本番は Vercel（ルート直下＝既定の `/`）へ移した（2026-07-26）。
       - run: npm run build
+        env:
+          VITE_BASE: /bounce-collect/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
