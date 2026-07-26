@@ -59,6 +59,31 @@ export function saveSpeed(v: number): void {
 }
 
 /**
+ * 音量（0〜1）。⚠️ **0 がミュート**＝ミュートの真偽値を別に持たない
+ *    （2つ持つと「ミュート解除したのに音量0で鳴らない」が起きる）。
+ * ⚠️ スキン・速さとは別のキー（片方を消してももう片方が残るのが自然）。
+ */
+const VOLUME_KEY = 'marble-mill.volume';
+
+export function loadVolume(fallback = 0.6): number {
+  try {
+    const raw = localStorage.getItem(VOLUME_KEY);
+    const v = raw === null ? NaN : Number(raw);
+    return Number.isFinite(v) && v >= 0 && v <= 1 ? v : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveVolume(v: number): void {
+  try {
+    localStorage.setItem(VOLUME_KEY, String(v));
+  } catch {
+    // 保存できなくてもゲームは続ける
+  }
+}
+
+/**
  * 「盤面をどれだけ満杯に保つか」の実験用プリセット（`?debug=1` の時だけ切り替わる）。
  * ⚠️ 選定が終わったら `supplyPreset.ts` ごと消す（実験の足場）。
  */

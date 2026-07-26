@@ -25,7 +25,17 @@ import {
   showScreen,
 } from './ui/screens';
 import { addScore } from './ui/scores';
-import { loadPrefs, loadSpeed, loadSupplyKey, saveSpeed, saveSupplyKey } from './ui/prefs';
+import {
+  loadPrefs,
+  loadSpeed,
+  loadSupplyKey,
+  loadVolume,
+  saveSpeed,
+  saveSupplyKey,
+  saveVolume,
+} from './ui/prefs';
+import { sfx } from './audio/sfx';
+import { SfxWatch } from './audio/sfxWatch';
 import {
   DEFAULT_SUPPLY_KEY,
   SUPPLY_PRESETS,
@@ -53,6 +63,7 @@ const renderer = new CanvasRenderer();
 const hud = new Hud();
 
 let match = new Match();
+const sfxWatch = new SfxWatch();
 let material: Material = MATERIALS[0];
 let speed = 1;
 let shownResult = false;
@@ -98,6 +109,9 @@ function newRound(): void {
   renderer.setBallSkin(open.ball);
   renderer.setBucketSkin(open.bucket);
   match = new Match(undefined, open.stages);
+  // ⚠️ 音の基準を捨てる。残したままだと、新しい盤面の最初のフレームで
+  //    「増えた・跳ねた・回収した」が一気に立って音が固まって鳴る。
+  sfxWatch.reset();
   // ⚠️ ここで速さを1×に戻さない（2026-07-26 れいあ要望「毎回設定するのは面倒」）。
   //    選んだ速さはラウンドをまたいで保つ。
   updateSpeedButton();
@@ -184,6 +198,42 @@ stageEl.addEventListener('pointerdown', (e) => {
 stageEl.addEventListener('pointermove', (e) => {
   if (e.pointerType === 'mouse' && e.buttons === 0) return;
   moveCup(e.clientX);
+});
+
+// ── 音 ──
+// ⚠️ ブラウザは**最初のユーザー操作まで音を鳴らせない**（自動再生制限）。
+//    どこを触っても有効化されるよう、キャプチャ段階で拾う。
+const enableAudio = (): void => sfx.unlockAudio();
+document.addEventListener('pointerdown', enableAudio, { capture: true });
+document.addEventListener('keydown', enableAudio, { capture: true });
+
+const soundBtn = document.getElementById('sound') as HTMLButtonElement;
+const soundPanel = document.getElementById('sound-panel') as HTMLDivElement;
+const volumeInput = document.getElementById('volume') as HTMLInputElement;
+const volumeVal = document.getElementById('volume-val') as HTMLDivElement;
+
+function applyVolume(v: number, save: boolean): void {
+  sfx.setVolume(v);
+  volumeInput.value = String(Math.round(v * 100));
+  volumeVal.textContent = String(Math.round(v * 100));
+  // ⚠️ 0 がミュート（ミュート専用のフラグは持たない）
+  soundBtn.dataset.muted = String(v <= 0);
+  if (save) saveVolume(v);
+}
+applyVolume(loadVolume(), false);
+
+volumeInput.addEventListener('input', () => applyVolume(Number(volumeInput.value) / 100, true));
+soundBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  soundPanel.hidden = !soundPanel.hidden;
+  soundBtn.setAttribute('aria-expanded', String(!soundPanel.hidden));
+});
+// パネルの外を触ったら閉じる。⚠️ パネル自身のクリックでは閉じない（スライダーを動かせなくなる）
+document.addEventListener('click', (e) => {
+  if (soundPanel.hidden) return;
+  if (soundPanel.contains(e.target as Node)) return;
+  soundPanel.hidden = true;
+  soundBtn.setAttribute('aria-expanded', 'false');
 });
 
 // ── 速度（タップでサイクル） ──
@@ -310,6 +360,8 @@ function loop(): void {
     } else {
       match.update(speed);
     }
+    // ⚠️ 音は**進めた後**に見る（増えた・跳ねた・回収したの差分を拾うため）
+    sfxWatch.tick(match.session);
   }
   if (ready) {
     // R1→R2は「カメラが下へ降りていく」場面転換にする。

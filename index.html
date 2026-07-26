@@ -108,6 +108,41 @@
       .icon-btn.hot { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
       .icon-btn:active { opacity: 0.8; }
       .icon-btn svg { width: 24px; height: 24px; }
+      /* 音のオン/オフで波線と×を入れ替える（アイコンを2つ持たない） */
+      #sound .snd-off { display: none; }
+      #sound[data-muted='true'] .snd-on { display: none; }
+      #sound[data-muted='true'] .snd-off { display: inline; }
+
+      /* 音量パネル（音アイコンを押すと出る）。⚠️ 0 まで下げるとミュート */
+      .sound-wrap { position: relative; }
+      #sound-panel {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        z-index: 8;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(12, 14, 18, 0.94);
+        border: 2px solid rgba(255, 255, 255, 0.18);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      }
+      #sound-panel[hidden] { display: none; }
+      /* ⚠️ 指で掴める大きさにする（低視力・タッチ配慮） */
+      #sound-panel input[type='range'] {
+        width: 150px;
+        height: 28px;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+      #volume-val {
+        min-width: 2.6em;
+        text-align: right;
+        font: 700 16px/1 system-ui, sans-serif;
+        color: var(--ink);
+      }
 
       /* デバッグ表示（?debug=1 の時だけ） */
       #debug {
@@ -443,6 +478,20 @@
             <path d="M3 10.6 12 3.2l9 7.4" /><path d="M5.6 9.4V20.4h12.8V9.4" />
           </svg>
         </button>
+        <div class="sound-wrap">
+          <button id="sound" class="icon-btn" aria-label="音量" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 9.5h3.4L12 5.4v13.2L7.4 14.5H4z" />
+              <path class="snd-on" d="M16 9.2a4 4 0 0 1 0 5.6" /><path class="snd-on" d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8" />
+              <path class="snd-off" d="M16.4 9.6 21 14.4" /><path class="snd-off" d="M21 9.6 16.4 14.4" />
+            </svg>
+          </button>
+          <!-- 音量パネル。⚠️ 0 まで下げるとミュート（ミュート専用ボタンは持たない） -->
+          <div id="sound-panel" hidden>
+            <input id="volume" type="range" min="0" max="100" step="5" aria-label="音量" />
+            <div id="volume-val">60</div>
+          </div>
+        </div>
       </div>
     </div>
 
