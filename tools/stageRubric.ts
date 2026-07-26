@@ -45,6 +45,17 @@ export const RUBRIC = {
   /** 「狙える場所」の下限スコアと、最低いくつ要るか（少ないと運ゲーになる） */
   GOOD_MIN: 500,
   GOOD_COUNT_MIN: 3,
+  /**
+   * ラウンドが終わった時に盤面に残っていてよい玉の数。
+   *
+   * 🔑 **ポケット（玉が落ちられなくなる袋小路）の検出**（2026-07-26 れいあ指定
+   *    「球が落下できなくなるようなポケットはNG。終わった後の待ち時間が長くなるから」）。
+   * ⚠️ 袋小路は形から見つけるのが難しい（仕切り・ゲート・漏斗・壁の組み合わせで決まる）ので、
+   *    **結果で測る**＝閉じ込められた玉は最後まで回収されずに残る。
+   * ⚠️ **実測では合格12型すべてが 0 個だった**（2026-07-26・120通し）＝正常な型は1個も残さない。
+   *    なので線は厳しく引ける。0 にすると偶発で1個残っただけの型も落ちるので少しだけ余裕を持たせる。
+   */
+  LEFT_MAX: 4,
   /** 1回の判定で回す最大フレーム（保険） */
   MAX_FRAMES: 60 * 60 * 6,
 } as const;
@@ -70,20 +81,26 @@ export interface StageReport {
   spread: number;
   /** 最高スコアが出た位置での通し秒 */
   bestSecs: number;
+  /** 終わった時に盤面に残っていた玉の最大数（ポケットの検出） */
+  left: number;
   pass: boolean;
   /** 落ちた理由（日本語）。通れば空 */
   ng: string[];
 }
 
-/** 1回だけ通しで回す */
-function runOnce(def: StageDef, seed: number, drop: number): { score: number; secs: number } {
+/** 1回だけ通しで回す。⚠️ `left`＝終わった時に盤面に残っていた玉（ポケットの検出に使う） */
+function runOnce(
+  def: StageDef,
+  seed: number,
+  drop: number,
+): { score: number; secs: number; left: number } {
   const stage = buildStage(rollStage(def, createRng(seed)));
   const s = new Session(stage);
   s.setCupX(tapForDrop(drop));
   s.start();
   let f = 0;
   for (; f < RUBRIC.MAX_FRAMES && !s.finished; f++) s.update(1);
-  return { score: s.score, secs: f / 60 };
+  return { score: s.score, secs: f / 60, left: s.pool.activeCount };
 }
 
 /** 合否と理由を返す。⚠️ 落ちた理由を必ず日本語で持たせる（数字だけだと直しようがない） */
@@ -95,6 +112,7 @@ export function judge(
   const seeds = opts.seeds ?? RUBRIC.SEEDS;
   const scores: number[] = [];
   const secs: number[] = [];
+  let left = 0;
   for (const drop of drops) {
     let sc = 0;
     let se = 0;
@@ -102,6 +120,9 @@ export function judge(
       const r = runOnce(def, seed, drop);
       sc += r.score;
       se += r.secs;
+      // ⚠️ 平均でなく**最大**を見る。ポケットは落とす位置によっては素通りするので、
+      //    平均だと1か所だけ閉じ込める型を見逃す
+      if (r.left > left) left = r.left;
     }
     scores.push(Math.round(sc / seeds));
     secs.push(se / seeds);
@@ -122,8 +143,10 @@ export function judge(
     ng.push(`どこに落としても同じ（差${spread.toFixed(1)}倍・狙う意味がない）`);
   if (good < RUBRIC.GOOD_COUNT_MIN)
     ng.push(`狙える場所が${good}か所しかない（${RUBRIC.GOOD_COUNT_MIN}か所ほしい・運ゲーになる）`);
+  if (left > RUBRIC.LEFT_MAX)
+    ng.push(`終わった時に${left}個が盤面に残る（ポケットの疑い・${RUBRIC.LEFT_MAX}個まで）`);
 
-  return { name: def.name, scores, secs, best, worst, spread, bestSecs, pass: ng.length === 0, ng };
+  return { name: def.name, scores, secs, best, worst, spread, bestSecs, left, pass: ng.length === 0, ng };
 }
 
 /** レポート1行 */
@@ -131,7 +154,7 @@ export function line(r: StageReport): string {
   return (
     `${r.pass ? '合格' : '不可'} ${r.name.padEnd(20)} ` +
     `${r.scores.map((s) => String(s).padStart(5)).join(' ')} | ` +
-    `差${r.spread.toFixed(1)}倍 ${r.bestSecs.toFixed(0)}秒` +
+    `差${r.spread.toFixed(1)}倍 ${r.bestSecs.toFixed(0)}秒 残${String(r.left).padStart(3)}個` +
     (r.ng.length ? `\n       └ ${r.ng.join(' / ')}` : '')
   );
 }

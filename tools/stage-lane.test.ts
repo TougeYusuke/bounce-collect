@@ -119,7 +119,16 @@ function tidy(def: StageDef, side: (typeof SIDES)[number], jw: number): StageDef
   return { ...def, gates: kept, jumpers: [{ ...def.jumpers[0], x1, x2, y: bottomY }] };
 }
 
-/** 仕切りで囲った細い道を1本入れる。⚠️ 道の下がジャンプ台では意味がない */
+/**
+ * 仕切りで囲った細い道を1本入れる。⚠️ 道の下がジャンプ台では意味がない。
+ *
+ * 🔴 **未対応＝この関数は仕切りを足すだけで、ゲートを切っていない**。
+ *    れいあ指定（2026-07-26）「**仕切りとゲートは極力重ならないようにしてほしい**」に反する型ができる
+ *    （実測: この道具が直した type-02/03/04 は 2〜4か所で交差していた。
+ *     れいあが手で作った type-01 は交差0）。
+ *    ⚠️ **この道具を回す前に、ここを `stage-gen.test.ts` の `splitAtLane` と同じ形に直すこと。**
+ *    直さずに回すと交差した型がまた増える。
+ */
 function withLane(def: StageDef, x1: number, x2: number): StageDef | null {
   const j = def.jumpers[0];
   if (!j || (x1 < j.x2 && x2 > j.x1)) return null; // 台に掛かる道は無効

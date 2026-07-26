@@ -74,9 +74,32 @@ function pickMult(rng: () => number, depth: number, rows: number): number {
   return table[Math.floor(rng() * table.length)];
 }
 
+/**
+ * 区間を**レーンの線で切り分ける**（線から `GAP` 離す）。細すぎる破片は捨てる。
+ *
+ * 🔑 れいあ指定（2026-07-26）「**仕切りとゲートは極力重ならないようにしてほしい**
+ *    （隙間ができるなら多少は許容）」。仕切りは縦線・ゲートは横帯なので、
+ *    何もしないと**必ず交差する**（レーンは全部の段を貫くため）。
+ * ⚠️ 交差していると、玉が仕切りに沿って落ちる時にゲートの端に引っかかって挙動が読めなくなるほか、
+ *    エディタで「その点はどっちの部品か」が曖昧になる（2026-07-26 に既定ステージで実際に踏んだ）。
+ */
+function splitAtLane(a: number, b: number, lane: [number, number] | null): [number, number][] {
+  if (!lane) return [[a, b]];
+  const out: [number, number][] = [];
+  const push = (p: number, q: number): void => {
+    if (q - p >= CONFIG.EDITOR_MIN_WIDTH) out.push([p, q]);
+  };
+  push(a, Math.min(b, lane[0] - GAP));
+  push(Math.max(a, lane[0] + GAP), Math.min(b, lane[1] - GAP));
+  push(Math.max(a, lane[1] + GAP), b);
+  return out;
+}
+
 interface Made {
   def: StageDef;
   label: string;
+  /** 多様性の枠（台の左右 × レーンの有無）。⚠️ 点数順に上から取ると同じ特徴ばかり残るため */
+  bucket: string;
 }
 
 /** 種1つから完成した型を作る（形の決まりを最初から満たす形で作る） */
@@ -93,33 +116,42 @@ function generate(seed: number, index: number): Made {
   const jw = JUMPER_WIDTHS[Math.floor(rng() * JUMPER_WIDTHS.length)];
   const [jx1, jx2] = side === 'left' ? [0, jw] : [W - jw, W];
 
-  const gates: StageDef['gates'] = [];
-  ys.forEach((y, depth) => {
-    const want = 2 + Math.floor(rng() * 3); // 2〜4枚
-    const [a, b] = y === bottomY ? (side === 'left' ? [jx2 + GAP, W] : [0, jx1 - GAP]) : [0, W];
-    for (const [x1, x2] of splitSpans(rng, a, b, want)) {
-      gates.push({ x1, x2, y, multiplier: pickMult(rng, depth, ys.length) });
-    }
-  });
-
-  // レーン（仕切りで囲った細い道）。⚠️ 台に掛かる道は意味がない（道の下が台だと結局跳ねる）
-  const dividers: StageDef['dividers'] = [];
-  let laneLabel = 'レーン無し';
+  // ⚠️ レーンを**先に**決める（ゲートをこの線で切るため）。
+  //    台の反対側に置く＝台の無い側に「跳ねずに流れる道」を作るのが狙い。
+  // ⚠️ 壁から `EDITOR_MIN_WIDTH + GAP` 以上離す。壁ぎわに置くと、線の外側の破片が細すぎて捨てられ、
+  //    **その段が壁に届かなくなる**（貼り付いた玉がゲートを素通りする）。
+  const edge = CONFIG.EDITOR_MIN_WIDTH + GAP;
+  let lane: [number, number] | null = null;
   if (rng() < 0.65) {
     const lw = LANE_WIDTHS[Math.floor(rng() * LANE_WIDTHS.length)];
-    // 台の反対側に置く（台の無い側に「跳ねずに流れる道」を作るのが狙い）
-    const room = side === 'left' ? [jx2 + GAP, W - lw] : [0, jx1 - GAP - lw];
-    const x1 = Math.round(room[0] + rng() * Math.max(0, room[1] - room[0]));
-    const x2 = x1 + lw;
-    if (x2 <= W && (x2 <= jx1 || x1 >= jx2)) {
-      dividers.push({ x1, y1: LANE_TOP, x2: x1, y2: LANE_BOTTOM });
-      dividers.push({ x1: x2, y1: LANE_TOP, x2, y2: LANE_BOTTOM });
-      laneLabel = `レーン x${x1}〜${x2}`;
+    const [lo, hi] =
+      side === 'left' ? [jx2 + GAP + edge, W - edge - lw] : [edge, jx1 - GAP - edge - lw];
+    if (hi > lo) {
+      const x1 = Math.round(lo + rng() * (hi - lo));
+      lane = [x1, x1 + lw];
     }
   }
 
+  const gates: StageDef['gates'] = [];
+  ys.forEach((y, depth) => {
+    const [a, b] = y === bottomY ? (side === 'left' ? [jx2 + GAP, W] : [0, jx1 - GAP]) : [0, W];
+    for (const [ba, bb] of splitAtLane(a, b, lane)) {
+      const want = 1 + Math.floor(rng() * 2); // ブロックごとに1〜2枚
+      for (const [x1, x2] of splitSpans(rng, ba, bb, want)) {
+        gates.push({ x1, x2, y, multiplier: pickMult(rng, depth, ys.length) });
+      }
+    }
+  });
+
+  const dividers: StageDef['dividers'] = lane
+    ? [
+        { x1: lane[0], y1: LANE_TOP, x2: lane[0], y2: LANE_BOTTOM },
+        { x1: lane[1], y1: LANE_TOP, x2: lane[1], y2: LANE_BOTTOM },
+      ]
+    : [];
+
   const name = `type-${String(index).padStart(2, '0')}-${side === 'left' ? 'l' : 'r'}${jw}${
-    dividers.length ? 'lane' : ''
+    lane ? 'lane' : ''
   }`;
   const def = normalizeStageDef({
     name,
@@ -127,7 +159,11 @@ function generate(seed: number, index: number): Made {
     jumpers: [{ x1: jx1, x2: jx2, y: bottomY }],
     dividers,
   });
-  return { def, label: `${ys.length}段・台${side === 'left' ? '左' : '右'}幅${jw}・${laneLabel}` };
+  return {
+    def,
+    label: `${ys.length}段・台${side === 'left' ? '左' : '右'}幅${jw}・${lane ? `レーン x${lane[0]}〜${lane[1]}` : 'レーン無し'}`,
+    bucket: `${side}-${lane ? 'lane' : 'open'}`,
+  };
 }
 
 /** 下見の点数（本判定より粗く速い）。合格に近いほど高い。-1 は捨てる */
@@ -155,10 +191,27 @@ it('ゼロからステージを作る', () => {
   scored.sort((a, b) => b.score - a.score);
   rows.push(`下見を通ったのは ${scored.length} / ${SEEDS} 個`, '');
 
-  // 2. 上位から本判定にかけ、合格を集める（保存する数の3倍まで見る）
+  /**
+   * 🔑 **点数順に上から取らない**。2026-07-26 の1回目は3型とも「台右・幅80」で揃ってしまった
+   *    （強い特徴だけが勝ち残る）。台の左右 × レーンの有無 の**枠ごとに順番に**見て、
+   *    盤面の見た目が散るようにする。
+   */
+  const buckets = new Map<string, typeof scored>();
+  for (const s of scored) {
+    const list = buckets.get(s.made.bucket) ?? [];
+    list.push(s);
+    buckets.set(s.made.bucket, list);
+  }
+  const order: typeof scored = [];
+  for (let i = 0; order.length < scored.length; i++) {
+    for (const list of buckets.values()) if (list[i]) order.push(list[i]);
+  }
+  rows.push(`枠ごとの数: ${[...buckets].map(([k, v]) => `${k}=${v.length}`).join(' / ')}`, '');
+
+  // 2. 枠を順ぐりに本判定へかけ、合格を集める
   const passed: Made[] = [];
   let tried = 0;
-  for (const { made } of scored) {
+  for (const { made } of order) {
     if (passed.length >= KEEP || tried >= KEEP * 4) break;
     tried++;
     const r = judge(made.def);
