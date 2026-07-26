@@ -110,7 +110,8 @@ export const BALL_SKINS: BallSkin[] = [
     name: '星のかけら',
     hi: '#fffdf0', mid: '#ffd85e', lo: '#c08a10',
     shape: 'star',
-    scale: 1.5,
+    // ⚠️ 尖った形は外接円で描くと実際より小さく見える（れいあ 2026-07-26「もう少し大きくてもいい」）
+    scale: 1.7,
   },
   { key: 'glow',  name: '蛍のビー玉',   hi: '#ffffff', mid: '#a8ffe2', lo: '#2bb98f' },
   { key: 'heart', name: 'ハート',       hi: '#fff0f3', mid: '#ff7d97', lo: '#a81f3c', shape: 'heart', scale: 1.4 },
@@ -124,7 +125,7 @@ export const BALL_SKINS: BallSkin[] = [
     scale: 1.08,
   },
   // ⚠️ 形とパレットは自由に組める（形＝shape／色＝palette は別の軸）
-  { key: 'star-mix',  name: '五色の星',     hi: '#fffdf0', mid: '#ffd85e', lo: '#c08a10', shape: 'star',  palette: FIVE, scale: 1.5 },
+  { key: 'star-mix',  name: '五色の星',     hi: '#fffdf0', mid: '#ffd85e', lo: '#c08a10', shape: 'star',  palette: FIVE, scale: 1.7 },
   { key: 'heart-mix', name: '五色のハート', hi: '#fff0f3', mid: '#ff7d97', lo: '#a81f3c', shape: 'heart', palette: FIVE, scale: 1.4 },
 ];
 
