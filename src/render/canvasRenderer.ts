@@ -26,6 +26,10 @@ export class CanvasRenderer implements Renderer {
   private scale = 1;
   private offsetX = 0;
   private offsetY = 0;
+  /** 最後に作り直した時の大きさ。⚠️ 同じ大きさで何度も焼き直さないため */
+  private lastW = -1;
+  private lastH = -1;
+  private lastDpr = -1;
   /**
    * 焼いた玉の絵 `[色][回転の段]`。
    * マーブル（複数色）は色数ぶん持って玉の番号で振り分け、回転は段ごとに焼いておいて選ぶ。
@@ -106,10 +110,20 @@ export class CanvasRenderer implements Renderer {
     return out;
   }
 
+  /**
+   * 表示領域に合わせて作り直す。
+   *
+   * ⚠️ **同じ大きさなら何もしない**。iOS は画面を回すと `resize` が**回転アニメーションの途中で何度も**飛ぶので、
+   *    毎回スプライトを焼き直すと回転のたびに固まる（一番重いスキンで120枚焼く）。
+   */
   resize(): void {
     const dpr = window.devicePixelRatio || 1;
     const w = this.host.clientWidth;
     const h = this.host.clientHeight;
+    if (w === this.lastW && h === this.lastH && dpr === this.lastDpr) return;
+    this.lastW = w;
+    this.lastH = h;
+    this.lastDpr = dpr;
     this.canvas.width = Math.floor(w * dpr);
     this.canvas.height = Math.floor(h * dpr);
     this.canvas.style.width = `${w}px`;

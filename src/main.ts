@@ -339,10 +339,33 @@ function layoutHud(): void {
   hudEl.style.width = `${r.width}px`;
 }
 
-window.addEventListener('resize', () => {
+/**
+ * 表示領域が変わったら作り直す。
+ *
+ * 🔑 **落ち着くまで測り直す**（れいあ実機 2026-07-26「スマホで横にした後に縦に戻すと画面が半分になる」）。
+ * ⚠️ iOS は画面を回すと `resize` が**回転アニメーションの途中で**飛ぶので、その瞬間の高さは中間値。
+ *    1回しか測らないと、その中間値のまま canvas が作られて**盤面が半分の高さで固まる**。
+ * ⚠️ `orientationchange` だけに頼るのも駄目（発火時点ではまだ古いサイズを返す端末がある）。
+ * ⚠️ `renderer.resize()` は**大きさが変わった時だけ**中身を作り直すので、何度呼んでも重くならない。
+ */
+let settleTimer = 0;
+function scheduleResize(): void {
   renderer.resize();
   layoutHud();
-});
+  window.clearTimeout(settleTimer);
+  let tries = 0;
+  const tick = (): void => {
+    renderer.resize();
+    layoutHud();
+    if (++tries < 8) settleTimer = window.setTimeout(tick, 100); // 800ms ぶん見張る（回転は約300ms）
+  };
+  settleTimer = window.setTimeout(tick, 100);
+}
+
+window.addEventListener('resize', scheduleResize);
+window.addEventListener('orientationchange', scheduleResize);
+// ⚠️ iOS はアドレスバーの伸縮でも表示領域が変わる。visualViewport が一番正確に拾える
+window.visualViewport?.addEventListener('resize', scheduleResize);
 
 // 0.5倍速は「2フレームに1回だけ進める」で表す（物理は1ステップ単位でしか進められない）
 let halfTick = 0;
