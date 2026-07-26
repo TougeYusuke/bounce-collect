@@ -37,7 +37,12 @@ export const FREE: Record<UnlockKind, string[]> = {
  * ⚠️ **種類を混ぜて並べること**。テーマ4つ→型6つ のように固めると、
  *    同じ種類が続く間「また同じ絵か」になって、解放のたびに画面が変わる狙いが薄れる。
  * ⚠️ 閾値は **1ゲーム平均2,423点**（2026-07-25 実測・6種で 634〜3,383点）を基準に置いた。
- *    最初の解放が1ゲーム目、最後が約43ゲーム目。⚠️ スコアの出方を変えたらここも作り直す。
+ *    最初の解放が1ゲーム目、最後（308,000）が**約127ゲーム目**。⚠️ スコアの出方を変えたらここも作り直す。
+ *    （2026-07-26 れいあ実機判定＝解放テンポは○「いい感じ」）
+ *
+ * 🔴 **型を `src/stages/` に足したらここにも1行足すこと**。
+ *    `tests/workshop.test.ts` が「全部解放した時の型の数 == 型の総数」を見張っていて、落ちる。
+ *    ⚠️ **末尾に足さない**＝型だけ遠くに固まって「遊んでも新しい盤面が出てこない」状態になる。
  */
 export const UNLOCKS: Unlock[] = [
   { kind: 'ball', key: 'amber', name: '琥珀のビー玉', cost: 1_500 },
@@ -48,6 +53,10 @@ export const UNLOCKS: Unlock[] = [
   { kind: 'stage', key: 'type-05-center-jump', name: '型：中央跳ね', cost: 18_000 },
   { kind: 'ball', key: 'heart', name: 'ハート', cost: 23_000 },
   { kind: 'theme', key: 'walnut', name: '素材：ウォールナット', cost: 29_000 },
+  // ⚠️ 以下 3つの `type-*-r80*` は `npm run stages:gen` がゼロから作って合格した型（2026-07-26）。
+  //    **末尾に足さず既存の解放の間に挿している**＝型だけ遠くに固まると
+  //    「遊んでも新しい盤面が出てこない」状態になるため。
+  { kind: 'stage', key: 'type-09-r80', name: '型：右台・道なし', cost: 33_000 },
   { kind: 'ball', key: 'baseball', name: '野球ボール', cost: 36_000 },
   { kind: 'bucket', key: 'copper', name: '銅のバケツ', cost: 44_000 },
   { kind: 'stage', key: 'type-06-zigzag', name: '型：ジグザグ', cost: 53_000 },
@@ -55,6 +64,7 @@ export const UNLOCKS: Unlock[] = [
   { kind: 'theme', key: 'maple', name: '素材：メープル', cost: 74_000 },
   { kind: 'ball', key: 'steel', name: '鋼のビー玉', cost: 86_000 },
   { kind: 'bucket', key: 'tumbler', name: 'タンブラー', cost: 99_000 },
+  { kind: 'stage', key: 'type-20-r80lane', name: '型：右台・細い道', cost: 105_000 },
   { kind: 'stage', key: 'type-07-cascade', name: '型：滝', cost: 113_000 },
   { kind: 'ball', key: 'coin', name: '金貨', cost: 128_000 },
   { kind: 'theme', key: 'driftwood', name: '素材：古材', cost: 144_000 },
@@ -62,6 +72,7 @@ export const UNLOCKS: Unlock[] = [
   { kind: 'bucket', key: 'mug', name: 'マグカップ', cost: 179_000 },
   { kind: 'stage', key: 'type-08-compact', name: '型：詰め合わせ', cost: 198_000 },
   { kind: 'ball', key: 'star-mix', name: '五色の星', cost: 218_000 },
+  { kind: 'stage', key: 'type-43-r80lane', name: '型：右台・広い道', cost: 230_000 },
   { kind: 'bucket', key: 'glass', name: 'ガラスのコップ', cost: 239_000 },
   { kind: 'ball', key: 'glow', name: '蛍のビー玉', cost: 261_000 },
   { kind: 'bucket', key: 'jade', name: '翡翠の壺', cost: 272_000 },
