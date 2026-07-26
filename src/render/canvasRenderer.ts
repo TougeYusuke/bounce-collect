@@ -5,6 +5,7 @@ import type { Stage } from '../core/stage';
 import type { World } from '../core/world';
 import { getArt } from './art';
 import { drawBall, skinVariants, spinIndex, spinSteps, visualRadius } from './ballArt';
+import { heaveLift } from './heave';
 import { drawVessel } from './vesselArt';
 import { BALL_SKINS, BUCKET_SKINS, MATERIALS, SKIN, type BallSkin, type BucketSkin, type Material } from './theme';
 import type { Renderer } from './types';
@@ -479,12 +480,16 @@ export class CanvasRenderer implements Renderer {
     // ⚠️ 見た目は常に通常サイズ・不透明で描く（れいあ指定 2026-07-24）。
     //    小さくしているのは当たり判定だけ＝生まれた瞬間に周りを押しのけないため。
     //    （一時期フェードインを入れていたが、すぐ出る方を見たいとの判断で外した）
+    // 🔑 増えた瞬間、そのゲートの真上の玉を**描画上だけ**持ち上げる＝「隆起」（れいあ要望 2026-07-26）。
+    // ⚠️ いま光っているゲートが無ければ何もしない（ふだんは1つも無い）。
+    const heaving = stage ? stage.gates.filter((g) => (g.flash ?? 0) > 0) : [];
     pool.forEachActive((b) => {
       // ⚠️ 色の振り分けは**プールの番号**で決める（乱数を使わない＝同じ状況なら同じ絵）
       const frames = variants === 1 ? sprites[0] : sprites[b.index % variants];
       // 回転は「焼いてある角度から一番近いもの」を選ぶだけ（座標変換をしない）
       const sp = steps === 1 ? frames[0] : frames[spinIndex(b.spin, steps)];
-      ctx.drawImage(sp, ox + b.x * s - half, oy + b.y * s - half);
+      const lift = heaving.length ? heaveLift(heaving, b.x, b.y) : 0;
+      ctx.drawImage(sp, ox + b.x * s - half, oy + (b.y - lift) * s - half);
     });
 
     // ⚠️ 仕切り・ゲート・ジャンプ台は**玉より後**（＝玉の上）に描く（2026-07-25）。
