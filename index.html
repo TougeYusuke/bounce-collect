@@ -124,6 +124,43 @@
         z-index: 5;
       }
       #debug[hidden] { display: none; }
+
+      /* 盛り上がりの実験プリセット（?debug=1 の時だけ）。⚠️ 選定が終わったら消す */
+      #supply-switch {
+        position: fixed;
+        left: 0; right: 0;
+        bottom: calc(62px + env(safe-area-inset-bottom, 0));
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+        align-items: center;
+        /* ⚠️ タイトル等のオーバーレイ（.screen = 10）**より上**に出すこと。
+           6 に置いていた時はタイトル画面の膜がクリックを吸って**押せなかった**（実機で判明）。 */
+        z-index: 20;
+      }
+      #supply-switch[hidden] { display: none; }
+      #supply-switch .supply-label,
+      #supply-switch .supply-hint {
+        color: #cfe6dd;
+        font: 700 14px/1.4 system-ui, sans-serif;
+        background: rgba(0, 0, 0, 0.72);
+        padding: 4px 8px;
+        border-radius: 6px;
+      }
+      #supply-switch button {
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.28);
+        background: rgba(0, 0, 0, 0.78);
+        color: #eaf6f1;
+        font: 700 16px/1 system-ui, sans-serif;
+        cursor: pointer;
+      }
+      #supply-switch button[aria-pressed='true'] {
+        border-color: #ffd85e;
+        color: #ffd85e;
+      }
       /* ⚠️ HUDはプレイ中だけ出す（読み込み中の黒画面に浮くのを防ぐ） */
       #hud[hidden] { display: none; }
 
@@ -411,6 +448,8 @@
 
     <!-- デバッグ表示（URLに ?debug=1 を付けた時だけ出る） -->
     <div id="debug" hidden></div>
+    <!-- 盛り上がりの実験プリセット（?debug=1 の時だけ・中身はJSが組む） -->
+    <div id="supply-switch" hidden></div>
 
     <!-- 横向きの案内（CSSだけで出す＝JSは関与しない） -->
     <div id="rotate-hint">

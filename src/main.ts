@@ -25,9 +25,27 @@ import {
   showScreen,
 } from './ui/screens';
 import { addScore } from './ui/scores';
-import { loadPrefs, loadSpeed, saveSpeed } from './ui/prefs';
+import { loadPrefs, loadSpeed, loadSupplyKey, saveSpeed, saveSupplyKey } from './ui/prefs';
+import {
+  DEFAULT_SUPPLY_KEY,
+  SUPPLY_PRESETS,
+  applySupplyPreset,
+  resolveSupplyKey,
+  supplyPreset,
+} from './core/supplyPreset';
 import { renderWorkshop } from './ui/workshopView';
 import { addTotal, getTotal, resetTotal } from './ui/totals';
+
+// URLに ?debug=1 を付けるとデバッグ表示が出る（ジャンプ台の残り回数など）
+const DEBUG = new URLSearchParams(location.search).has('debug');
+/**
+ * 盛り上がりの実験プリセット。⚠️ **Match を作る前に当てる**
+ * （`OUTLET_BALLS` はステージ構築時、`SPAWN_GROW_FRAMES` は Session 構築時にしか読まれない）。
+ * ⚠️ デバッグ時だけ＝普通に開けば必ず既定の設定で動く。
+ */
+const supply = DEBUG
+  ? applySupplyPreset(resolveSupplyKey(loadSupplyKey()))
+  : supplyPreset(DEFAULT_SUPPLY_KEY);
 
 const stageEl = document.getElementById('stage')!;
 const hintEl = document.getElementById('hint')!;
@@ -91,8 +109,6 @@ function moveCup(clientX: number): void {
   match.setCupX(renderer.toLogicalX(clientX));
 }
 
-// URLに ?debug=1 を付けるとデバッグ表示が出る（ジャンプ台の残り回数など）
-const DEBUG = new URLSearchParams(location.search).has('debug');
 // ⚠️ 0.5倍速はデバッグ時だけ。挙動をコマ送り気味に確かめるため（れいあ要望）
 const SPEEDS: number[] = DEBUG ? [0.5, 1, 2, 4] : [1, 2, 4];
 // 前に選んだ速さで始める。⚠️ いま選べない値（0.5はデバッグ時だけ）なら 1× に落ちる
@@ -100,6 +116,35 @@ speed = loadSpeed(SPEEDS, 1);
 renderer.showDebug = DEBUG;
 const debugEl = document.getElementById('debug')!;
 debugEl.hidden = !DEBUG;
+
+// ── 盛り上がりの実験プリセットの切り替え（?debug=1 の時だけ） ──
+// ⚠️ 押したら**作り直す**（リロード）。ステージ構築時にしか読まない値があるので、
+//    途中で差し替えると「効いていない設定」で遊ぶことになる。
+const supplyEl = document.getElementById('supply-switch')!;
+supplyEl.hidden = !DEBUG;
+if (DEBUG) {
+  const label = document.createElement('span');
+  label.className = 'supply-label';
+  label.textContent = '盛り上がり';
+  supplyEl.append(label);
+  for (const p of SUPPLY_PRESETS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = p.name;
+    b.title = p.hint;
+    b.setAttribute('aria-pressed', String(p.key === supply.key));
+    b.addEventListener('click', () => {
+      if (p.key === supply.key) return;
+      saveSupplyKey(p.key);
+      location.reload();
+    });
+    supplyEl.append(b);
+  }
+  const hint = document.createElement('span');
+  hint.className = 'supply-hint';
+  hint.textContent = supply.hint;
+  supplyEl.append(hint);
+}
 
 function updateDebug(): void {
   if (!DEBUG) return;

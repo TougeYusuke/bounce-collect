@@ -57,3 +57,25 @@ export function saveSpeed(v: number): void {
     // 保存できなくてもゲームは続ける
   }
 }
+
+/**
+ * 「盤面をどれだけ満杯に保つか」の実験用プリセット（`?debug=1` の時だけ切り替わる）。
+ * ⚠️ 選定が終わったら `supplyPreset.ts` ごと消す（実験の足場）。
+ */
+const SUPPLY_KEY = 'marble-mill.supply';
+
+export function loadSupplyKey(): string | null {
+  try {
+    return localStorage.getItem(SUPPLY_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function saveSupplyKey(key: string): void {
+  try {
+    localStorage.setItem(SUPPLY_KEY, key);
+  } catch {
+    // 保存できなくてもゲームは続ける
+  }
+}

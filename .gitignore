@@ -29,3 +29,4 @@ stage-lane.txt
 
 # 器の生成画像の作業フォルダ（中間ファイルが重い。プロンプトJSONから作り直せる）
 mockup/vessels/
+supply-report.txt

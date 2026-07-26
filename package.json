@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "stages:check": "vitest run --config vitest.tools.config.ts tools/stage-check.test.ts",
-    "stages:lane": "vitest run --config vitest.tools.config.ts tools/stage-lane.test.ts"
+    "stages:lane": "vitest run --config vitest.tools.config.ts tools/stage-lane.test.ts",
+    "stages:supply": "vitest run --config vitest.tools.config.ts tools/supply-probe.test.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
