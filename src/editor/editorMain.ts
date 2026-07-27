@@ -245,6 +245,78 @@ for (const id of ['fix-mult', 'fix-pos']) {
   });
 }
 
+/**
+ * キー操作の窓（2026-07-27 れいあ要望）。
+ * ⚠️ **覆うモーダルにしない**＝出したまま盤面と数値をいじれる。
+ * ⚠️ サイドバーの中に置くと数値欄との上下の往復が起きて読めない、というのが元の指摘。
+ *    だから掴んで好きな所へ動かせる浮いた窓にしてある。
+ * ⚠️ 置いた場所を覚える（毎回動かし直すのは手間）。画面の外に出た状態で覚えてしまうと
+ *    次に開いた時に掴めなくなるので、**出す時に画面内へ引き戻す**。
+ */
+{
+  const POS_KEY = 'marble-mill.keyhelp-pos';
+  const panel = el<HTMLDivElement>('keyhelp-panel');
+  const head = el<HTMLDivElement>('keyhelp-drag');
+
+  const clampIntoView = (left: number, top: number): [number, number] => {
+    const w = panel.offsetWidth || 306;
+    // 端で完全に隠れないよう、掴む所が必ず64px以上見える範囲に収める
+    return [
+      Math.min(Math.max(left, 8 - w + 64), window.innerWidth - 64),
+      Math.min(Math.max(top, 8), window.innerHeight - 40),
+    ];
+  };
+
+  const place = (left: number, top: number): void => {
+    const [l, t] = clampIntoView(left, top);
+    panel.style.left = `${l}px`;
+    panel.style.top = `${t}px`;
+    try {
+      localStorage.setItem(POS_KEY, JSON.stringify({ left: l, top: t }));
+    } catch {
+      // 覚えられなくても使えるので何もしない
+    }
+  };
+
+  const restore = (): void => {
+    try {
+      const raw = localStorage.getItem(POS_KEY);
+      if (!raw) return;
+      const p = JSON.parse(raw) as { left?: unknown; top?: unknown };
+      if (typeof p.left === 'number' && typeof p.top === 'number') place(p.left, p.top);
+    } catch {
+      // 壊れていたら初期位置のまま
+    }
+  };
+
+  el<HTMLButtonElement>('keyhelp-open').addEventListener('click', () => {
+    panel.hidden = false;
+    restore();
+  });
+  el<HTMLButtonElement>('keyhelp-close').addEventListener('click', () => {
+    panel.hidden = true;
+  });
+
+  // 掴んで動かす。⚠️ 盤面のドラッグ処理に流さないよう、ここで止める
+  let drag: { dx: number; dy: number } | null = null;
+  head.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    const r = panel.getBoundingClientRect();
+    drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    head.setPointerCapture(e.pointerId);
+  });
+  head.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    e.stopPropagation();
+    place(e.clientX - drag.dx, e.clientY - drag.dy);
+  });
+  head.addEventListener('pointerup', () => {
+    drag = null;
+  });
+  // 窓の中のクリックが盤面に届かないようにする（閉じる/選択の誤爆防止）
+  panel.addEventListener('pointerdown', (e) => e.stopPropagation());
+}
+
 // ゲームへ戻る（2026-07-27 れいあ要望）
 document.getElementById('to-game')!.addEventListener('click', () => {
   location.href = 'index.html';

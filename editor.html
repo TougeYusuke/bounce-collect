@@ -49,23 +49,44 @@
       }
       /* キー一覧。
          ⚠️ **キーボードがある環境だけ出す**（2026-07-27 れいあ要望「PC版限定で」）。
-            スマホには要らないし、狭い画面を食うだけになる。
-         判定は `pointer: fine`（マウスのような細かいポインタ）＋`hover: hover`。
-         画面幅で判定してはいけない＝大きいタブレットでも出てしまう。 */
-      .keyhelp { display: none; margin-bottom: 16px; }
+            判定は `pointer: fine`（マウスのような細かいポインタ）＋`hover: hover`。
+            画面幅で判定してはいけない＝大きいタブレットでも出てしまう。
+         ⚠️ サイドバーの中に置くと、数値を触る場所との**上下の往復**が起きて読めない
+            （2026-07-27 れいあ指摘）。だから浮いた窓にして掴んで動かせる形にした。 */
+      .keyhelp-open { display: none; }
       @media (hover: hover) and (pointer: fine) {
-        .keyhelp { display: block; }
+        .keyhelp-open { display: block; width: 100%; margin-bottom: 14px; min-height: 40px; }
       }
-      .keyhelp summary {
-        cursor: pointer; font-size: 12px; color: var(--accent);
-        min-height: 32px; display: flex; align-items: center;
+      .keyhelp-panel {
+        position: fixed; z-index: 50; left: 26px; top: 26px; width: 306px;
+        background: linear-gradient(180deg, #241a11 0%, #191209 100%);
+        border: 1px solid rgba(230, 184, 98, 0.4); border-radius: 14px;
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6);
+        /* ⚠️ 文字は選ばせる（コピーしたい人がいる）。掴む所だけ選択を切る */
+        user-select: text;
       }
-      .keyhelp dl {
-        display: grid; grid-template-columns: auto 1fr; gap: 4px 10px;
-        margin: 6px 0 0; font-size: 12px;
+      .keyhelp-panel[hidden] { display: none; }
+      .kh-head {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 10px; padding: 10px 10px 10px 14px;
+        border-bottom: 1px solid rgba(230, 184, 98, 0.22);
+        /* 掴んで動かす所。⚠️ ここだけ選択を切る（ドラッグで文字が選ばれると掴めない） */
+        cursor: move; user-select: none;
+        font: 800 13px/1 inherit; letter-spacing: 0.08em; color: var(--accent);
       }
-      .keyhelp dt { color: var(--ink); font-weight: 700; white-space: nowrap; }
-      .keyhelp dd { margin: 0; color: var(--sub); }
+      .kh-head button {
+        flex: none; width: 32px; height: 32px; min-width: 0; padding: 0;
+        font-size: 18px; line-height: 1;
+      }
+      .keyhelp-panel dl {
+        display: grid; grid-template-columns: auto 1fr; gap: 7px 12px;
+        margin: 0; padding: 12px 14px 14px; font-size: 13px;
+      }
+      .keyhelp-panel dt {
+        color: var(--ink); font-weight: 700; white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .keyhelp-panel dd { margin: 0; color: var(--sub); }
       .group { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
       .group > .t {
         font: 700 11px/1 inherit; letter-spacing: 0.2em; color: var(--sub); margin-bottom: 10px;
@@ -129,19 +150,10 @@
         バーをドラッグで移動／端をつかむと長さ変更。5px刻みで吸着します。<br />
         選んだあとは<strong>十字キー</strong>でも動かせます（Shiftで5目盛りぶん）。
       </div>
-      <!-- ⚠️ 既定で開いておく（畳んでいると気づかれない・2026-07-27 れいあ指摘） -->
-      <details class="keyhelp" open>
-        <summary>キーボードで速くやる（PCのみ）</summary>
-        <dl>
-          <dt>Delete / Backspace</dt><dd>選んでいるものを消す</dd>
-          <dt>Esc</dt><dd>選択を外す（試遊中なら止める）</dd>
-          <dt>G / J / D</dt><dd>ゲート／ジャンプ台／仕切りを足す</dd>
-          <dt>1〜5</dt><dd>ゲートの倍率（×2 ×3 ×4 ×6 ×10）</dd>
-          <dt>Space</dt><dd>試遊のオン・オフ</dd>
-          <dt>Ctrl+S</dt><dd>保存</dd>
-          <dt>十字キー</dt><dd>動かす（Shiftで5目盛り）</dd>
-        </dl>
-      </details>
+      <!-- ⚠️ サイドバーの中に置くと、数値を触る場所（下）との往復が発生して読めない
+           （2026-07-27 れいあ指摘）。だから**浮いた窓**にして、掴んで好きな所へ動かせる形にした。
+           窓を出す口だけここに置く。 -->
+      <button id="keyhelp-open" class="keyhelp-open" type="button">キー操作を見る</button>
 
       <div class="group">
         <div class="t">ステージ</div>
@@ -293,6 +305,26 @@
         </div>
       </div>
     </aside>
+
+    <!-- キー操作の窓。掴んで好きな所へ動かせる（位置は次に開いた時も覚えている）。
+         ⚠️ 覆うモーダルにはしない＝出したまま盤面をいじれるようにする。 -->
+    <div id="keyhelp-panel" class="keyhelp-panel" hidden>
+      <div class="kh-head" id="keyhelp-drag">
+        <span>キーボード操作</span>
+        <button id="keyhelp-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <dl>
+        <dt>Delete / BS</dt><dd>選んでいるものを消す</dd>
+        <dt>Esc</dt><dd>選択を外す（試遊中なら止める）</dd>
+        <dt>G</dt><dd>ゲートを足す</dd>
+        <dt>J</dt><dd>ジャンプ台を足す</dd>
+        <dt>D</dt><dd>仕切りを足す</dd>
+        <dt>1〜5</dt><dd>ゲートの倍率（×2 ×3 ×4 ×6 ×10）</dd>
+        <dt>Space</dt><dd>試遊のオン・オフ</dd>
+        <dt>Ctrl+S</dt><dd>保存</dd>
+        <dt>↑↓←→</dt><dd>動かす（Shiftで5目盛りぶん）</dd>
+      </dl>
+    </div>
 
     <script type="module" src="/src/editor/editorMain.ts"></script>
   </body>
