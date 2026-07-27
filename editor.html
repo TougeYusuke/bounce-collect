@@ -40,6 +40,25 @@
       }
       h1 { font: 800 15px/1.4 inherit; letter-spacing: 0.08em; margin-bottom: 4px; }
       .hint { font-size: 12px; color: var(--sub); margin-bottom: 16px; }
+      /* ゲームへ戻る口＋見出し。⚠️ ボタンは指でも押せる高さにする */
+      .side-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+      .side-head h1 { margin: 0; }
+      .side-head button {
+        flex: none; min-height: 40px; padding: 0 14px 0 10px;
+        font-size: 13px; white-space: nowrap;
+      }
+      /* キー一覧。既定は畳んでおく（毎回見るものではない） */
+      .keyhelp { margin-bottom: 16px; }
+      .keyhelp summary {
+        cursor: pointer; font-size: 12px; color: var(--accent);
+        min-height: 32px; display: flex; align-items: center;
+      }
+      .keyhelp dl {
+        display: grid; grid-template-columns: auto 1fr; gap: 4px 10px;
+        margin: 6px 0 0; font-size: 12px;
+      }
+      .keyhelp dt { color: var(--ink); font-weight: 700; white-space: nowrap; }
+      .keyhelp dd { margin: 0; color: var(--sub); }
       .group { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
       .group > .t {
         font: 700 11px/1 inherit; letter-spacing: 0.2em; color: var(--sub); margin-bottom: 10px;
@@ -84,11 +103,27 @@
     <div id="board"></div>
 
     <aside id="side">
-      <h1>ステージエディタ</h1>
+      <!-- ⚠️ ゲームへ戻る口。無いと閉じるしか手が無くなる（2026-07-27 れいあ要望） -->
+      <div class="side-head">
+        <button id="to-game" type="button">‹ ゲームに戻る</button>
+        <h1>ステージ工房</h1>
+      </div>
       <div class="hint">
         バーをドラッグで移動／端をつかむと長さ変更。5px刻みで吸着します。<br />
         選んだあとは<strong>十字キー</strong>でも動かせます（Shiftで5目盛りぶん）。
       </div>
+      <details class="keyhelp">
+        <summary>キーボードで速くやる</summary>
+        <dl>
+          <dt>Delete / Backspace</dt><dd>選んでいるものを消す</dd>
+          <dt>Esc</dt><dd>選択を外す（試遊中なら止める）</dd>
+          <dt>G / J / D</dt><dd>ゲート／ジャンプ台／仕切りを足す</dd>
+          <dt>1〜5</dt><dd>ゲートの倍率（×2 ×3 ×4 ×6 ×10）</dd>
+          <dt>Space</dt><dd>試遊のオン・オフ</dd>
+          <dt>Ctrl+S</dt><dd>保存</dd>
+          <dt>十字キー</dt><dd>動かす（Shiftで5目盛り）</dd>
+        </dl>
+      </details>
 
       <div class="group">
         <div class="t">ステージ</div>

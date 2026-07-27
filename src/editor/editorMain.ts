@@ -4,6 +4,7 @@ import { MY_STAGE_MAX, loadMyStages, removeMyStage, saveMyStage } from '../core/
 import { Session } from '../core/session';
 import { stageToWorld } from '../core/stage';
 import { DEFAULT_STAGE_DEF, normalizeStageDef, type StageDef } from '../core/stageDef';
+import { STAGES } from '../core/stages';
 import { loadArt } from '../render/art';
 import { CanvasRenderer } from '../render/canvasRenderer';
 import { MATERIALS } from '../render/theme';
@@ -152,11 +153,78 @@ const ARROWS: Record<string, [number, number]> = {
   ArrowDown: [0, 1],
 };
 
+/**
+ * キーボードの割り当て（2026-07-27 れいあ要望「Deleteで消したい・ショートカットが欲しい」）。
+ * 一覧は `editor.html` の「キーボードで速くやる」に出してある（両方直すこと）。
+ *
+ * ⚠️ **入力欄にいる間は何もしない**。名前を打っている最中に G で「ゲートを足す」が
+ *    走ると、文字が入らないバグに見える。
+ * ⚠️ 押したキーが割り当てに無ければ `preventDefault` しない（ブラウザの動きを奪わない）。
+ */
 window.addEventListener('keydown', (e) => {
-  if (session || !model.selected) return; // 試遊中と未選択は何もしない
-  // ⚠️ 数値入力や名前欄にいる間は、キーの本来の動き（値の増減・カーソル移動）に任せる
   const tag = (e.target as HTMLElement)?.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+  // 保存は試遊中でも効かせる（⚠️ ブラウザの「ページを保存」を止める）
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    e.preventDefault();
+    el<HTMLButtonElement>('save').click();
+    return;
+  }
+
+  // 試遊中は「止める」だけ受ける（この間に配置を変えると何を見ているか分からなくなる）
+  if (session) {
+    if (e.key === ' ' || e.key === 'Escape') {
+      e.preventDefault();
+      el<HTMLButtonElement>('play').click();
+    }
+    return;
+  }
+
+  // 選択が無くても効くもの＝追加と試遊
+  const ADD: Record<string, string> = { g: 'add-gate', j: 'add-jumper', d: 'add-divider' };
+  const addId = ADD[e.key.toLowerCase()];
+  if (addId) {
+    const btn = el<HTMLButtonElement>(addId);
+    e.preventDefault();
+    // ⚠️ 上限に達している時は押せない。黙って何も起きないと壊れて見えるので理由を出す
+    if (btn.disabled) setStatus('これ以上は足せないよ（32個まで）');
+    else btn.click();
+    return;
+  }
+  if (e.key === ' ') {
+    e.preventDefault();
+    el<HTMLButtonElement>('play').click();
+    return;
+  }
+
+  if (!model.selected) return;
+
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    el<HTMLButtonElement>('del').click();
+    return;
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    model.select(null);
+    rebuild();
+    syncPanel();
+    return;
+  }
+  // 1〜5 でゲートの倍率（MULTIPLIERS と同じ並び＝×2 ×3 ×4 ×6 ×10）
+  if (model.selected.kind === 'gate' && /^[1-5]$/.test(e.key)) {
+    const n = MULTIPLIERS[Number(e.key) - 1];
+    if (n !== undefined) {
+      e.preventDefault();
+      model.setMultiplier(n);
+      rebuild();
+      syncPanel();
+      setStatus(`倍率を ×${n} にしたよ`);
+    }
+    return;
+  }
+
   const dir = ARROWS[e.key];
   if (!dir) return;
   e.preventDefault();
@@ -165,6 +233,11 @@ window.addEventListener('keydown', (e) => {
   model.moveBy(dir[0] * stepPx, dir[1] * stepPx);
   rebuild();
   syncPanel();
+});
+
+// ゲームへ戻る（2026-07-27 れいあ要望）
+document.getElementById('to-game')!.addEventListener('click', () => {
+  location.href = 'index.html';
 });
 
 // ── 右パネル ──
@@ -327,11 +400,18 @@ el<HTMLButtonElement>('reset').addEventListener('click', () => {
  */
 const SAVE_TO_FILE = import.meta.env.DEV;
 
-/** 一覧に出す1行。`value` は生の名前（開く時に引くキー）、`label` は印つきの表示 */
+/** 一覧に出す1行。`value` は開く時に引くキー、`label` は印つきの表示 */
 interface StageRow {
   value: string;
   label: string;
 }
+
+/**
+ * はじめから入っている型（テンプレート）を指す印。
+ * ⚠️ 自分の型と同じ名前でも取り違えないよう、`value` に前置きして区別する
+ *    （`label` には出さない＝画面には型名だけ見せる）。
+ */
+const BUILTIN = 'builtin:';
 
 function myStageRows(): StageRow[] {
   return loadMyStages().map((s) => ({
@@ -350,36 +430,55 @@ async function fileStageRows(): Promise<StageRow[]> {
 async function refreshStageList(): Promise<void> {
   const box = el<HTMLSelectElement>('open-name');
   const keep = box.value;
-  let rows: StageRow[] = [];
+  let saved: StageRow[] = [];
   try {
-    rows = SAVE_TO_FILE ? await fileStageRows() : myStageRows();
+    saved = SAVE_TO_FILE ? await fileStageRows() : myStageRows();
   } catch {
     // 開発サーバーが居ない開発モード（ほぼ無いが、口が落ちている時）
     setStatus('保存済みの一覧が取れなかったよ');
   }
+  // はじめから入っている型をテンプレートとして出す（2026-07-27 れいあ要望）
+  const builtin: StageRow[] = STAGES.map((s) => ({ value: `${BUILTIN}${s.name}`, label: s.name }));
 
   // 🔴 型名は**他人が書いた文字列**になりうる（リンクでもらった型）。
   //    innerHTML に埋めず、必ず textContent で入れる。
-  if (rows.length === 0) {
+  const mkOption = (r: StageRow): HTMLOptionElement => {
     const o = document.createElement('option');
-    o.value = '';
-    o.textContent = '（保存はまだ無いよ）';
-    box.replaceChildren(o);
-  } else {
-    box.replaceChildren(
-      ...rows.map((r) => {
-        const o = document.createElement('option');
-        o.value = r.value;
-        o.textContent = r.label;
-        return o;
+    o.value = r.value;
+    o.textContent = r.label;
+    return o;
+  };
+  const groups: [string, StageRow[]][] = [
+    [SAVE_TO_FILE ? '保存した型' : '自分の型', saved],
+    ['はじめから入っている型（テンプレート）', builtin],
+  ];
+  box.replaceChildren(
+    ...groups
+      .filter(([, rows]) => rows.length > 0)
+      .map(([label, rows]) => {
+        const g = document.createElement('optgroup');
+        g.label = label;
+        g.append(...rows.map(mkOption));
+        return g;
       }),
-    );
-    if (rows.some((r) => r.value === keep)) box.value = keep;
-  }
-  el<HTMLButtonElement>('open').disabled = rows.length === 0;
-  el<HTMLButtonElement>('del-stage').disabled = rows.length === 0 || SAVE_TO_FILE;
+  );
+  if ([...box.options].some((o) => o.value === keep)) box.value = keep;
+  syncListButtons();
   syncMineOnly();
 }
+
+/**
+ * 一覧の下のボタンの有効・無効。
+ * ⚠️ **消せるのは端末に保存した自分の型だけ**。はじめから入っている型と、
+ *    開発中のファイル保存ぶんは消させない（消してよいものと分けておく）。
+ */
+function syncListButtons(): void {
+  const v = el<HTMLSelectElement>('open-name').value;
+  el<HTMLButtonElement>('open').disabled = !v;
+  el<HTMLButtonElement>('del-stage').disabled = !v || v.startsWith(BUILTIN) || SAVE_TO_FILE;
+}
+
+el<HTMLSelectElement>('open-name').addEventListener('change', syncListButtons);
 
 /**
  * 「自分の型だけで遊ぶ」の状態を画面に反映する。
@@ -449,6 +548,30 @@ el<HTMLButtonElement>('save').addEventListener('click', async () => {
 el<HTMLButtonElement>('open').addEventListener('click', async () => {
   const name = el<HTMLSelectElement>('open-name').value;
   if (!name) return;
+
+  // はじめから入っている型をテンプレートとして開く
+  if (name.startsWith(BUILTIN)) {
+    const src = STAGES.find((s) => s.name === name.slice(BUILTIN.length));
+    if (!src) {
+      setStatus('その型は見つからなかったよ');
+      await refreshStageList();
+      return;
+    }
+    stopPlay();
+    // ⚠️ **必ず複製して渡す**。STAGES は本体と共有している配列なので、
+    //    そのまま編集するとゲーム側で遊べる型まで書き換わる。
+    model.load(structuredClone(src));
+    // ⚠️ 公開版では「〜のコピー」にする＝そのまま保存した時に、元の型を
+    //    書き換えたように見えるのを防ぐ（実際には端末側に別で入る）。
+    //    開発中は元の型そのものを直す運用なので名前を変えない。
+    const asName = SAVE_TO_FILE ? src.name : `${src.name} のコピー`;
+    model.def.name = asName;
+    el<HTMLInputElement>('name').value = asName;
+    rebuild();
+    syncPanel();
+    setStatus(`${src.name} をテンプレートとして開いたよ`);
+    return;
+  }
 
   if (!SAVE_TO_FILE) {
     const found = loadMyStages().find((s) => s.def.name === name);
