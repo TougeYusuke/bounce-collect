@@ -12,9 +12,20 @@ import type { Segment } from './world';
  */
 export interface StageDef {
   name: string;
-  gates: { x1: number; x2: number; y: number; multiplier: number }[];
-  /** capacity を省くと CONFIG.JUMPER_CAPACITY（跳ね返せる玉の個数） */
-  jumpers: { x1: number; x2: number; y: number; capacity?: number }[];
+  /**
+   * `fixed` ＝**倍率を固定する**（2026-07-27 れいあ要望）。
+   * ⚠️ 省略・false なら**毎回抽選**される（`stageRoll.ts`）＝これまでの挙動。
+   *    既存の型（`src/stages/*.json`）は誰も持っていないので、後方互換で全部抽選のまま。
+   */
+  gates: { x1: number; x2: number; y: number; multiplier: number; fixed?: boolean }[];
+  /**
+   * `capacity` を省くと CONFIG.JUMPER_CAPACITY（跳ね返せる玉の個数）。
+   * `fixed` ＝**位置を固定する**（ゲートとは意味が違う＝あちらは倍率）。
+   * ⚠️ 省略・false なら位置が毎回抽選される（幅は保ったまま・`JUMPER_ZONE_TOP` より下）。
+   * ⚠️ 跳ね上限（capacity）は fixed に関わらず**常に抽選**（ラウンドの長さの主レバーなので、
+   *    ここを固定できるようにすると型ごとに通し時間がバラける）。
+   */
+  jumpers: { x1: number; x2: number; y: number; capacity?: number; fixed?: boolean }[];
   dividers: { x1: number; y1: number; x2: number; y2: number }[];
 }
 
@@ -130,13 +141,19 @@ export function normalizeStageDef(raw: unknown): StageDef {
       x2: num(g.x2, CONFIG.BOARD_WIDTH),
       y: num(g.y),
       multiplier: num(g.multiplier, 2),
+      // ⚠️ true 以外（未指定・文字列・null）は全部 false ＝抽選。既存の型と同じ挙動を守る
+      fixed: g.fixed === true,
     })),
     jumpers: objects(o.jumpers).map((j) => {
       const capacity = Math.round(num(j.capacity));
+      const base = {
+        x1: num(j.x1),
+        x2: num(j.x2, CONFIG.BOARD_WIDTH),
+        y: num(j.y),
+        fixed: j.fixed === true,
+      };
       // 0以下は「指定なし」＝CONFIG の既定値を使う（0で保存すると台が最初から死ぬ）
-      return capacity > 0
-        ? { x1: num(j.x1), x2: num(j.x2, CONFIG.BOARD_WIDTH), y: num(j.y), capacity }
-        : { x1: num(j.x1), x2: num(j.x2, CONFIG.BOARD_WIDTH), y: num(j.y) };
+      return capacity > 0 ? { ...base, capacity } : base;
     }),
     dividers: objects(o.dividers).map((d) => ({
       x1: num(d.x1),
@@ -189,7 +206,14 @@ export const DEFAULT_STAGE_DEF: StageDef = {
    *    「幅では差がつかない」という以前の実測は**台を中央に置いた場合**の話で、
    *    壁に寄せた状態では**幅がそのまま「当たりの広さ」になる**。狭めると 141.4倍。
    */
-  jumpers: [{ x1: 0, x2: 80, y: 520 }],
+  /**
+   * ⚠️ `fixed: true`（位置を固定）を付けてある（2026-07-27）。位置抽選を入れた時に、
+   *    **判定装置で合格させた型の前提が崩れるのを防ぐため**。壁寄せ＋幅80は
+   *    `stages:lane` の総当たりが選んだ値で、位置が動くとこの調整が意味を失う。
+   *    保存済みの14型も同じ理由で全部 `fixed: true` にしてある。
+   *    ⚠️ 位置を毎回抽選させたい型では、エディタで固定を外す。
+   */
+  jumpers: [{ x1: 0, x2: 80, y: 520, fixed: true }],
   /**
    * 仕切りで囲った細い道（レーン）。ここへ落ちた玉はジャンプ台に触れずに流れる
    * ＝**狙いを外した時に伸びない場所**になる。

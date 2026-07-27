@@ -277,6 +277,26 @@ export class EditorModel {
   }
 
   /**
+   * 「固定する」の切り替え（2026-07-27 れいあ要望）。
+   * ⚠️ 意味が種類で違う＝**ゲートは倍率／ジャンプ台は位置**を固定する。
+   *    仕切りは抽選の対象ではないので何も起きない。
+   */
+  setFixed(on: boolean): void {
+    const sel = this.selected;
+    if (!sel) return;
+    if (sel.kind === 'gate') this.def.gates[sel.index].fixed = on;
+    else if (sel.kind === 'jumper') this.def.jumpers[sel.index].fixed = on;
+  }
+
+  /** 「固定する」の状態。抽選の対象でないもの（仕切り）は null */
+  fixedOf(sel: Selection | null = this.selected): boolean | null {
+    if (!sel) return null;
+    if (sel.kind === 'gate') return this.def.gates[sel.index]?.fixed === true;
+    if (sel.kind === 'jumper') return this.def.jumpers[sel.index]?.fixed === true;
+    return null;
+  }
+
+  /**
    * 数値を直に打ち込んだ後、制約に収め直す
    * （盤面の中・最小幅・ジャンプ台は最下段の帯）。ドラッグ側は各メソッドが自分で守る。
    */

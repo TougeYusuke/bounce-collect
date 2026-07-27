@@ -47,8 +47,15 @@
         flex: none; min-height: 40px; padding: 0 14px 0 10px;
         font-size: 13px; white-space: nowrap;
       }
-      /* キー一覧。既定は畳んでおく（毎回見るものではない） */
-      .keyhelp { margin-bottom: 16px; }
+      /* キー一覧。
+         ⚠️ **キーボードがある環境だけ出す**（2026-07-27 れいあ要望「PC版限定で」）。
+            スマホには要らないし、狭い画面を食うだけになる。
+         判定は `pointer: fine`（マウスのような細かいポインタ）＋`hover: hover`。
+         画面幅で判定してはいけない＝大きいタブレットでも出てしまう。 */
+      .keyhelp { display: none; margin-bottom: 16px; }
+      @media (hover: hover) and (pointer: fine) {
+        .keyhelp { display: block; }
+      }
       .keyhelp summary {
         cursor: pointer; font-size: 12px; color: var(--accent);
         min-height: 32px; display: flex; align-items: center;
@@ -90,6 +97,16 @@
       }
       .mine-only-row:has(input:disabled) { opacity: 0.55; cursor: default; }
       .mine-only-hint { font-size: 12px; color: var(--sub); margin-top: 2px; }
+      /* 固定するかのチェック。⚠️ 指でも押せる高さにする */
+      .fix-row {
+        display: flex; align-items: center; gap: 9px;
+        min-height: 40px; margin-top: 6px; cursor: pointer;
+        font-size: 13px; color: var(--ink);
+      }
+      .fix-row input {
+        width: 20px; height: 20px; flex: none;
+        accent-color: var(--accent); cursor: pointer;
+      }
       .field input, .field select {
         flex: 1; min-width: 0; padding: 8px 10px;
         border: 1px solid var(--line); border-radius: 8px;
@@ -112,8 +129,9 @@
         バーをドラッグで移動／端をつかむと長さ変更。5px刻みで吸着します。<br />
         選んだあとは<strong>十字キー</strong>でも動かせます（Shiftで5目盛りぶん）。
       </div>
-      <details class="keyhelp">
-        <summary>キーボードで速くやる</summary>
+      <!-- ⚠️ 既定で開いておく（畳んでいると気づかれない・2026-07-27 れいあ指摘） -->
+      <details class="keyhelp" open>
+        <summary>キーボードで速くやる（PCのみ）</summary>
         <dl>
           <dt>Delete / Backspace</dt><dd>選んでいるものを消す</dd>
           <dt>Esc</dt><dd>選択を外す（試遊中なら止める）</dd>
@@ -229,6 +247,14 @@
           <div id="mult-row">
             <div class="t" style="margin: 12px 0 8px">倍率</div>
             <div class="row" id="mults"></div>
+            <!-- 固定するか毎回抽選するか（2026-07-27 れいあ要望） -->
+            <label for="fix-mult" class="fix-row">
+              <input type="checkbox" id="fix-mult" />
+              <span>この倍率を固定する</span>
+            </label>
+            <div class="hint" style="margin: 0 0 4px">
+              チェックを外すと、<strong>始めるたびに抽選</strong>されるよ。
+            </div>
           </div>
 
           <div id="cap-row" hidden>
@@ -240,6 +266,14 @@
             </div>
             <div class="hint" style="margin: 0 0 4px">
               ラウンドの長さはここで決まる。少ないほど早く終わるよ。
+            </div>
+            <!-- 位置を固定するか（2026-07-27 れいあ要望）。⚠️ 跳ね上限は常に抽選 -->
+            <label for="fix-pos" class="fix-row">
+              <input type="checkbox" id="fix-pos" />
+              <span>この位置を固定する</span>
+            </label>
+            <div class="hint" style="margin: 0 0 4px">
+              外すと、始めるたびに<strong>置き場所が抽選</strong>される（幅はそのまま・下の方の帯の中）。
             </div>
           </div>
 

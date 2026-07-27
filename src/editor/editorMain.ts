@@ -235,6 +235,16 @@ window.addEventListener('keydown', (e) => {
   syncPanel();
 });
 
+// 固定するかの切り替え（ゲート＝倍率／ジャンプ台＝位置・2026-07-27 れいあ要望）
+for (const id of ['fix-mult', 'fix-pos']) {
+  el<HTMLInputElement>(id).addEventListener('change', () => {
+    const on = el<HTMLInputElement>(id).checked;
+    model.setFixed(on);
+    const what = id === 'fix-mult' ? '倍率' : '位置';
+    setStatus(on ? `${what}を固定したよ` : `${what}は始めるたびに抽選されるよ`);
+  });
+}
+
 // ゲームへ戻る（2026-07-27 れいあ要望）
 document.getElementById('to-game')!.addEventListener('click', () => {
   location.href = 'index.html';
@@ -280,6 +290,12 @@ function syncPanel(): void {
   el<HTMLInputElement>('f-y').value = String(Math.round(b.y));
   el<HTMLInputElement>('f-x1').value = String(Math.round(b.x1));
   el<HTMLInputElement>('f-x2').value = String(Math.round(b.x2));
+
+  // 固定するかのチェック（ゲート＝倍率／ジャンプ台＝位置）
+  const fixed = model.fixedOf(sel);
+  if (fixed !== null) {
+    el<HTMLInputElement>(sel.kind === 'gate' ? 'fix-mult' : 'fix-pos').checked = fixed;
+  }
 
   if (sel.kind === 'gate') {
     const cur = model.def.gates[sel.index].multiplier;
