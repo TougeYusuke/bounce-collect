@@ -99,6 +99,8 @@ function unlocked() {
     stages: STAGES.filter((s) => stageKeys.has(s.name)),
     ball: findBallSkin(prefs.ball ?? BALL_SKINS[0].key),
     bucket: findBucketSkin(prefs.bucket),
+    // 「おまかせ」かどうかは呼ぶ側で要る（投下前の反映で素材を振り直さないため）
+    theme: prefs.theme,
   };
 }
 
@@ -259,20 +261,11 @@ document.getElementById('restart')!.addEventListener('click', async () => {
   if (ok) newRound();
 });
 
-// ── プレイ中にタイトルへ戻る（2026-07-25 れいあ要望） ──
-// ⚠️ 確認を出すのは**消えるものがある時だけ**。まだ0点なら黙って戻る
-//    （何も失わないのに「消えるよ」と聞かれるのは1手ぶんの邪魔にしかならない）。
-document.getElementById('to-title')!.addEventListener('click', async () => {
-  if (match.displayScore > 0) {
-    const ok = await confirmDialog(
-      'タイトルに戻る？',
-      `いま出てる ${match.displayScore.toLocaleString('ja-JP')} 点は記録されずに消えるよ。`,
-      'タイトルへ',
-    );
-    if (!ok) return;
-  }
-  goToTitle();
-});
+// ── R1の投下前に工房を開く（2026-07-27 れいあ要望） ──
+// ⚠️ プレイ中からタイトルへ戻る口は**持たない**（タイトルへ戻れるのはリザルトだけ・同要望）。
+//    以前ここに置いていた `to-title` は廃止した。
+const workshopFab = document.getElementById('workshop-fab') as HTMLButtonElement;
+workshopFab.addEventListener('click', () => openWorkshop('play'));
 
 // ── タイトル ──
 document.getElementById('title-play')!.addEventListener('click', newRound);
@@ -280,11 +273,45 @@ document.getElementById('title-scores')!.addEventListener('click', () => {
   renderScoresList();
   showScreen('scores');
 });
-document.getElementById('title-workshop')!.addEventListener('click', () => {
+/**
+ * 工房を開いた場所。戻るボタンはここへ返す（2026-07-27 れいあ要望）。
+ * ⚠️ 以前は戻る先がタイトル固定だったので、遊ぶ流れの中で見た目を変えたい時に
+ *    「タイトルへ戻る → 工房 → PLAY」と回り道になり、そのラウンドが作り直しになっていた。
+ */
+let workshopReturn: 'title' | 'play' = 'title';
+function openWorkshop(from: 'title' | 'play'): void {
+  workshopReturn = from;
   renderWorkshop();
   showScreen('workshop');
+}
+document.getElementById('title-workshop')!.addEventListener('click', () => openWorkshop('title'));
+document.getElementById('workshop-back')!.addEventListener('click', () => {
+  if (workshopReturn === 'play') {
+    applyLooks();
+    showScreen('play');
+    return;
+  }
+  goToTitle();
 });
-document.getElementById('workshop-back')!.addEventListener('click', goToTitle);
+
+/**
+ * 投下前に工房で変えた見た目を、いま出ている盤面へその場で反映する。
+ * 🔑 **Match は作り直さない**（作り直すとステージの型と中身まで抽選しなおしになり、
+ *    「工房を閉じたら別の盤面になった」になる）。差し替えるのは絵だけ＝配置は不変。
+ * ⚠️ 素材が「おまかせ」のままなら今の盤面の色を保つ（指定していないものを勝手に振り直さない）。
+ */
+function applyLooks(): void {
+  const open = unlocked();
+  if (open.theme !== RANDOM) {
+    const picked = open.materials[0];
+    if (picked && picked.key !== material.key) {
+      material = picked;
+      renderer.setMaterial(material);
+    }
+  }
+  renderer.setBallSkin(open.ball);
+  renderer.setBucketSkin(open.bucket);
+}
 // ⚠️ 押し間違いで進行が消えるので必ず確認を挟む（ネイティブconfirmは使わない）
 document.getElementById('workshop-reset')!.addEventListener('click', async () => {
   const ok = await confirmDialog(
@@ -337,6 +364,12 @@ function layoutHud(): void {
   hudEl.style.left = `${r.left}px`;
   hudEl.style.right = 'auto';
   hudEl.style.width = `${r.width}px`;
+  // 工房の入口は**盤面の右下の角**に付ける（画面の端ではない）。
+  // ⚠️ 画面端に置くとPCの横長画面で盤面から遠く離れる。CSSの幅と揃えること（82px）。
+  const FAB = 82;
+  const PAD = 14;
+  workshopFab.style.left = `${r.left + r.width - FAB - PAD}px`;
+  workshopFab.style.top = `${r.top + r.height - FAB - PAD}px`;
 }
 
 /**
@@ -425,6 +458,13 @@ function loop(): void {
   hud.setLabel('SCORE');
   // R2もタップ待ちなので、待っている間はその案内に戻す
   setHint(match.session.started ? 'なぞってコップを動かす' : '画面をタップすると始まるよ');
+  // 工房の入口は**R1の投下前だけ**出す。
+  // ⚠️ R2のタップ待ちでは出さない（盤面に玉が居る状態で絵を焼き直すことになる／
+  //    R2は同じラウンドの続きなので途中で見た目が変わるのはおかしい）。
+  // ⚠️ `getScreen()` も見る＝この loop はプレイ中以外も回っているので、これが無いと
+  //    タイトルやリザルトの上にボタンが浮いたままになる。
+  workshopFab.hidden =
+    getScreen() !== 'play' || match.session.started || match.session.mode !== 'r1';
   updateDebug();
 
   if (match.finished && !shownResult) {

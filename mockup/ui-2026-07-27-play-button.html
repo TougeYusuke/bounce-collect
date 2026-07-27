@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Marble Mill — PLAYボタンのリッチ化 4案（2026-07-27）</title>
+    <style>
+      /* ⚠️ 実物（index.html）と同じ変数・同じフォント指定を使う。
+         別々に書くと「モックでは良かったのに実物で違う」が起きる（工房のプレビューで2回踏んだ）。 */
+      :root {
+        --outer: #170e09;
+        --ink: #fdf6ec;
+        --sub: #c0ac93;
+        --accent: #e6b862;
+        --accent-ink: #2e1e05;
+        --panel: #1d1610;
+        --panel-line: rgba(255, 238, 214, 0.12);
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: var(--outer);
+        color: var(--ink);
+        font: 16px/1.6 "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
+        padding: 28px 16px 80px;
+      }
+      .wrap { max-width: 460px; margin: 0 auto; }
+      h1 { font: 800 22px/1.35 inherit; margin-bottom: 6px; }
+      .lead { color: var(--sub); font-size: 15px; margin-bottom: 26px; }
+      .lead b { color: var(--accent); }
+
+      /* 実物のタイトル画面と同じ背景（暗幕＋写真） */
+      .stagebg {
+        border-radius: 20px;
+        padding: 26px 18px 30px;
+        margin-bottom: 14px;
+        background:
+          linear-gradient(rgba(18, 10, 4, 0.58), rgba(18, 10, 4, 0.58)),
+          url(../public/assets/title-bg.jpg) center / cover no-repeat;
+      }
+      .caselbl {
+        display: flex; align-items: baseline; gap: 8px;
+        font: 800 13px/1 inherit; letter-spacing: 0.18em; color: var(--accent);
+        margin-bottom: 12px;
+      }
+      .caselbl .no {
+        width: 24px; height: 24px; border-radius: 50%;
+        border: 1.5px solid var(--accent); display: grid; place-items: center;
+        font: 800 12px/1 inherit; letter-spacing: 0;
+      }
+      .note { font-size: 14px; color: var(--sub); margin-top: 12px; }
+      .note b { color: var(--ink); }
+
+      /* ── 現状（BEFORE）── */
+      .play-now {
+        width: 100%; min-height: 66px;
+        border: 0; border-radius: 18px;
+        background: var(--accent); color: var(--accent-ink);
+        font: 800 21px/1 inherit; letter-spacing: 0.08em; cursor: pointer;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      }
+      .play-now:active { opacity: 0.85; }
+
+      /* ── 案A: 真鍮の銘板（厚みがあって沈む）── */
+      .play-a {
+        position: relative;
+        width: 100%; min-height: 68px;
+        border: 0; border-radius: 18px;
+        background: linear-gradient(180deg, #f7d99b 0%, #e6b862 44%, #c8943d 100%);
+        color: #2e1e05;
+        font: 800 22px/1 inherit; letter-spacing: 0.1em; cursor: pointer;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.6),
+          inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+          0 6px 0 #8a6524,
+          0 16px 30px rgba(0, 0, 0, 0.45);
+        transition: transform 70ms ease, box-shadow 70ms ease;
+      }
+      .play-a:active {
+        transform: translateY(5px);
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.5),
+          inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+          0 1px 0 #8a6524,
+          0 5px 14px rgba(0, 0, 0, 0.4);
+      }
+
+      /* ── 案B: 木の板＋真鍮の枠 ── */
+      .play-b {
+        width: 100%; min-height: 70px;
+        border: 3px solid var(--accent); border-radius: 16px;
+        background: url(../public/assets/board-wood.jpg) center / cover no-repeat;
+        color: var(--ink);
+        font: 800 22px/1 inherit; letter-spacing: 0.12em; cursor: pointer;
+        text-shadow: 0 2px 7px rgba(0, 0, 0, 0.85);
+        box-shadow:
+          inset 0 0 44px rgba(0, 0, 0, 0.42),
+          0 6px 0 #3d2a13,
+          0 16px 28px rgba(0, 0, 0, 0.5);
+        transition: transform 70ms ease, box-shadow 70ms ease;
+      }
+      .play-b:active {
+        transform: translateY(5px);
+        box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 1px 0 #3d2a13, 0 5px 14px rgba(0, 0, 0, 0.45);
+      }
+
+      /* ── 案C: 案A＋ビー玉が転がる（動きで誘う）── */
+      .play-c {
+        position: relative; overflow: hidden;
+        width: 100%; min-height: 68px;
+        border: 0; border-radius: 18px;
+        background: linear-gradient(180deg, #f7d99b 0%, #e6b862 44%, #c8943d 100%);
+        color: #2e1e05;
+        font: 800 22px/1 inherit; letter-spacing: 0.1em; cursor: pointer;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.6),
+          inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+          0 6px 0 #8a6524,
+          0 16px 30px rgba(0, 0, 0, 0.45);
+        transition: transform 70ms ease, box-shadow 70ms ease;
+      }
+      .play-c:active { transform: translateY(5px); }
+      /* 実物の琥珀のビー玉と同じ描き方（斜め上からの光＋下の接地影） */
+      .play-c .marble {
+        position: absolute; top: 50%; left: 14px;
+        width: 26px; height: 26px; border-radius: 50%;
+        margin-top: -13px;
+        background:
+          radial-gradient(circle at 34% 30%, #fff8e6 0%, #f2cf7e 26%, #e8a93f 48%, #a5661c 100%);
+        box-shadow: 2px 3px 5px rgba(0, 0, 0, 0.35), inset -2px -3px 6px rgba(0, 0, 0, 0.25);
+        animation: rollx 2.6s ease-in-out infinite;
+      }
+      @keyframes rollx {
+        0%   { transform: translateX(0) rotate(0deg); }
+        50%  { transform: translateX(14px) rotate(180deg); }
+        100% { transform: translateX(0) rotate(360deg); }
+      }
+
+      /* 全景の比較（推し案で組んだタイトル画面） */
+      .logo { text-align: center; margin-bottom: 30px; }
+      .logo .l1 { font: 800 44px/1.05 ui-rounded, system-ui, sans-serif; letter-spacing: 0.1em; text-indent: 0.1em; color: var(--ink); }
+      .logo .l2 { font: 800 44px/1.05 ui-rounded, system-ui, sans-serif; letter-spacing: 0.1em; text-indent: 0.1em; color: var(--accent); }
+      .logo .rule { width: 76%; height: 1px; margin: 16px auto 11px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.75; }
+      .logo .sub { font: 600 12px/1 inherit; letter-spacing: 0.34em; text-indent: 0.34em; color: var(--sub); }
+      /* リッチ版のロゴ（案A/Cと揃える時の候補：真鍮に光沢＋影） */
+      .logo.rich .l2 {
+        background: linear-gradient(180deg, #fbe6b8 0%, #e6b862 50%, #b9852f 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
+      }
+      .logo.rich .l1 { text-shadow: 0 3px 10px rgba(0, 0, 0, 0.6); }
+      .hs-panel {
+        width: 100%; margin-top: 26px;
+        background: rgba(20, 12, 6, 0.5);
+        border: 1px solid var(--panel-line); border-radius: 18px;
+        padding: 16px 18px;
+      }
+      .hs-panel.rich {
+        background: linear-gradient(180deg, rgba(38, 26, 15, 0.72), rgba(20, 12, 6, 0.62));
+        border-color: rgba(230, 184, 98, 0.28);
+        box-shadow: inset 0 1px 0 rgba(255, 238, 214, 0.1), 0 10px 24px rgba(0, 0, 0, 0.35);
+      }
+      .hs-panel .t {
+        display: flex; align-items: baseline; justify-content: space-between;
+        font: 700 11px/1 inherit; letter-spacing: 0.22em; color: var(--sub); margin-bottom: 8px;
+      }
+      .hs-panel .more { font: 700 12px/1 inherit; letter-spacing: 0; color: var(--accent); }
+      .row { display: flex; justify-content: space-between; font: 700 15px/1.9 inherit; color: var(--ink); }
+      .row span:last-child { color: var(--sub); font-weight: 600; }
+      hr { border: 0; border-top: 1px solid var(--panel-line); margin: 34px 0 26px; }
+      h2 { font: 800 18px/1.4 inherit; margin-bottom: 14px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>PLAYボタンをリッチにする ── 4案</h1>
+      <p class="lead">
+        ぜんぶ<b>押せる</b>よ。指で押した時の沈み方も違うから触って比べてね。<br />
+        木のおもちゃ工房のテイストと真鍮 <b>#e6b862</b> は変えない範囲で作ってある。
+      </p>
+
+      <div class="stagebg">
+        <div class="caselbl"><span class="no">現</span>いま（フラットな真鍮のベタ塗り）</div>
+        <button class="play-now">PLAY</button>
+        <p class="note">影は付いてるけど<b>厚みが無い</b>ので、押しても沈まない（透明度が下がるだけ）。</p>
+      </div>
+
+      <div class="stagebg">
+        <div class="caselbl"><span class="no">A</span>真鍮の銘板（厚みがあって沈む）</div>
+        <button class="play-a">PLAY</button>
+        <p class="note">
+          上に光・下に陰・<b>下面に6pxの厚み</b>を付けて金属の板にした。押すと<b>本当に沈む</b>。
+          リアの推しはこれ＝真鍮の金具という既にある設定と噛み合うから。
+        </p>
+      </div>
+
+      <div class="stagebg">
+        <div class="caselbl"><span class="no">B</span>木の板＋真鍮の枠</div>
+        <button class="play-b">PLAY</button>
+        <p class="note">
+          盤面と同じ<b>木目テクスチャ</b>を敷いて枠を真鍮に。おもちゃ箱のフタっぽい質感。
+          ⚠️ 木目が濃いので文字のコントラストは案Aより落ちる。
+        </p>
+      </div>
+
+      <div class="stagebg">
+        <div class="caselbl"><span class="no">C</span>案A＋ビー玉が転がる</div>
+        <button class="play-c"><span class="marble"></span>PLAY</button>
+        <p class="note">
+          案Aに<b>ゆっくり転がるビー玉</b>を足した。ゲームの主役をボタンの中に出す案。
+          ⚠️ ずっと動くものが画面にあるので、うるさく感じるかは好みが割れる。
+        </p>
+      </div>
+
+      <hr />
+
+      <h2>参考：案Aでタイトル画面まるごと組んだ姿</h2>
+      <p class="lead">ボタンだけリッチにすると浮くので、<b>ロゴと枠も同じ分だけ質感を上げる</b>とこうなる。</p>
+      <div class="stagebg" style="padding: 34px 20px 30px">
+        <div class="logo rich">
+          <div class="l1">MARBLE</div>
+          <div class="l2">MILL</div>
+          <div class="rule"></div>
+          <div class="sub">REIA EDITION</div>
+        </div>
+        <button class="play-a">PLAY</button>
+        <div class="hs-panel rich">
+          <div class="t">HIGH SCORE<span class="more">すべて見る ›</span></div>
+          <div class="row"><span>1　4,120</span><span>マホガニー・07-26</span></div>
+          <div class="row"><span>2　3,880</span><span>チェリー・07-25</span></div>
+          <div class="row"><span>3　2,415</span><span>竹・07-25</span></div>
+        </div>
+        <p class="note">
+          変えたのは3つだけ＝<b>ロゴのMILLに金属の光沢</b>／<b>パネルに内側の光と落ち影</b>／ボタンを案Aに。
+          文字の大きさと配置は今のまま（読みやすさを崩さないため）。
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

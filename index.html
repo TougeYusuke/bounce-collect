@@ -38,6 +38,38 @@
         --accent-ink: #2e1e05;
         --panel: #1d1610;
         --panel-line: rgba(255, 238, 214, 0.12);
+
+        /* ── 質感の共通ルール（2026-07-27・PLAYボタンで確定した案Aを全UIへ展開）──
+           🔑 **影の値をベタ書きで散らさない**。ここを直せば全画面の質感が同時に動く。
+              散らすと「ボタンだけ古い質感が残る」形で必ず崩れる。
+           使い分け:
+             主ボタン（押して進む）      = --brass-face + --lift / :active で --lift-down
+             副ボタン（戻る・キャンセル）= --dark-face  + --lift-dark / --lift-dark-down
+             パネル・カード（押さない）  = --dark-face  + --panel-lift
+           ⚠️ 厚み（`0 Npx 0`）と沈み量（translateY）は**必ずセット**で直す。
+              片方だけ変えるとボタンが床に埋まる／浮いて見える。 */
+        --brass-face: linear-gradient(180deg, #f7d99b 0%, #e6b862 44%, #c8943d 100%);
+        --brass-edge: #8a6524;
+        --dark-face: linear-gradient(180deg, rgba(38, 26, 15, 0.72), rgba(20, 12, 6, 0.62));
+        --dark-edge: #2a1c0c;
+        --brass-line: rgba(230, 184, 98, 0.28);
+        /* 主ボタン: 厚み6px */
+        --lift:
+          inset 0 2px 0 rgba(255, 255, 255, 0.6), inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+          0 6px 0 var(--brass-edge), 0 16px 30px rgba(0, 0, 0, 0.45);
+        --lift-down:
+          inset 0 2px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+          0 1px 0 var(--brass-edge), 0 5px 14px rgba(0, 0, 0, 0.4);
+        /* 副ボタン: 厚み4px */
+        --lift-dark:
+          inset 0 1px 0 rgba(255, 238, 214, 0.14),
+          0 4px 0 var(--dark-edge), 0 12px 22px rgba(0, 0, 0, 0.4);
+        --lift-dark-down:
+          inset 0 1px 0 rgba(255, 238, 214, 0.12),
+          0 1px 0 var(--dark-edge), 0 5px 12px rgba(0, 0, 0, 0.36);
+        /* 押さないパネル: 厚みは付けず、内側の光と落ち影だけ */
+        --panel-lift: inset 0 1px 0 rgba(255, 238, 214, 0.1), 0 10px 24px rgba(0, 0, 0, 0.35);
+        --press: transform 70ms ease, box-shadow 70ms ease;
       }
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body {
@@ -94,20 +126,58 @@
         gap: 10px;
         pointer-events: auto;
       }
+      /* HUDの丸ボタンもPLAYと同じ作法（暗い面＋真鍮の縁＋厚み4px＋押すと沈む）。
+         ⚠️ backdrop-filter は残す＝盤面の絵の上に浮くので、透けないと重く見える。 */
       .icon-btn {
         width: 54px; height: 54px;
         border-radius: 50%;
-        border: 1px solid var(--panel-line);
-        background: rgba(20, 12, 6, 0.62);
+        border: 1px solid var(--brass-line);
+        background: var(--dark-face);
         backdrop-filter: blur(10px);
         color: var(--ink);
         font: 800 19px/1 ui-rounded, system-ui, sans-serif;
         display: flex; align-items: center; justify-content: center;
         cursor: pointer;
+        box-shadow: var(--lift-dark);
+        transition: var(--press);
       }
-      .icon-btn.hot { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-      .icon-btn:active { opacity: 0.8; }
+      /* 速さボタンだけ真鍮の面（いま効いている設定＝主役のボタン） */
+      .icon-btn.hot {
+        background: var(--brass-face); color: var(--accent-ink); border-color: transparent;
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 0 rgba(0, 0, 0, 0.18),
+          0 4px 0 var(--brass-edge), 0 12px 22px rgba(0, 0, 0, 0.4);
+      }
+      .icon-btn:active { transform: translateY(3px); box-shadow: var(--lift-dark-down); }
+      .icon-btn.hot:active {
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 0 rgba(0, 0, 0, 0.18),
+          0 1px 0 var(--brass-edge), 0 5px 12px rgba(0, 0, 0, 0.36);
+      }
       .icon-btn svg { width: 24px; height: 24px; }
+      /* 🔴 `hidden` 属性だけでは消えない（上の display:flex が勝つ）。
+         このファイルで同じ罠を何度も踏んでいるので、display を持つ物には必ず対で書く。 */
+      .icon-btn[hidden] { display: none; }
+      /* 工房への入口。⚠️ R1の投下前だけ出るボタンなので、他のボタンと同じ列に置くと
+         出たり消えたりで隣のボタンの位置が動く（指が覚えた場所が壊れる）。
+         だから盤面の**右下に独立して**浮かせる（2026-07-27 れいあ要望）。 */
+      #workshop-fab {
+        position: fixed;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 4px;
+        width: 82px; height: 82px; border-radius: 24px;
+        border: 1.5px solid var(--accent);
+        background: var(--dark-face);
+        backdrop-filter: blur(10px);
+        color: var(--accent);
+        font: 800 13px/1 inherit; letter-spacing: 0.06em;
+        cursor: pointer;
+        box-shadow: var(--lift-dark);
+        transition: var(--press);
+      }
+      #workshop-fab[hidden] { display: none; }
+      #workshop-fab svg { width: 30px; height: 30px; }
+      #workshop-fab:active { transform: translateY(3px); box-shadow: var(--lift-dark-down); }
       /* 音のオン/オフで波線と×を入れ替える（アイコンを2つ持たない） */
       #sound .snd-off { display: none; }
       #sound[data-muted='true'] .snd-on { display: none; }
@@ -207,7 +277,7 @@
       }
       .load-bar i {
         display: block; height: 100%; width: 0; border-radius: 6px;
-        background: linear-gradient(90deg, #8a6420, var(--accent));
+        background: linear-gradient(90deg, var(--brass-edge), var(--accent));
         transition: width 0.2s ease-out;
       }
 
@@ -252,27 +322,49 @@
       .screen .backdrop { position: absolute; inset: 0; background: rgba(12, 7, 3, 0.72); backdrop-filter: blur(6px); }
 
       /* ── カード（ダイアログ・リザルト共通） ── */
+      /* ⚠️ カードの面は**不透明**のまま（半透明の --dark-face を使わない）。
+         リザルトやダイアログは背景の盤面が透けると文字が読みにくくなる。
+         質感の足し方だけ他と揃える＝上に光の線・真鍮寄りの枠・落ち影。 */
       .card {
         position: relative;
         width: 100%; max-width: 420px;
-        background: var(--panel);
-        border: 1px solid var(--panel-line);
+        background: linear-gradient(180deg, #251b12 0%, #191209 100%);
+        border: 1px solid var(--brass-line);
         border-radius: 22px;
         padding: 28px 24px 22px;
         text-align: center;
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        box-shadow: var(--panel-lift), 0 20px 50px rgba(0, 0, 0, 0.5);
       }
       .card h2 { font: 800 21px/1.4 inherit; color: var(--ink); margin-bottom: 8px; }
       .card p { font-size: 14px; color: var(--sub); margin-bottom: 22px; }
       .row { display: flex; gap: 10px; }
+      /* 主ボタン（もう一回・やり直す）＝PLAYと同じ真鍮の銘板。厚みだけ4pxで小ぶりにする
+         （PLAYが主役なので、同じ6pxにすると格が並んでしまう）。 */
       .btn {
         flex: 1; min-height: 54px;
         border: 0; border-radius: 14px;
         font: 800 16px/1 inherit; cursor: pointer;
-        background: var(--accent); color: var(--accent-ink);
+        background: var(--brass-face); color: var(--accent-ink);
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 0 rgba(0, 0, 0, 0.18),
+          0 4px 0 var(--brass-edge), 0 12px 22px rgba(0, 0, 0, 0.4);
+        transition: var(--press);
       }
-      .btn:active { opacity: 0.8; }
-      .btn.ghost { background: transparent; color: var(--sub); border: 1px solid var(--panel-line); }
+      .btn:active {
+        transform: translateY(3px);
+        box-shadow:
+          inset 0 2px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 0 rgba(0, 0, 0, 0.18),
+          0 1px 0 var(--brass-edge), 0 5px 12px rgba(0, 0, 0, 0.36);
+      }
+      /* 副ボタン（タイトルへ・つづける・リセット）＝暗い面＋真鍮の縁。押すと同じように沈む
+         ⚠️ 透明のままにすると、隣の主ボタンだけ立体で「並んでいない」感じになる。 */
+      .btn.ghost {
+        background: var(--dark-face); color: var(--ink);
+        border: 1px solid var(--brass-line);
+        box-shadow: var(--lift-dark);
+      }
+      .btn.ghost:active { transform: translateY(3px); box-shadow: var(--lift-dark-down); }
 
       .res-label { font: 700 11px/1 inherit; letter-spacing: 0.22em; color: var(--sub); }
       #result-score {
@@ -281,11 +373,16 @@
         letter-spacing: -0.03em; color: var(--accent);
         margin: 8px 0 4px;
       }
+      /* NEW RECORD の札。厚みは2pxだけ（小さいので4pxだと下の縁が目立ちすぎる） */
       .badge {
         display: inline-block;
         font: 800 12px/1 inherit; letter-spacing: 0.14em;
-        background: var(--accent); color: var(--accent-ink);
+        background: var(--brass-face); color: var(--accent-ink);
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
         padding: 7px 12px; border-radius: 999px; margin-bottom: 18px;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.5),
+          0 2px 0 var(--brass-edge), 0 6px 14px rgba(0, 0, 0, 0.35);
       }
       .badge[hidden] { display: none; }
 
@@ -324,11 +421,17 @@
         font: 800 15px/1 inherit; color: var(--ink); }
       .ws-sec-h span { font: 600 11px/1 inherit; color: var(--sub); letter-spacing: .06em; }
       .ws-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 12px; }
+      /* ⚠️ 工房のカードは25枚前後並ぶので、影は**軽く**する（PLAYと同じ厚みを付けると画面が重い）。
+         統一のために「上の光の線」だけは他と同じ作法で入れてある。 */
       .ws-card { display: flex; flex-direction: column; gap: 9px; align-items: center;
         padding: 14px 10px 12px; border-radius: 14px; text-align: center;
-        border: 1px solid var(--panel-line); background: rgba(20,12,6,.55); }
-      .ws-card.got { border-color: rgba(232,193,101,.55); background: rgba(60,40,14,.5);
-        box-shadow: 0 0 0 1px rgba(232,193,101,.18) inset; }
+        border: 1px solid var(--panel-line); background: var(--dark-face);
+        box-shadow: inset 0 1px 0 rgba(255,238,214,.06), 0 4px 12px rgba(0,0,0,.3);
+        transition: var(--press); }
+      .ws-card.got { border-color: var(--brass-line);
+        background: linear-gradient(180deg, rgba(64,44,16,.62), rgba(34,24,10,.55));
+        box-shadow: inset 0 1px 0 rgba(255,238,214,.12), 0 6px 16px rgba(0,0,0,.34); }
+      .ws-card.pick:active { transform: translateY(2px); }
       .ws-card .ws-name { font: 800 14px/1.35 inherit; color: var(--ink); }
       .ws-card .ws-cost { font: 700 12px/1 inherit; color: var(--sub); font-variant-numeric: tabular-nums; }
       .ws-card.got .ws-cost { color: var(--accent); }
@@ -368,10 +471,18 @@
       .logo .l1 {
         font: 800 44px/1.05 ui-rounded, system-ui, sans-serif;
         letter-spacing: 0.1em; text-indent: 0.1em; color: var(--ink);
+        text-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
       }
+      /* MILL だけ真鍮に光沢を入れる（PLAYボタンの質感と揃える・2026-07-27）。
+         ⚠️ `color` を先に置いてから `-webkit-text-fill-color` で抜く順番を守る。
+            逆にすると背景クリップが効かない環境で**文字が消える**。 */
       .logo .l2 {
         font: 800 44px/1.05 ui-rounded, system-ui, sans-serif;
         letter-spacing: 0.1em; text-indent: 0.1em; color: var(--accent);
+        background: linear-gradient(180deg, #fbe6b8 0%, #e6b862 50%, #b9852f 100%);
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55));
       }
       .logo .rule {
         width: 76%; height: 1px; margin: 16px auto 11px;
@@ -379,32 +490,49 @@
         opacity: 0.75;
       }
       .logo .sub { font: 600 12px/1 inherit; letter-spacing: 0.34em; text-indent: 0.34em; color: var(--sub); }
+      /* 真鍮の銘板（2026-07-27 れいあが4案から選択＝案A）。
+         🔑 立体に見えているのは **`0 6px 0` の下面**（厚み）＋内側の上下の光と陰。
+            押した時は translateY で沈めて、同じ量だけ厚みを削る（下面が床に着く動き）。
+         ⚠️ 厚みと沈み量は必ずセットで直す（片方だけ変えるとボタンが床に埋まる/浮く）。
+         元の姿＝`background: var(--accent)` のベタ塗り＋落ち影だけ（押しても沈まなかった）。 */
       .play-btn {
-        width: 100%; min-height: 66px;
+        width: 100%; min-height: 68px;
         border: 0; border-radius: 18px;
-        background: var(--accent); color: var(--accent-ink);
-        font: 800 21px/1 inherit; letter-spacing: 0.08em; cursor: pointer;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        background: var(--brass-face); color: var(--accent-ink);
+        font: 800 22px/1 inherit; letter-spacing: 0.1em; cursor: pointer;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+        box-shadow: var(--lift);
+        transition: var(--press);
       }
-      .play-btn:active { opacity: 0.85; }
+      .play-btn:active { transform: translateY(5px); box-shadow: var(--lift-down); }
+      /* ボタンだけ質感を上げると浮くので、枠にも内側の光と落ち影を入れて同じ分だけ持ち上げる
+         （2026-07-27・モックでれいあ承認）。⚠️ 文字の大きさと配置は変えない＝読みやすさを崩さない。 */
       .hs-panel {
         width: 100%; margin-top: 26px;
-        background: rgba(20, 12, 6, 0.5);
-        border: 1px solid var(--panel-line); border-radius: 18px;
+        background: var(--dark-face);
+        border: 1px solid var(--brass-line); border-radius: 18px;
         padding: 16px 18px; cursor: pointer;
+        box-shadow: var(--panel-lift);
+        transition: var(--press);
       }
+      .hs-panel:active { transform: translateY(2px); }
       .hs-panel .t {
         display: flex; align-items: baseline; justify-content: space-between;
         font: 700 11px/1 inherit; letter-spacing: 0.22em; color: var(--sub); margin-bottom: 6px;
       }
       .hs-panel .more { font: 700 12px/1 inherit; letter-spacing: 0; color: var(--accent); }
+      /* ⚠️ ここは情報行なので**控えめに**。薄い枠と面だけ足して「押せる」と分かる程度に留める
+         （PLAYと同じ厚みを付けると主役が3つになって画面が散る）。 */
       .total-line {
         width: 100%; margin-top: 12px;
         display: flex; align-items: center; gap: 10px;
-        background: transparent; border: 0; cursor: pointer;
+        background: rgba(20, 12, 6, 0.38); border: 1px solid var(--panel-line);
+        border-radius: 12px; cursor: pointer;
         color: var(--sub); font: 700 12px/1 inherit; letter-spacing: 0.14em;
-        padding: 8px 6px;
+        padding: 12px 12px;
+        transition: var(--press);
       }
+      .total-line:hover { border-color: var(--brass-line); }
       .total-line .tl-val {
         color: var(--ink); font-size: 15px; letter-spacing: -0.01em;
         font-variant-numeric: tabular-nums;
@@ -421,11 +549,15 @@
       .result-total .rt-rank { color: var(--accent); }
 
       .title-foot { margin-top: 22px; }
+      /* 工房 / ステージエディタ ＝副ボタンの作法（暗い面＋真鍮の縁＋厚み4px） */
       .title-foot button {
-        font: 700 13px/1 inherit; letter-spacing: 0.06em; color: var(--sub);
-        border: 1px solid var(--panel-line); border-radius: 999px;
-        padding: 11px 20px; background: transparent; cursor: pointer;
+        font: 700 14px/1 inherit; letter-spacing: 0.06em; color: var(--ink);
+        border: 1px solid var(--brass-line); border-radius: 999px;
+        padding: 13px 22px; background: var(--dark-face); cursor: pointer;
+        box-shadow: var(--lift-dark);
+        transition: var(--press);
       }
+      .title-foot button:active { transform: translateY(3px); box-shadow: var(--lift-dark-down); }
 
       /* ── ハイスコア一覧 ── */
       #screen-scores { padding: 0; }
@@ -438,19 +570,31 @@
         max-width: 520px; margin: 0 auto;
       }
       .sheet .head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+      /* ⚠️ スマホで「‹」が見えにくいと指摘（2026-07-27 れいあ）。
+         🔴 1回目は「54pxに拡大＋真鍮色」で直したが、れいあの判定は**「変わった気がしなかった」**。
+            ＝問題は大きさではなく**記号1文字では何のボタンか分からない**こと。
+            だから丸ボタンをやめて「戻る」の文字を入れた横長ボタンにしてある。
+            教訓＝視認性の指摘に対して寸法だけ足しても伝わらない。 */
       .sheet .head .back {
-        width: 44px; height: 44px; border-radius: 50%;
-        border: 1px solid var(--panel-line);
-        background: rgba(20, 12, 6, 0.6); color: var(--ink);
-        font: 800 20px/1 inherit; cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
+        height: 50px; padding: 0 18px 0 13px; border-radius: 25px;
+        border: 1.5px solid var(--accent);
+        background: rgba(230, 184, 98, 0.16); color: var(--accent);
+        font: 800 17px/1 inherit; letter-spacing: 0.04em; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+        white-space: nowrap;
+        box-shadow: var(--lift-dark);
+        transition: var(--press);
       }
+      .sheet .head .back:active { transform: translateY(3px); box-shadow: var(--lift-dark-down); }
+      .sheet .head .back .chev { font-size: 26px; margin-top: -3px; }
+      .sheet .head .back:active { background: rgba(230, 184, 98, 0.3); }
       .sheet .head h2 { font: 800 19px/1 inherit; letter-spacing: 0.12em; color: var(--ink); }
       .sheet .body {
         flex: 1; overflow: auto;
-        background: rgba(20, 12, 6, 0.55);
-        border: 1px solid var(--panel-line); border-radius: 18px;
+        background: var(--dark-face);
+        border: 1px solid var(--brass-line); border-radius: 18px;
         padding: 6px 18px;
+        box-shadow: var(--panel-lift);
       }
     </style>
   </head>
@@ -472,12 +616,8 @@
             <path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" />
           </svg>
         </button>
-        <!-- ⚠️ 新しいボタンは**右端に足す**（既存2つの位置を動かさない＝指が覚えた場所を壊さない） -->
-        <button id="to-title" class="icon-btn" aria-label="タイトルへ戻る">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 10.6 12 3.2l9 7.4" /><path d="M5.6 9.4V20.4h12.8V9.4" />
-          </svg>
-        </button>
+        <!-- ⚠️ タイトルへ戻る口はここには置かない（リザルトの「タイトルへ」だけ・2026-07-27 れいあ要望）。
+             工房の入口は列に混ぜず、盤面の右下（#workshop-fab）に独立して置いている。 -->
         <div class="sound-wrap">
           <button id="sound" class="icon-btn" aria-label="音量" aria-expanded="false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -494,6 +634,15 @@
         </div>
       </div>
     </div>
+
+    <!-- 工房への入口。R1の投下前（まだ玉を落としていない間）だけ盤面の右下に出る。
+         位置は layoutHud() が盤面に合わせて置く（画面端でなく盤面の角に付ける）。 -->
+    <button id="workshop-fab" aria-label="工房で見た目を変える" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <circle cx="8.5" cy="8.5" r="3.6" /><circle cx="16" cy="13" r="3.6" /><circle cx="9.5" cy="17" r="2.8" />
+      </svg>
+      <span>工房</span>
+    </button>
 
     <!-- デバッグ表示（URLに ?debug=1 を付けた時だけ出る） -->
     <div id="debug" hidden></div>
@@ -577,7 +726,7 @@
       <div class="backdrop"></div>
       <div class="sheet">
         <div class="head">
-          <button class="back" id="total-back" aria-label="戻る">‹</button>
+          <button class="back" id="total-back" aria-label="戻る"><span class="chev" aria-hidden="true">‹</span>戻る</button>
           <h2>TOTAL RANKING</h2>
         </div>
         <div class="body"><div class="rank-list" id="total-list"></div></div>
@@ -589,7 +738,7 @@
       <div class="backdrop"></div>
       <div class="sheet">
         <div class="head">
-          <button class="back" id="workshop-back" aria-label="戻る">‹</button>
+          <button class="back" id="workshop-back" aria-label="戻る"><span class="chev" aria-hidden="true">‹</span>戻る</button>
           <h2>WORKSHOP</h2>
         </div>
         <div class="body">
@@ -607,7 +756,7 @@
       <div class="backdrop"></div>
       <div class="sheet">
         <div class="head">
-          <button class="back" id="scores-back" aria-label="戻る">‹</button>
+          <button class="back" id="scores-back" aria-label="戻る"><span class="chev" aria-hidden="true">‹</span>戻る</button>
           <h2>HIGH SCORE</h2>
         </div>
         <div class="body"><div class="rank-list" id="scores-list"></div></div>
