@@ -27,6 +27,7 @@ import {
 } from './ui/screens';
 import { addScore } from './ui/scores';
 import {
+  loadMineOnly,
   loadPrefs,
   loadSpeed,
   loadSupplyKey,
@@ -94,13 +95,17 @@ function unlocked() {
   // ⚠️ 好みは持っていないものが選ばれていることがある（累計リセット後）。loadPrefs が落としてくれる
   const prefs = loadPrefs(ballKeys, themeKeys, bucketKeys);
   const owned = MATERIALS.filter((m) => themeKeys.includes(m.key));
+  const mine = myStageDefs();
+  const mineOnly = loadMineOnly() && mine.length > 0;
   return {
     // 「おまかせ」なら解放済みから抽選、指定があればそれだけ（＝毎回同じ素材で遊べる）
     materials: prefs.theme === RANDOM ? owned : owned.filter((m) => m.key === prefs.theme),
     // 🔴 自分で作った型は**解放判定を通さない**（自分で作ったものに鍵をかける意味がない）。
     //    ⚠️ 既定の型と同じ filter に入れてはいけない＝解放テーブルに名前が無いので**全部落ちる**。
     //    混ぜ方は等確率（2026-07-27 れいあ決定）。`pickStageDef` が配列から等確率で選ぶ。
-    stages: [...STAGES.filter((s) => stageKeys.has(s.name)), ...myStageDefs()],
+    // ⚠️ 「自分の型だけ」は**自作が1個以上ある時だけ**効かせる。0個で効かせると遊べる型が
+    //    ゼロになってゲームが始まらない。
+    stages: mineOnly ? mine : [...STAGES.filter((s) => stageKeys.has(s.name)), ...mine],
     ball: findBallSkin(prefs.ball ?? BALL_SKINS[0].key),
     bucket: findBucketSkin(prefs.bucket),
     // 「おまかせ」かどうかは呼ぶ側で要る（投下前の反映で素材を振り直さないため）

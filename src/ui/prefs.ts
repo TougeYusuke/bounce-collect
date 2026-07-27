@@ -28,6 +28,33 @@ export function savePrefs(p: SkinPrefs): void {
 }
 
 /**
+ * 「自分の型だけで遊ぶ」の保持（2026-07-27 れいあ要望）。
+ *
+ * ⚠️ スキンの好み（上の `KEY`）とは**別のキー**にする。あちらは `resolvePrefs` で
+ *    「持っていないスキンを落とす」解決を通す入れ物なので、無関係な設定を混ぜると
+ *    解決処理の対象が増えて壊れやすくなる。速さを別キーにしてあるのと同じ理由。
+ * ⚠️ 既定は **false（既定の型と混ぜる）**。自作が0個の時に効かせると遊べる型が
+ *    ゼロになるので、効かせる側（`main.ts` の `unlocked()`）で個数も見ること。
+ */
+const MINE_ONLY_KEY = 'marble-mill.mineonly';
+
+export function loadMineOnly(): boolean {
+  try {
+    return localStorage.getItem(MINE_ONLY_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function saveMineOnly(on: boolean): void {
+  try {
+    localStorage.setItem(MINE_ONLY_KEY, on ? '1' : '0');
+  } catch {
+    // 保存できなくてもゲームは続ける
+  }
+}
+
+/**
  * 速さ（1× / 2× / 4×）の保持（2026-07-26 れいあ要望「毎回設定するのは面倒」）。
  *
  * ⚠️ スキンの好み（上の `KEY`）とは**別のキー**にする。工房で累計をリセットした時、

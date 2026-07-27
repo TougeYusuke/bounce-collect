@@ -1,11 +1,13 @@
 import { BallPool } from '../core/ball';
 import { CONFIG } from '../core/config';
+import { MY_STAGE_MAX, loadMyStages, removeMyStage, saveMyStage } from '../core/myStages';
 import { Session } from '../core/session';
 import { stageToWorld } from '../core/stage';
 import { DEFAULT_STAGE_DEF, normalizeStageDef, type StageDef } from '../core/stageDef';
 import { loadArt } from '../render/art';
 import { CanvasRenderer } from '../render/canvasRenderer';
 import { MATERIALS } from '../render/theme';
+import { loadMineOnly, saveMineOnly } from '../ui/prefs';
 import { EditorModel, type GrabMode } from './editorModel';
 
 const boardEl = document.getElementById('board')!;
@@ -314,30 +316,116 @@ el<HTMLButtonElement>('reset').addEventListener('click', () => {
   setStatus('最初の配置に戻したよ');
 });
 
-// ── 保存・読み込み（開発サーバーがファイルを扱う。コピペはさせない）──
+// ── 保存・読み込み ──
+/**
+ * 保存の行き先は2つあり、**混ぜない**（2026-07-27）。
+ * - 開発中（`import.meta.env.DEV`）… 開発サーバーの口 → `src/stages/*.json`
+ *   ＝リアが量産して**製品に同梱する型**の経路。今までどおり。
+ * - 公開版 … `localStorage` ＝**プレイヤーの端末の中だけ**にある型。
+ * ⚠️ 両方に書く二重保存はしない（どちらが正か分からなくなる）。
+ * ⚠️ 公開版の挙動を手元で見たい時は `npm run preview`（本番ビルドを配信）で開く。
+ */
+const SAVE_TO_FILE = import.meta.env.DEV;
+
+/** 一覧に出す1行。`value` は生の名前（開く時に引くキー）、`label` は印つきの表示 */
+interface StageRow {
+  value: string;
+  label: string;
+}
+
+function myStageRows(): StageRow[] {
+  return loadMyStages().map((s) => ({
+    value: s.def.name,
+    // 出どころの印。⚠️ 印は表示だけに付ける（value に混ぜると名前で引けなくなる）
+    label: s.from === 'link' ? `${s.def.name}（もらった型）` : s.def.name,
+  }));
+}
+
+async function fileStageRows(): Promise<StageRow[]> {
+  const res = await fetch('/__stages');
+  const names: string[] = (await res.json())?.stages ?? [];
+  return names.map((n) => ({ value: n, label: n }));
+}
+
 async function refreshStageList(): Promise<void> {
   const box = el<HTMLSelectElement>('open-name');
+  const keep = box.value;
+  let rows: StageRow[] = [];
   try {
-    const res = await fetch('/__stages');
-    const names: string[] = (await res.json())?.stages ?? [];
-    const keep = box.value;
-    box.innerHTML = names.length
-      ? names.map((n) => `<option value="${n}">${n}</option>`).join('')
-      : '<option value="">（保存はまだ無いよ）</option>';
-    if (names.includes(keep)) box.value = keep;
-    el<HTMLButtonElement>('open').disabled = names.length === 0;
+    rows = SAVE_TO_FILE ? await fileStageRows() : myStageRows();
   } catch {
-    // 開発サーバー以外（ビルド版）で開いた時はここに来る。保存・読み込みは使えない
-    box.innerHTML = '<option value="">（開発サーバーでだけ使えるよ）</option>';
-    el<HTMLButtonElement>('open').disabled = true;
-    el<HTMLButtonElement>('save').disabled = true;
-    // ⚠️ ボタンが押せないだけだと「壊れている」ように見えるので、理由を出す
-    setStatus('公開版では保存できないよ。npm run dev のエディタで開いてね');
+    // 開発サーバーが居ない開発モード（ほぼ無いが、口が落ちている時）
+    setStatus('保存済みの一覧が取れなかったよ');
   }
+
+  // 🔴 型名は**他人が書いた文字列**になりうる（リンクでもらった型）。
+  //    innerHTML に埋めず、必ず textContent で入れる。
+  if (rows.length === 0) {
+    const o = document.createElement('option');
+    o.value = '';
+    o.textContent = '（保存はまだ無いよ）';
+    box.replaceChildren(o);
+  } else {
+    box.replaceChildren(
+      ...rows.map((r) => {
+        const o = document.createElement('option');
+        o.value = r.value;
+        o.textContent = r.label;
+        return o;
+      }),
+    );
+    if (rows.some((r) => r.value === keep)) box.value = keep;
+  }
+  el<HTMLButtonElement>('open').disabled = rows.length === 0;
+  el<HTMLButtonElement>('del-stage').disabled = rows.length === 0 || SAVE_TO_FILE;
+  syncMineOnly();
 }
+
+/**
+ * 「自分の型だけで遊ぶ」の状態を画面に反映する。
+ * ⚠️ 端末に保存した型が0個の時は**押せないようにする**。オンにすると遊べる型がゼロになる。
+ * ⚠️ 開発中の保存先はファイル（`src/stages/*.json`）なので、開発中に作った型はここでは
+ *    数に入らない。対象は「端末に保存した型」だけ＝ヒントにもそう書く。
+ */
+function syncMineOnly(): void {
+  const box = el<HTMLInputElement>('mine-only');
+  const count = loadMyStages().length;
+  box.disabled = count === 0;
+  box.checked = loadMineOnly() && count > 0;
+  el<HTMLDivElement>('mine-only-hint').textContent =
+    count === 0
+      ? '端末に型を1つ保存すると選べるようになるよ'
+      : box.checked
+        ? `いま ${count}個の自分の型だけでゲームが回るよ`
+        : `オフの間は、はじめから入っている型と混ざって出るよ（自分の型は${count}個）`;
+}
+
+el<HTMLInputElement>('mine-only').addEventListener('change', () => {
+  saveMineOnly(el<HTMLInputElement>('mine-only').checked);
+  syncMineOnly();
+});
 
 el<HTMLButtonElement>('save').addEventListener('click', async () => {
   const def: StageDef = { ...model.def, name: el<HTMLInputElement>('name').value.trim() };
+  if (!def.name) {
+    setStatus('名前を入れてね');
+    return;
+  }
+
+  if (!SAVE_TO_FILE) {
+    const r = saveMyStage(def, 'me');
+    if (!r.ok) {
+      setStatus(`型は${MY_STAGE_MAX}個までだよ。どれか消してから保存してね`);
+      return;
+    }
+    model.def.name = r.name;
+    el<HTMLInputElement>('name').value = r.name;
+    await refreshStageList();
+    el<HTMLSelectElement>('open-name').value = r.name;
+    setStatus(`保存したよ（${loadMyStages().length}/${MY_STAGE_MAX}個）`);
+    return;
+  }
+
   try {
     const res = await fetch('/__save-stage', {
       method: 'POST',
@@ -361,6 +449,23 @@ el<HTMLButtonElement>('save').addEventListener('click', async () => {
 el<HTMLButtonElement>('open').addEventListener('click', async () => {
   const name = el<HTMLSelectElement>('open-name').value;
   if (!name) return;
+
+  if (!SAVE_TO_FILE) {
+    const found = loadMyStages().find((s) => s.def.name === name);
+    if (!found) {
+      setStatus('その型は見つからなかったよ');
+      await refreshStageList();
+      return;
+    }
+    stopPlay();
+    model.load(found.def); // 読み出しの時点で normalizeStageDef を通してある
+    el<HTMLInputElement>('name').value = model.def.name;
+    rebuild();
+    syncPanel();
+    setStatus(`${name} を開いたよ`);
+    return;
+  }
+
   try {
     const res = await fetch(`/__stages?name=${encodeURIComponent(name)}`);
     if (!res.ok) {
@@ -377,6 +482,15 @@ el<HTMLButtonElement>('open').addEventListener('click', async () => {
   } catch (e) {
     setStatus(`開けなかった: ${String(e)}`);
   }
+});
+
+// 端末に保存した型を消す（開発中はファイルを扱うのでこのボタンは無効）
+el<HTMLButtonElement>('del-stage').addEventListener('click', async () => {
+  const name = el<HTMLSelectElement>('open-name').value;
+  if (!name || SAVE_TO_FILE) return;
+  removeMyStage(name);
+  await refreshStageList();
+  setStatus(`${name} を消したよ（${loadMyStages().length}/${MY_STAGE_MAX}個）`);
 });
 
 // ── 試し撃ち ──

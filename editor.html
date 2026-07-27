@@ -2,7 +2,10 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <title>Marble Mill — ステージエディタ</title>
+    <!-- ⚠️ これが無いとブラウザが /favicon.ico を探して404をコンソールに出す
+         （本物のエラーが埋もれるので塞いでおく） -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Marble Mill — ステージ工房</title>
     <style>
       :root {
         --ink: #fdf6ec;
@@ -56,6 +59,18 @@
 
       .field { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
       .field label { width: 62px; font-size: 12px; color: var(--sub); }
+      /* 自分の型だけで遊ぶ。⚠️ 指で押せる高さ（44px）を確保する */
+      .mine-only-box { margin-top: 14px; }
+      .mine-only-row {
+        display: flex; align-items: center; gap: 10px;
+        min-height: 44px; cursor: pointer; font-size: 14px; color: var(--ink);
+      }
+      .mine-only-row input {
+        width: 22px; height: 22px; flex: none;
+        accent-color: var(--accent); cursor: pointer;
+      }
+      .mine-only-row:has(input:disabled) { opacity: 0.55; cursor: default; }
+      .mine-only-hint { font-size: 12px; color: var(--sub); margin-top: 2px; }
       .field input, .field select {
         flex: 1; min-width: 0; padding: 8px 10px;
         border: 1px solid var(--line); border-radius: 8px;
@@ -90,7 +105,20 @@
         </div>
         <div class="row">
           <button id="open">読み込む</button>
+          <button id="del-stage">この型を消す</button>
+        </div>
+        <div class="row">
           <button id="reset">最初の配置に戻す</button>
+        </div>
+        <!-- 自分の型だけで遊ぶ（2026-07-27 れいあ要望）。
+             ⚠️ 型が0個の時は押せないようにする＝オンにすると遊べる型がゼロになる。
+             ⚠️ `.field` は label 幅が62px固定なので使わない（チェックボックス行には合わない）。 -->
+        <div class="mine-only-box">
+          <label for="mine-only" class="mine-only-row">
+            <input type="checkbox" id="mine-only" />
+            <span>自分の型だけで遊ぶ</span>
+          </label>
+          <div id="mine-only-hint" class="mine-only-hint"></div>
         </div>
         <div id="status"></div>
       </div>

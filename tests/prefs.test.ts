@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { loadSpeed, saveSpeed } from '../src/ui/prefs';
+import { loadMineOnly, loadSpeed, saveMineOnly, saveSpeed } from '../src/ui/prefs';
 
 // localStorage の最小限のスタブ（vitest はブラウザ環境ではない）
 beforeEach(() => {
@@ -53,5 +53,42 @@ describe('速さの保持', () => {
     } as unknown as Storage;
     expect(() => saveSpeed(2)).not.toThrow();
     expect(loadSpeed([1, 2, 4], 1)).toBe(1);
+  });
+});
+
+/**
+ * 「自分の型だけで遊ぶ」の保持（2026-07-27 れいあ要望）。
+ * ⚠️ スキンの好み（`marble-mill.prefs`）とは別キーにする。あちらは `resolvePrefs` で
+ *    「持っていないスキンを落とす」解決を通す入れ物なので、無関係な設定を混ぜない。
+ */
+describe('自分の型だけで遊ぶ設定', () => {
+  it('既定は「既定の型と混ぜる」', () => {
+    expect(loadMineOnly()).toBe(false);
+  });
+
+  it('切り替えを覚える', () => {
+    saveMineOnly(true);
+    expect(loadMineOnly()).toBe(true);
+    saveMineOnly(false);
+    expect(loadMineOnly()).toBe(false);
+  });
+
+  it('⚠️ スキンの好みと同じキーを使っていない（片方を消してもう片方が壊れない）', () => {
+    saveMineOnly(true);
+    localStorage.removeItem('marble-mill.prefs');
+    expect(loadMineOnly()).toBe(true);
+  });
+
+  it('localStorage が使えなくても落ちない', () => {
+    globalThis.localStorage = {
+      getItem: () => {
+        throw new Error('使えない');
+      },
+      setItem: () => {
+        throw new Error('使えない');
+      },
+    } as unknown as Storage;
+    expect(() => saveMineOnly(true)).not.toThrow();
+    expect(loadMineOnly()).toBe(false);
   });
 });
