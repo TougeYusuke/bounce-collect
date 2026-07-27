@@ -166,7 +166,8 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ── 右パネル ──
-const MULTIPLIERS = [2, 3, 4, 10];
+/** ⚠️ `CONFIG.GATE_MULTIPLIER_TABLE` の候補と揃えること（2026-07-27 に ×6 を追加） */
+const MULTIPLIERS = [2, 3, 4, 6, 10];
 /** 跳ね上限のよく使う値。ここを振ってラウンドの長さを探る */
 const CAPACITIES = [50, 100, 200, 400];
 
