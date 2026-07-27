@@ -126,7 +126,47 @@ boardEl.addEventListener('pointerdown', (e) => {
   syncPanel();
 });
 
+/**
+ * マウスの下にあるものに合わせてカーソルの絵を変える（2026-07-27 れいあ要望）。
+ * ⚠️ 元の指摘＝「クリックして操作しないと、移動なのか拡縮なのか分からない」。
+ * ⚠️ **マウスがある環境だけ**（タッチにはカーソルが無いので意味がない）。
+ * ⚠️ ドラッグ中（`grab` あり）は変えない＝掴んだ時の絵のままにする。
+ *    途中で絵が変わると「掴み直した」ように見える。
+ * ⚠️ CSS 側に `#board canvas { cursor: crosshair }` があるので、**canvas に直接**当てる
+ *    （`#board` に当てても CSS の方が具体的なので効かない）。
+ */
+const FINE_POINTER = matchMedia('(hover: hover) and (pointer: fine)').matches;
+let boardCanvas: HTMLCanvasElement | null = null;
+
+function setCursor(v: string): void {
+  if (!FINE_POINTER) return;
+  boardCanvas ??= boardEl.querySelector('canvas');
+  if (boardCanvas) boardCanvas.style.cursor = v;
+}
+
+function updateCursor(p: { x: number; y: number }): void {
+  if (!FINE_POINTER) return;
+  // 試遊中は「触った所に落ちる」操作なので狙いの十字のまま
+  if (session) {
+    setCursor('crosshair');
+    return;
+  }
+  const hit = model.pick(p.x, p.y);
+  if (!hit) {
+    setCursor('crosshair');
+    return;
+  }
+  if (model.grabMode(p.x, p.y, hit) === 'move') {
+    setCursor('move');
+    return;
+  }
+  // 端をつかむ＝長さを変える。仕切りは端点を斜めにも動かせるので斜めの矢印にする
+  setCursor(hit.kind === 'divider' ? 'nwse-resize' : 'ew-resize');
+}
+
 boardEl.addEventListener('pointermove', (e) => {
+  // ⚠️ カーソルの更新はドラッグしていない時だけ（掴んでいる間は絵を固定する）
+  if (!grab) updateCursor(toLogical(e));
   if (session) {
     if (e.pointerType === 'mouse' && e.buttons === 0) return; // マウスは押している間だけ
     session.setCupX(renderer.toLogicalX(e.clientX));
