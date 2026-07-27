@@ -13,6 +13,7 @@ import {
 } from './render/theme';
 import { confirmDialog } from './ui/dialog';
 import { Hud } from './ui/hud';
+import { myStageDefs } from './core/myStages';
 import { STAGES } from './core/stages';
 import { RANDOM, unlockedKeys } from './core/workshop';
 import {
@@ -96,7 +97,10 @@ function unlocked() {
   return {
     // 「おまかせ」なら解放済みから抽選、指定があればそれだけ（＝毎回同じ素材で遊べる）
     materials: prefs.theme === RANDOM ? owned : owned.filter((m) => m.key === prefs.theme),
-    stages: STAGES.filter((s) => stageKeys.has(s.name)),
+    // 🔴 自分で作った型は**解放判定を通さない**（自分で作ったものに鍵をかける意味がない）。
+    //    ⚠️ 既定の型と同じ filter に入れてはいけない＝解放テーブルに名前が無いので**全部落ちる**。
+    //    混ぜ方は等確率（2026-07-27 れいあ決定）。`pickStageDef` が配列から等確率で選ぶ。
+    stages: [...STAGES.filter((s) => stageKeys.has(s.name)), ...myStageDefs()],
     ball: findBallSkin(prefs.ball ?? BALL_SKINS[0].key),
     bucket: findBucketSkin(prefs.bucket),
     // 「おまかせ」かどうかは呼ぶ側で要る（投下前の反映で素材を振り直さないため）
@@ -328,18 +332,13 @@ document.getElementById('title-total')!.addEventListener('click', () => {
   renderTotalRanking();
   showScreen('total');
 });
-{
-  const editorBtn = document.getElementById('title-editor')!;
-  if (import.meta.env.DEV) {
-    editorBtn.addEventListener('click', () => {
-      location.href = 'editor.html';
-    });
-  } else {
-    // ⚠️ 公開版から入口を消す。保存は開発サーバーの口（POST /__save-stage）でしか
-    //    できないので、公開版で開くと「保存できないエディタ」になってしまう。
-    editorBtn.hidden = true;
-  }
-}
+// ステージ工房（別ページ）。
+// ⚠️ 公開版でも出す（2026-07-27）。`editor.html` は元から本番ビルドに同梱されていて
+//    （`vite.config.ts` の rollupOptions.input）、入口を隠していただけだった。
+//    保存先が端末側（localStorage）になったので、開発サーバーが無くても成立する。
+document.getElementById('title-editor')!.addEventListener('click', () => {
+  location.href = 'editor.html';
+});
 
 // タイトルへ戻る（ハイスコアTOP5と添えトータルを描き直してから表示）
 function goToTitle(): void {
