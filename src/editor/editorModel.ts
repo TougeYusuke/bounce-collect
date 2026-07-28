@@ -23,12 +23,12 @@ export interface Selection {
  */
 export type GrabMode = 'move' | 'resize-start' | 'resize-end';
 
-/** バーの当たり判定の縦幅（掴みやすさ優先で見た目より少し広い） */
-const HIT_HEIGHT = 14;
-/** 端をつかんだとみなす幅 */
+/**
+ * 端をつかんだとみなす幅。**マウス用**。
+ * ⚠️ 指はこれでは掴めないので、`editorMain` が選択中の部品に32pxのハンドルを出して受ける。
+ *    ここを広げて兼用にしないこと＝最小幅32pxのバーが端2つで埋まって移動できなくなる。
+ */
 const EDGE = 10;
-/** 仕切りは線なので、線からこの距離までを「乗っている」とみなす */
-const DIVIDER_HIT = 8;
 /** gateMask / jumperMask が32bit整数なので、それぞれ32個まで */
 const MAX_ELEMENTS = 32;
 /** 仕切りはマスクを持たないので上限は要らないが、際限なく増えても扱えないので抑える */
@@ -77,6 +77,10 @@ export class EditorModel {
   /**
    * 論理座標の点に乗っているものを返す。手前（後に描くもの）から順に見る。
    * ⚠️ 仕切りは最後。細い線を先に見るとゲートと交差した所でゲートが掴めなくなる。
+   * ⚠️ **拾う順（ジャンプ台 → ゲート → 仕切り）を崩さないこと**。既定の型は最下段が
+   *    「ジャンプ台｜ゲート」の横並びなので、順を入れ替えると同じ段で取り違える。
+   * ⚠️ 広げるのは**縦だけ**（`CONFIG.EDITOR_HIT`）。横はバーの範囲そのまま＝同じ段の
+   *    ゲートの隙間が18pxしかなく、広げると隣が返る。
    */
   pick(x: number, y: number): Selection | null {
     const kinds: ElementKind[] = ['jumper', 'gate'];
@@ -84,13 +88,13 @@ export class EditorModel {
       const list = this.bars(kind);
       for (let i = list.length - 1; i >= 0; i--) {
         const b = list[i];
-        if (x >= b.x1 && x <= b.x2 && Math.abs(y - b.y) <= HIT_HEIGHT / 2) {
+        if (x >= b.x1 && x <= b.x2 && Math.abs(y - b.y) <= CONFIG.EDITOR_HIT) {
           return { kind, index: i };
         }
       }
     }
     for (let i = this.def.dividers.length - 1; i >= 0; i--) {
-      if (distanceToDivider(x, y, this.def.dividers[i]) <= DIVIDER_HIT) {
+      if (distanceToDivider(x, y, this.def.dividers[i]) <= CONFIG.EDITOR_HIT) {
         return { kind: 'divider', index: i };
       }
     }

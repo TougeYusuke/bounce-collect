@@ -29,6 +29,40 @@ describe('エディタの選択', () => {
   });
 });
 
+describe('指で掴めるだけの当たり判定', () => {
+  it('バーの上下に指の太さぶん離れていても掴める', () => {
+    const m = model();
+    const g = m.def.gates[0];
+    const cx = (g.x1 + g.x2) / 2;
+    expect(m.pick(cx, g.y - CONFIG.EDITOR_HIT)).toEqual({ kind: 'gate', index: 0 });
+    expect(m.pick(cx, g.y + CONFIG.EDITOR_HIT)).toEqual({ kind: 'gate', index: 0 });
+  });
+
+  it('仕切りも指の太さで掴める', () => {
+    const m = model();
+    const d = m.def.dividers[0];
+    // ⚠️ 段（300/410/520）を避けた高さで見る。段の上ではゲートが優先される
+    expect(m.pick(d.x1 - CONFIG.EDITOR_HIT, 350)).toEqual({ kind: 'divider', index: 0 });
+  });
+
+  it('⚠️ 縦は隣の段まで届かない（段の間隔110pxの半分より狭いこと）', () => {
+    expect(CONFIG.EDITOR_HIT * 2).toBeLessThan(110);
+  });
+
+  it('⚠️ 横は広げない（ゲート同士の隙間が18pxしかなく、隣を掴んでしまう）', () => {
+    const m = model();
+    const g = m.def.gates[0];
+    expect(m.pick(g.x2 + 6, g.y)).toBeNull();
+  });
+
+  it('⚠️ 同じ段のジャンプ台とゲートを取り違えない（拾う順を崩さない）', () => {
+    const m = model();
+    // 既定の型は最下段が「ジャンプ台(0〜80)｜ゲート(178〜360)」の横並び
+    expect(m.pick(40, 520)).toEqual({ kind: 'jumper', index: 0 });
+    expect(m.pick(250, 520)).toEqual({ kind: 'gate', index: 5 });
+  });
+});
+
 describe('エディタの移動', () => {
   it('動かすとグリッドに吸着する', () => {
     const m = model();
