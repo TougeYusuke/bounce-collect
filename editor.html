@@ -193,6 +193,8 @@
       /* 操作の説明は「マウス＋キーボード」と「指」で別物なので出し分ける */
       .hint-touch { display: none; }
       .only-touch { display: none; }
+      /* つまみバーは縦持ちだけの部品（PCは右パネルに全部出ているので要らない） */
+      #grip-bar { display: none; }
 
       /* ── 縦持ち＝盤面を上・操作パネルを下（2026-07-28「スマホだけで一から作れる」）──
          🔑 **PCの右パネルは壊さない**。狭い画面か指の環境だけ下パネルへ組み替える。
@@ -204,24 +206,44 @@
         #board { flex: 1 1 auto; min-height: 0; }
         #side {
           width: 100%; flex: none;
-          /* ⚠️ 高さは**固定**にする。中身の量で伸縮させると盤面の大きさが変わり、
-               そのたび拡大率の焼き直し（`renderer.resize`）が走る。
+          /* 🔑 高さは**中身なり**。畳んでいる時はつまみバー1行だけ＝**盤面が画面いっぱい**になる
+               （2026-07-28 れいあ実機「盤面が小さい」＝群を常に全部出していたのが原因）。
+             ⚠️ 高さが変わると盤面の大きさも変わる＝出し入れのたびに `renderer.resize()` が要る
+                （`syncPanel` から呼んでいる。window の resize では発火しない）。
+             ⚠️ 出し入れにアニメーションを付けないこと（毎フレーム resize が走る）。
              ⚠️ `dvh` はアドレスバーを除いた実際の高さ。先に `vh` を書くのは古い環境の保険。 */
-          height: 40vh;
-          height: 40dvh;
+          height: auto;
+          max-height: 60vh;
+          max-height: 60dvh;
           border-left: none; border-top: 1px solid var(--brass-line);
           box-shadow: var(--panel-lift);
           /* ⚠️ iPhoneのホームバーに最後の行が潜るので下に余白を足す */
-          padding: 12px 12px calc(14px + env(safe-area-inset-bottom));
+          padding: 0 12px calc(10px + env(safe-area-inset-bottom));
         }
-        .hint-pc { display: none; }
-        .hint-touch { display: block; }
-        /* 🔑 選択中は「保存・追加・中身・試し撃ち」を畳む＝狭い所で操作を探させない。
-             ⚠️ 畳んだ側へ戻る口（選択を外す）を必ず出すこと。何もない所を叩いても戻れるが、
-                「戻り方が分からない」が一番きつい詰まり方。 */
-        #side.has-sel .when-idle { display: none; }
-        #side:not(.has-sel) .when-sel { display: none; }
+        /* ── つまみバー＝いつも見えている1行（追加とメニューの口）──
+           🔑 **既定はこれ1本だけ**＝盤面を最大にするための形。
+              計画 Task 9 の「選択が無い時は**追加だけ**」が指していたのはこれ。
+           ⚠️ `sticky` にするのは、中身を出した時にスクロールで消えないため。 */
+        #grip-bar {
+          display: flex; gap: 6px; position: sticky; top: 0; z-index: 2;
+          padding: 10px 0; background: var(--panel);
+        }
+        #grip-bar button { min-width: 0; padding: 0 2px; font-size: 12px; }
+        /* 既定は畳む。メニューを開いた時／部品を選んだ時だけ中身を出す。
+           ⚠️ 選択中はメニュー側を出さない（狭い所に2つ出すと溢れる）。 */
+        .side-head, .hint, .keyhelp-open, .when-idle, .when-sel { display: none; }
+        #side.menu-open:not(.has-sel) .side-head { display: flex; }
+        #side.menu-open:not(.has-sel) .hint-touch,
+        #side.menu-open:not(.has-sel) .when-idle { display: block; }
+        #side.has-sel .when-sel { display: block; }
         .only-touch { display: block; }
+        /* 🔑 数値の欄は既定で畳む＝**部品を動かしている時こそ盤面が要る**（選択中にパネルが
+             画面の半分を占めていたのが「盤面が小さい」の実体・2026-07-28）。
+           🔴 `display: block` で出すと `hidden` 属性が**効かなくなる**（罠2）。
+              仕切りを選んだ時にバー用の欄まで出てしまうので、`:not([hidden])` で守る。 */
+        #bar-fields, #divider-fields { display: none; }
+        #side.nums-open #bar-fields:not([hidden]),
+        #side.nums-open #divider-fields:not([hidden]) { display: block; }
         /* 倍率5個を1行に収める（折り返すと下の「削除」が画面の外へ出る） */
         #mults button, #caps button { min-width: 56px; }
         /* ⚠️ 説明文は12pxだと手に持って読むには小さい。狭い画面ほど上げる */
@@ -235,6 +257,15 @@
     <div id="board"></div>
 
     <aside id="side">
+      <!-- 縦持ちで**いつも見えている1行**。ここだけ出しておくと盤面が画面いっぱいに使える。
+           ⚠️ 追加ボタンは下の本体ボタンへ委譲する（同じ状態を2か所に持たない）。
+           ⚠️ PCでは出さない（右パネルに全部並んでいる）。 -->
+      <div id="grip-bar">
+        <button id="grip-gate" type="button">＋ゲート</button>
+        <button id="grip-jumper" type="button">＋ジャンプ台</button>
+        <button id="grip-divider" type="button">＋仕切り</button>
+        <button id="grip-menu" type="button">メニュー</button>
+      </div>
       <!-- ⚠️ ゲームへ戻る口。無いと閉じるしか手が無くなる（2026-07-27 れいあ要望） -->
       <div class="side-head">
         <button id="to-game" type="button">‹ ゲームに戻る</button>
@@ -319,6 +350,10 @@
             <label>種類</label>
             <span id="sel-kind"></span>
           </div>
+
+          <!-- ⚠️ 指で作る時は数値を使わない（端の丸を動かすと値は指の上に出る）ので、
+               縦持ちでは数値の欄を既定で畳む＝**盤面を広く保つ**。開く口はこのボタン。 -->
+          <button id="nums-toggle" class="only-touch" type="button">数値で合わせる</button>
 
           <div id="bar-fields">
             <div class="field">

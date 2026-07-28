@@ -490,13 +490,24 @@ function syncPanel(): void {
   const sel = model.selected;
   el<HTMLDivElement>('sel-none').hidden = !!sel;
   el<HTMLDivElement>('sel-panel').hidden = !sel;
-  // ⚠️ 縦持ちの下パネルでは、選択中に「保存・追加・中身・試し撃ち」の群を畳む
-  //    （狭い所で操作を探させない）。畳むのはCSS側（`#side.has-sel .when-idle`）で、
-  //    PCの右パネルには効かない＝どちらの形も同じ関数で回る。
-  el<HTMLElement>('side').classList.toggle('has-sel', !!sel);
+  // ⚠️ 縦持ちの下パネルは**既定で畳んである**（つまみバー1行だけ＝盤面を最大にする）。
+  //    部品を選んだら操作パネルを出し、メニュー側は閉じる（狭い所に2つ出すと溢れる）。
+  //    出し入れはCSS側（`#side.has-sel` / `#side.menu-open`）＝PCの右パネルには効かない。
+  const side = el<HTMLElement>('side');
+  side.classList.toggle('has-sel', !!sel);
+  if (sel) side.classList.remove('menu-open');
+  syncMenuLabel();
   el<HTMLButtonElement>('add-gate').disabled = !model.canAddGate();
   el<HTMLButtonElement>('add-jumper').disabled = !model.canAddJumper();
   el<HTMLButtonElement>('add-divider').disabled = !model.canAddDivider();
+  // つまみバー側も本体と同じ状態にする（押せないのに押せそうに見せない）
+  el<HTMLButtonElement>('grip-gate').disabled = !model.canAddGate();
+  el<HTMLButtonElement>('grip-jumper').disabled = !model.canAddJumper();
+  el<HTMLButtonElement>('grip-divider').disabled = !model.canAddDivider();
+  // 🔴 パネルの高さが変わると盤面の大きさも変わるので、ここで描き直す。
+  //    ⚠️ `window` の resize では発火しない（パネルの開閉はウィンドウを変えないため）。
+  //    ⚠️ `resize()` は寸法が同じなら何もしない＝毎回呼んでも重くならない。
+  renderer.resize();
   if (!sel) return;
 
   const isDivider = sel.kind === 'divider';
@@ -633,6 +644,43 @@ el<HTMLButtonElement>('del').addEventListener('click', () => {
 // 選択を外す（縦持ちで畳んだ群へ戻る口。⚠️ PCでは Esc があるのでボタンはCSSで隠してある）
 el<HTMLButtonElement>('deselect').addEventListener('click', () => {
   model.select(null);
+  rebuild();
+  syncPanel();
+});
+
+// ── つまみバー（縦持ちでいつも見えている1行）──
+/** メニューの口のラベル。開いている時は「閉じる」＝同じボタンで戻れると分かるようにする */
+function syncMenuLabel(): void {
+  const open = el<HTMLElement>('side').classList.contains('menu-open');
+  el<HTMLButtonElement>('grip-menu').textContent = open ? '閉じる' : 'メニュー';
+}
+
+// ⚠️ 追加は本体のボタンへ**委譲**する（同じ処理を2か所に書かない。キー操作と同じやり方）
+for (const [gripId, realId] of [
+  ['grip-gate', 'add-gate'],
+  ['grip-jumper', 'add-jumper'],
+  ['grip-divider', 'add-divider'],
+] as const) {
+  el<HTMLButtonElement>(gripId).addEventListener('click', () => {
+    el<HTMLButtonElement>(realId).click();
+  });
+}
+
+/**
+ * 数値の欄の出し入れ（縦持ちだけ・2026-07-28 れいあ実機「盤面が小さい」への手当て）。
+ * ⚠️ 指で作る時は数値を使わない（端の丸を動かすと値が指の上に出る）ので既定は畳む。
+ * ⚠️ 一度開いたら選択を変えても開いたまま（数値で詰めたい人がいちいち開き直さないように）。
+ */
+el<HTMLButtonElement>('nums-toggle').addEventListener('click', () => {
+  const open = el<HTMLElement>('side').classList.toggle('nums-open');
+  el<HTMLButtonElement>('nums-toggle').textContent = open ? '数値を閉じる' : '数値で合わせる';
+  renderer.resize(); // 高さが変わる＝盤面の大きさも変わる
+});
+
+el<HTMLButtonElement>('grip-menu').addEventListener('click', () => {
+  // ⚠️ 選択中にメニューを開かない＝先に選択を外す（操作パネルと二重に出さないため）
+  if (model.selected) model.select(null);
+  el<HTMLElement>('side').classList.toggle('menu-open');
   rebuild();
   syncPanel();
 });
