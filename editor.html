@@ -222,13 +222,20 @@
           height: auto;
           max-height: 76px;
           transition: max-height 180ms ease;
+          /* ⚠️ 閉じている間は中身をスクロールさせない（つまみバーだけ見せる）。
+               開いた時だけ `auto` に戻す（下の `.menu-open`）。 */
+          overflow: hidden;
           border-left: none; border-top: 1px solid var(--brass-line);
           box-shadow: var(--panel-lift);
           /* ⚠️ iPhoneのホームバーに最後の行が潜るので下に余白を足す */
           padding: 0 12px calc(10px + env(safe-area-inset-bottom));
         }
-        /* 何か開いている間だけ伸びる（畳んでいる時はつまみバー1行ぶん） */
-        #side.menu-open, #side.has-sel { max-height: 60vh; max-height: 60dvh; }
+        /* 🔴 伸びるのは**メニューを開いた時だけ**。**部品を選んでも伸ばさない**
+             （2026-07-28 れいあ「部品選択中は強制的にメニューが開く」＝ここが正体だった。
+              盤面の上での操作＝選ぶ・動かす・伸ばす は、閉じたままできる）。
+           ⚠️ 実際の高さは JS が**px で**入れる（`dvh` のままだと伸縮が補間されず
+              「パッと出る」ことがある）。ここの `dvh` は JS が効かない時の保険。 */
+        #side.menu-open { max-height: 60vh; max-height: 60dvh; overflow: auto; }
         /* ── つまみバー＝いつも見えている1行（追加とメニューの口）──
            🔑 **既定はこれ1本だけ**＝盤面を最大にするための形。
               計画 Task 9 の「選択が無い時は**追加だけ**」が指していたのはこれ。
@@ -269,17 +276,17 @@
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: none; }
         }
+        /* ⚠️ 走らせる条件は **`menu-open`**。`has-sel` に付けると、閉じたまま部品を選んだ時に
+             （見えない所で）走り終わってしまい、あとでメニューを開いても動かない。 */
         #side.menu-open .side-head,
         #side.menu-open .when-idle,
-        #side.has-sel .when-sel { animation: panel-in 180ms ease both; }
+        #side.menu-open .when-sel { animation: panel-in 180ms ease both; }
       }
-      /* 動きを減らす設定の人には出さない（酔い・目の負担への配慮） */
-      @media (prefers-reduced-motion: reduce) {
-        #side { transition: none; }
-        #side.menu-open .side-head,
-        #side.menu-open .when-idle,
-        #side.has-sel .when-sel { animation: none; }
-      }
+      /* ⚠️ `prefers-reduced-motion: reduce` での打ち消しは**あえて入れていない**。
+           一度入れたら、れいあの端末で「アニメーションが再生されない」になった
+           （iPhoneの「視差効果を減らす」がONだと全部消える・2026-07-28）。
+           れいあ本人が「軽くでいいから動きが欲しい」と明示しているので、その意思を優先する。
+           ⚠️ 戻すなら本人に確認してから（勝手に配慮で消さない）。 */
     </style>
   </head>
   <body>

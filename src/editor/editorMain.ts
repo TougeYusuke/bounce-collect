@@ -679,12 +679,29 @@ el<HTMLButtonElement>('nums-toggle').addEventListener('click', () => {
   renderer.resize(); // 高さが変わる＝盤面の大きさも変わる
 });
 
+/**
+ * メニュー（保存・追加・試し撃ち）の出し入れ。
+ *
+ * 🔴 **部品を選んでも勝手には開かない**（2026-07-28 れいあ「部品選択中は強制的にメニューが開く」）。
+ *    盤面の上での操作＝選ぶ・動かす・伸ばす は**閉じたまま**できる＝盤面を大きく保つため。
+ *    倍率や削除を触りたい時だけ自分で開く（開くと選択中の操作が `order` で一番上に出る）。
+ * ⚠️ 高さは**pxで入れる**。`dvh` のままだと伸縮が補間されず「パッと出る」ことがある
+ *    （れいあ端末で「アニメーションが再生されない」となった原因の1つ）。
+ * ⚠️ `scrollHeight` は**中身を出してから**測る（隠している間は中身の高さが取れない）。
+ * ⚠️ 閉じる時は空文字に戻す＝CSS側の 76px（つまみバー1行）へ縮む。
+ */
+function setMenuOpen(open: boolean): void {
+  const side = el<HTMLElement>('side');
+  side.classList.toggle('menu-open', open);
+  const cap = Math.round(window.innerHeight * 0.6);
+  side.style.maxHeight = open ? `${Math.min(side.scrollHeight, cap)}px` : '';
+  syncMenuLabel();
+  renderer.resize();
+}
+
 el<HTMLButtonElement>('grip-menu').addEventListener('click', () => {
-  // 🔴 **選択には触らない**（2026-07-28 れいあ要望）。部品を選んだままメニューを開け閉めできる
-  //    ＝「閉じるのに一度選択を外さないといけない」状態を無くす。
-  //    ⚠️ 選択中の操作は CSS の `order` でメニューより上に出るので、両方出ても迷わない。
-  el<HTMLElement>('side').classList.toggle('menu-open');
-  syncPanel();
+  // ⚠️ **選択には触らない**＝部品を選んだままメニューを開け閉めできる
+  setMenuOpen(!el<HTMLElement>('side').classList.contains('menu-open'));
 });
 
 /**
@@ -972,4 +989,8 @@ void renderer.init(boardEl, stageToWorld(stage)).then(() =>
   }),
 );
 
-window.addEventListener('resize', () => renderer.resize());
+window.addEventListener('resize', () => {
+  renderer.resize();
+  // ⚠️ 開いている時の高さは px で入れてあるので、画面が変わったら測り直す（回転で崩れる）
+  if (el<HTMLElement>('side').classList.contains('menu-open')) setMenuOpen(true);
+});
