@@ -27,13 +27,18 @@ export class CanvasRenderer implements Renderer {
   private offsetX = 0;
   private offsetY = 0;
   /**
-   * 盤面を上端に寄せる（既定は上下中央）。
-   * ⚠️ **工房（editor.html）だけで使う**。工房は下パネルを盤面に**重ねて**いるので、
-   *    上下中央だと上にできる余白のぶん、下端がパネルの裏へ深く入る。
-   *    上に寄せれば「見せる必要のない上の余白」が消えて、その分だけ下が見える。
+   * 盤面の下端を「覆われていない範囲の下端」に合わせる（既定は上下中央）。
+   *
+   * 🔑 **工房（editor.html）だけで使う**。工房は下パネルを盤面に**重ねて**いるので、
+   *    上下中央のままだと、パネルの裏に隠れる帯がそのまま見えない領域になる。
+   *    下端を合わせると**パネルが伸びたぶん盤面が上へスクロールする**形になり、
+   *    「見せる必要のない上の余白」から先に画面の外へ出ていく。
+   * ⚠️ 盤面が丸ごと入り切る時は 0（＝上寄せ）で止める。上に余白を作らないため。
    * ⚠️ ゲーム本体では使わない（上下中央のままバケツとHUDの位置が決まっている）。
    */
-  alignTop = false;
+  stickToBottom = false;
+  /** 下から覆われている高さ（CSSピクセル）。`setBottomInset` で伝える */
+  private bottomInset = 0;
   /** 最後に作り直した時の大きさ。⚠️ 同じ大きさで何度も焼き直さないため */
   private lastW = -1;
   private lastH = -1;
@@ -136,10 +141,35 @@ export class CanvasRenderer implements Renderer {
     this.canvas.height = Math.floor(h * dpr);
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
+    this.layout();
+    this.sprites = null; // 拡大率が変わったので焼き直す
+  }
+
+  /**
+   * 拡大率と余白を計算し直す。
+   * ⚠️ **スプライトは焼き直さない**＝`setBottomInset` から毎フレーム呼んでも重くならない。
+   *    焼き直しが要るのは拡大率が変わった時だけで、それは `resize` が持っている。
+   */
+  private layout(): void {
+    const w = this.lastW;
+    const h = this.lastH;
     this.scale = Math.min(w / this.world.width, h / this.world.height);
     this.offsetX = (w - this.world.width * this.scale) / 2;
-    this.offsetY = this.alignTop ? 0 : (h - this.world.height * this.scale) / 2;
-    this.sprites = null; // 拡大率が変わったので焼き直す
+    const drawn = this.world.height * this.scale;
+    this.offsetY = this.stickToBottom
+      ? Math.min(0, h - this.bottomInset - drawn)
+      : (h - drawn) / 2;
+  }
+
+  /**
+   * 下から覆われている高さ（CSSピクセル）を伝える。工房の下パネルが盤面に重なるぶん。
+   * 🔑 これを毎フレーム更新すると、**パネルの伸縮に盤面が追従してスクロールする**。
+   * ⚠️ 拡大率は変わらないのでスプライトは焼き直さない＝毎フレーム呼んでよい。
+   */
+  setBottomInset(px: number): void {
+    if (this.bottomInset === px) return;
+    this.bottomInset = px;
+    this.layout();
   }
 
   /** 画面のX座標を盤面の論理X座標に変換する */

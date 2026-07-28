@@ -13,10 +13,11 @@ import { EditorModel, handleRadius, type GrabMode } from './editorModel';
 
 const boardEl = document.getElementById('board')!;
 const renderer = new CanvasRenderer();
-// ⚠️ 工房は下パネルを盤面に**重ねる**ので、盤面を上端に寄せて上の余白を消す
-//    （2026-07-28 れいあ「わざわざ上部分を見せる必要がない」）。
+// ⚠️ 工房は下パネルを盤面に**重ねる**ので、盤面の下端をパネルの上に合わせる
+//    ＝パネルが伸びると盤面が上へスクロールして、見せる必要のない上の余白から先に外へ出る
+//    （2026-07-28 れいあ「盤面を上にずらして、下にスクロールしたみたいな感じに」）。
 //    ⚠️ `init` の中で最初の `resize` が走るので、**その前に**立てること。
-renderer.alignTop = true;
+renderer.stickToBottom = true;
 const empty = new BallPool(1); // 編集中は玉なしで盤面だけ描く
 
 let model = new EditorModel(structuredClone(DEFAULT_STAGE_DEF));
@@ -26,6 +27,9 @@ let session: Session | null = null; // 試遊中だけ入る
 
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const status = el<HTMLDivElement>('status');
+const sideEl = el<HTMLElement>('side');
+/** 縦持ち（下パネルを盤面に重ねる形）かどうか。⚠️ CSS のメディアクエリと同じ条件にすること */
+const COMPACT = matchMedia('(max-width: 900px), (pointer: coarse)');
 
 function setStatus(msg: string): void {
   status.textContent = msg;
@@ -37,7 +41,22 @@ function rebuild(): void {
 }
 
 // ── 描画 ──
+/**
+ * 下パネルが盤面をどれだけ覆っているかを毎フレーム伝える。
+ *
+ * 🔑 これで**パネルの伸縮に盤面が追従してスクロールする**（2026-07-28 れいあ
+ *    「盤面を上にずらして、下にスクロールしたみたいな感じに」）。伸縮の途中も含めて
+ *    ぴったり付いてくるので、動きが2つに割れない。
+ * ⚠️ 拡大率は幅で決まっていて変わらない＝`setBottomInset` はスプライトを焼き直さない。
+ *    だから毎フレーム呼んでよい（`resize` を毎フレーム呼ぶのとは別物）。
+ * ⚠️ **PCの右パネルは盤面に重なっていない**ので 0 を渡す。高さを渡すと盤面が上へ吹き飛ぶ。
+ */
+function followPanel(): void {
+  renderer.setBottomInset(COMPACT.matches ? sideEl.offsetHeight : 0);
+}
+
 function draw(): void {
+  followPanel();
   if (session) {
     renderer.draw(session.pool, CONFIG.BALL_RADIUS, session.stage, session.cupX, 0);
   } else {
