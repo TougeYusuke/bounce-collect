@@ -62,6 +62,8 @@
         font: 14px/1.6 "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
         display: flex;
         overflow: hidden;
+        /* ⚠️ 縦持ちでは下パネルを盤面の上に重ねる（`position: absolute`）。その基準がここ */
+        position: relative;
       }
 
       /* 盤面 */
@@ -209,6 +211,13 @@
         #board { flex: 1 1 auto; min-height: 0; }
         #side {
           width: 100%; flex: none;
+          /* 🔑 **盤面の上に重ねる**（2026-07-28 れいあ「メニューを開いたときにビューがパッと変わる」
+               「閉じたときに2段階で戻る」）。パネルが場所を取ると盤面の大きさが変わり、そのたび
+               canvas を作り直す＝**開閉のたびに盤面がガクッと拡大縮小する**のが正体だった。
+               重ねてしまえば**盤面は一度も変わらない**＝伸縮は本当にパネルだけの動きになる。
+             ⚠️ 代わりに盤面の下端（40pxほど）が常にパネルの裏に入る。編集で使う帯
+                （ジャンプ台は y480〜560）とはかぶらないので許容している。 */
+          position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
           /* 🔑 高さは**中身なり**。畳んでいる時はつまみバー1行だけ＝**盤面が画面いっぱい**になる
                （2026-07-28 れいあ実機「盤面が小さい」＝群を常に全部出していたのが原因）。
              ⚠️ 高さが変わると盤面の大きさも変わる＝伸縮が終わったら `renderer.resize()` が要る
@@ -245,6 +254,15 @@
           order: -2; padding: 10px 0; background: var(--panel);
         }
         #grip-bar button { min-width: 0; padding: 0 2px; font-size: 12px; }
+        /* 試し撃ち中は「終了」だけにする（この間は配置を触れないので他は要らない）。
+           ⚠️ 試し撃ちを始めた時にメニューを畳むのは JS 側（`playing` を付ける所）。 */
+        #grip-stop { display: none; }
+        #side.playing #grip-gate,
+        #side.playing #grip-jumper,
+        #side.playing #grip-divider,
+        #side.playing #grip-menu { display: none; }
+        #side.playing #grip-stop { display: block; }
+        #side.playing .when-sel { display: none; }
         /* 既定は畳む。メニューを開いた時／部品を選んだ時に出す。
            🔑 **自動では開閉しない**（2026-07-28 れいあ要望「大きな画面で直感的に配置したい人もいる」）
               ＝部品を選んでもメニューは開いたまま。閉じるのは「閉じる」を押した時だけ。
@@ -301,6 +319,9 @@
         <button id="grip-jumper" type="button">＋ジャンプ台</button>
         <button id="grip-divider" type="button">＋仕切り</button>
         <button id="grip-menu" type="button">メニュー</button>
+        <!-- 試し撃ち中だけ出る。⚠️ 押すと**試し撃ちを終えてメニューを開く**（2026-07-28 れいあ要望）。
+             試し撃ち中は配置を触れないので、追加もメニューも出さない。 -->
+        <button id="grip-stop" class="primary" type="button">試し撃ちを終了</button>
       </div>
       <!-- ⚠️ ゲームへ戻る口。無いと閉じるしか手が無くなる（2026-07-27 れいあ要望） -->
       <div class="side-head">

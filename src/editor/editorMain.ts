@@ -506,9 +506,9 @@ function syncPanel(): void {
   el<HTMLButtonElement>('grip-gate').disabled = !model.canAddGate();
   el<HTMLButtonElement>('grip-jumper').disabled = !model.canAddJumper();
   el<HTMLButtonElement>('grip-divider').disabled = !model.canAddDivider();
-  // 🔴 パネルの高さが変わると盤面の大きさも変わるので、ここで描き直す。
-  //    ⚠️ `window` の resize では発火しない（パネルの開閉はウィンドウを変えないため）。
-  //    ⚠️ `resize()` は寸法が同じなら何もしない＝毎回呼んでも重くならない。
+  // ⚠️ 盤面の大きさが変わっていれば描き直す（`resize` は寸法が同じなら何もしない）。
+  //    縦持ちではパネルを盤面に**重ねて**いるので普段はここで何も起きない＝画面が
+  //    変わった時（回転など）とPCの右パネル側のための保険。
   renderer.resize();
   if (!sel) return;
 
@@ -696,7 +696,9 @@ function setMenuOpen(open: boolean): void {
   const cap = Math.round(window.innerHeight * 0.6);
   side.style.maxHeight = open ? `${Math.min(side.scrollHeight, cap)}px` : '';
   syncMenuLabel();
-  renderer.resize();
+  // ⚠️ ここで盤面を描き直さない。パネルは盤面に**重ねて**いるので大きさは変わらない
+  //    （場所を取らせていた頃は開閉のたびに作り直していて、それが「ビューがパッと変わる」
+  //     「閉じる時に2段階で戻る」の正体だった・2026-07-28）。
 }
 
 el<HTMLButtonElement>('grip-menu').addEventListener('click', () => {
@@ -704,15 +706,11 @@ el<HTMLButtonElement>('grip-menu').addEventListener('click', () => {
   setMenuOpen(!el<HTMLElement>('side').classList.contains('menu-open'));
 });
 
-/**
- * パネルの伸縮が終わったら盤面を描き直す。
- * 🔴 伸びている**途中**では呼ばない（毎フレーム玉のスプライトを焼き直して重くなる）。
- * ⚠️ `syncPanel` からも呼んでいるのは、`max-height` が変わらない切り替え
- *    （メニューを開いたまま部品を選ぶ等）では transition が起きず、ここが発火しないため。
- *    中身が増減して高さだけ変わる場合はそちらが拾う。
- */
-el<HTMLElement>('side').addEventListener('transitionend', (e) => {
-  if (e.propertyName === 'max-height') renderer.resize();
+// ⚠️ 試し撃ちを終えたら**メニューを開く**（2026-07-28 れいあ要望）。終えた直後にやりたいのは
+//    「保存」か「配置の直し」なので、畳んだままだと必ずもう1タップ増える。
+el<HTMLButtonElement>('grip-stop').addEventListener('click', () => {
+  el<HTMLButtonElement>('play').click(); // 試し撃ちを終える（`stopPlay` が走る）
+  setMenuOpen(true);
 });
 
 el<HTMLButtonElement>('reset').addEventListener('click', () => {
@@ -958,6 +956,8 @@ function stopPlay(): void {
   const btn = el<HTMLButtonElement>('play');
   btn.textContent = '試遊する';
   btn.classList.remove('on');
+  // ⚠️ つまみバーを元に戻す（「試し撃ちを終了」だけの状態から）
+  el<HTMLElement>('side').classList.remove('playing');
 }
 
 el<HTMLButtonElement>('play').addEventListener('click', () => {
@@ -971,6 +971,12 @@ el<HTMLButtonElement>('play').addEventListener('click', () => {
   session = new Session(model.buildStage());
   btn.textContent = '編集に戻る';
   btn.classList.add('on');
+  // ⚠️ 試し撃ちの間はパネルを畳んで盤面だけにする（2026-07-28 れいあ要望）。
+  //    選択の枠も外す＝この間は配置を触らないので、出しておくと邪魔になるだけ。
+  el<HTMLElement>('side').classList.add('playing');
+  model.select(null);
+  syncPanel();
+  setMenuOpen(false);
   setStatus('盤面をドラッグすると出口が動くよ。触ったところから落ち始める');
 });
 
