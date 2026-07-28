@@ -65,7 +65,10 @@
       }
 
       /* 盤面 */
-      #board { flex: 1; position: relative; min-width: 0; }
+      /* ⚠️ `overflow: hidden` は、パネルが伸び縮みしている**途中**に canvas が
+           はみ出して見えるのを隠すため（canvas の寸法は伸縮が終わってから直すので、
+           その間だけ実際の枠より大きい）。 */
+      #board { flex: 1; position: relative; min-width: 0; overflow: hidden; }
       /* ⚠️ `touch-action: none` が無いと、指のドラッグをブラウザのスクロール／
            引っぱって更新／ピンチに取られて **pointermove が途中で切れる**（iOS）。
            盤面を指で編集するにはこれが必須。 */
@@ -208,34 +211,43 @@
           width: 100%; flex: none;
           /* 🔑 高さは**中身なり**。畳んでいる時はつまみバー1行だけ＝**盤面が画面いっぱい**になる
                （2026-07-28 れいあ実機「盤面が小さい」＝群を常に全部出していたのが原因）。
-             ⚠️ 高さが変わると盤面の大きさも変わる＝出し入れのたびに `renderer.resize()` が要る
-                （`syncPanel` から呼んでいる。window の resize では発火しない）。
-             ⚠️ 出し入れにアニメーションを付けないこと（毎フレーム resize が走る）。
-             ⚠️ `dvh` はアドレスバーを除いた実際の高さ。先に `vh` を書くのは古い環境の保険。 */
+             ⚠️ 高さが変わると盤面の大きさも変わる＝伸縮が終わったら `renderer.resize()` が要る
+                （window の resize では発火しない）。
+             🔴 **伸びている途中では resize を呼ばない**（毎フレーム玉のスプライトを焼き直す）。
+                だから伸縮は `max-height` の transition で作り、`transitionend` で1回だけ描き直す。
+             ⚠️ `dvh` はアドレスバーを除いた実際の高さ。先に `vh` を書くのは古い環境の保険。
+             ⚠️ 縦に積むのは `order` を使いたいから＝**選択中の操作をメニューより上**に出す
+                （メニューを開いたまま部品を触れるようにしたため・2026-07-28 れいあ要望）。 */
+          display: flex; flex-direction: column;
           height: auto;
-          max-height: 60vh;
-          max-height: 60dvh;
+          max-height: 76px;
+          transition: max-height 180ms ease;
           border-left: none; border-top: 1px solid var(--brass-line);
           box-shadow: var(--panel-lift);
           /* ⚠️ iPhoneのホームバーに最後の行が潜るので下に余白を足す */
           padding: 0 12px calc(10px + env(safe-area-inset-bottom));
         }
+        /* 何か開いている間だけ伸びる（畳んでいる時はつまみバー1行ぶん） */
+        #side.menu-open, #side.has-sel { max-height: 60vh; max-height: 60dvh; }
         /* ── つまみバー＝いつも見えている1行（追加とメニューの口）──
            🔑 **既定はこれ1本だけ**＝盤面を最大にするための形。
               計画 Task 9 の「選択が無い時は**追加だけ**」が指していたのはこれ。
            ⚠️ `sticky` にするのは、中身を出した時にスクロールで消えないため。 */
         #grip-bar {
           display: flex; gap: 6px; position: sticky; top: 0; z-index: 2;
-          padding: 10px 0; background: var(--panel);
+          order: -2; padding: 10px 0; background: var(--panel);
         }
         #grip-bar button { min-width: 0; padding: 0 2px; font-size: 12px; }
-        /* 既定は畳む。メニューを開いた時／部品を選んだ時だけ中身を出す。
-           ⚠️ 選択中はメニュー側を出さない（狭い所に2つ出すと溢れる）。 */
+        /* 既定は畳む。メニューを開いた時／部品を選んだ時に出す。
+           🔑 **自動では開閉しない**（2026-07-28 れいあ要望「大きな画面で直感的に配置したい人もいる」）
+              ＝部品を選んでもメニューは開いたまま。閉じるのは「閉じる」を押した時だけ。
+           ⚠️ だから両方が同時に出る。選択中の操作を `order` で**上**に置く
+              ＝メニューを経由せずに触れる（メニューを閉じないと操作できないのが元の不満）。 */
         .side-head, .hint, .keyhelp-open, .when-idle, .when-sel { display: none; }
-        #side.menu-open:not(.has-sel) .side-head { display: flex; }
-        #side.menu-open:not(.has-sel) .hint-touch,
-        #side.menu-open:not(.has-sel) .when-idle { display: block; }
-        #side.has-sel .when-sel { display: block; }
+        #side.menu-open .side-head { display: flex; }
+        #side.menu-open .hint-touch,
+        #side.menu-open .when-idle { display: block; }
+        #side.has-sel .when-sel { display: block; order: -1; }
         .only-touch { display: block; }
         /* 🔑 数値の欄は既定で畳む＝**部品を動かしている時こそ盤面が要る**（選択中にパネルが
              画面の半分を占めていたのが「盤面が小さい」の実体・2026-07-28）。
@@ -250,6 +262,23 @@
         .hint { font-size: 13px; }
         .field { margin-bottom: 6px; }
         .group { padding-top: 12px; margin-top: 12px; }
+        /* 中身は軽くフェードで出す（パッと現れる違和感を消す・2026-07-28 れいあ要望）。
+           ⚠️ 動かすのは**見た目だけ**＝高さの伸縮は上の `max-height` 側が持つ。
+              ここで高さを動かすと transition が二重になって、終わりの合図が取れなくなる。 */
+        @keyframes panel-in {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: none; }
+        }
+        #side.menu-open .side-head,
+        #side.menu-open .when-idle,
+        #side.has-sel .when-sel { animation: panel-in 180ms ease both; }
+      }
+      /* 動きを減らす設定の人には出さない（酔い・目の負担への配慮） */
+      @media (prefers-reduced-motion: reduce) {
+        #side { transition: none; }
+        #side.menu-open .side-head,
+        #side.menu-open .when-idle,
+        #side.has-sel .when-sel { animation: none; }
       }
     </style>
   </head>

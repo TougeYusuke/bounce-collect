@@ -491,11 +491,13 @@ function syncPanel(): void {
   el<HTMLDivElement>('sel-none').hidden = !!sel;
   el<HTMLDivElement>('sel-panel').hidden = !sel;
   // ⚠️ 縦持ちの下パネルは**既定で畳んである**（つまみバー1行だけ＝盤面を最大にする）。
-  //    部品を選んだら操作パネルを出し、メニュー側は閉じる（狭い所に2つ出すと溢れる）。
-  //    出し入れはCSS側（`#side.has-sel` / `#side.menu-open`）＝PCの右パネルには効かない。
+  //    部品を選ぶと操作パネルが出る。出し入れはCSS側（`#side.has-sel` / `#side.menu-open`）
+  //    ＝PCの右パネルには効かない。
+  // 🔴 **メニューは自動で開閉しない**（2026-07-28 れいあ要望）。開いたまま部品を選べる形にする
+  //    ＝大きい画面で「メニューを見ながら盤面に置く」使い方を潰さないため。
+  //    ⚠️ ここで `menu-open` を外さないこと（外すと「選んだら勝手に閉じた」になる）。
   const side = el<HTMLElement>('side');
   side.classList.toggle('has-sel', !!sel);
-  if (sel) side.classList.remove('menu-open');
   syncMenuLabel();
   el<HTMLButtonElement>('add-gate').disabled = !model.canAddGate();
   el<HTMLButtonElement>('add-jumper').disabled = !model.canAddJumper();
@@ -678,11 +680,22 @@ el<HTMLButtonElement>('nums-toggle').addEventListener('click', () => {
 });
 
 el<HTMLButtonElement>('grip-menu').addEventListener('click', () => {
-  // ⚠️ 選択中にメニューを開かない＝先に選択を外す（操作パネルと二重に出さないため）
-  if (model.selected) model.select(null);
+  // 🔴 **選択には触らない**（2026-07-28 れいあ要望）。部品を選んだままメニューを開け閉めできる
+  //    ＝「閉じるのに一度選択を外さないといけない」状態を無くす。
+  //    ⚠️ 選択中の操作は CSS の `order` でメニューより上に出るので、両方出ても迷わない。
   el<HTMLElement>('side').classList.toggle('menu-open');
-  rebuild();
   syncPanel();
+});
+
+/**
+ * パネルの伸縮が終わったら盤面を描き直す。
+ * 🔴 伸びている**途中**では呼ばない（毎フレーム玉のスプライトを焼き直して重くなる）。
+ * ⚠️ `syncPanel` からも呼んでいるのは、`max-height` が変わらない切り替え
+ *    （メニューを開いたまま部品を選ぶ等）では transition が起きず、ここが発火しないため。
+ *    中身が増減して高さだけ変わる場合はそちらが拾う。
+ */
+el<HTMLElement>('side').addEventListener('transitionend', (e) => {
+  if (e.propertyName === 'max-height') renderer.resize();
 });
 
 el<HTMLButtonElement>('reset').addEventListener('click', () => {
