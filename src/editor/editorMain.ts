@@ -13,6 +13,10 @@ import { EditorModel, handleRadius, type GrabMode } from './editorModel';
 
 const boardEl = document.getElementById('board')!;
 const renderer = new CanvasRenderer();
+// ⚠️ 工房は下パネルを盤面に**重ねる**ので、盤面を上端に寄せて上の余白を消す
+//    （2026-07-28 れいあ「わざわざ上部分を見せる必要がない」）。
+//    ⚠️ `init` の中で最初の `resize` が走るので、**その前に**立てること。
+renderer.alignTop = true;
 const empty = new BallPool(1); // 編集中は玉なしで盤面だけ描く
 
 let model = new EditorModel(structuredClone(DEFAULT_STAGE_DEF));
@@ -695,6 +699,8 @@ function setMenuOpen(open: boolean): void {
   side.classList.toggle('menu-open', open);
   const cap = Math.round(window.innerHeight * 0.6);
   side.style.maxHeight = open ? `${Math.min(side.scrollHeight, cap)}px` : '';
+  // ⚠️ スクロールしたまま閉じると、次に開いた時に途中から表示される。先頭へ戻す
+  if (!open) side.scrollTop = 0;
   syncMenuLabel();
   // ⚠️ ここで盤面を描き直さない。パネルは盤面に**重ねて**いるので大きさは変わらない
   //    （場所を取らせていた頃は開閉のたびに作り直していて、それが「ビューがパッと変わる」

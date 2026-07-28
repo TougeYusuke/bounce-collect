@@ -263,19 +263,23 @@
         #side.playing #grip-menu { display: none; }
         #side.playing #grip-stop { display: block; }
         #side.playing .when-sel { display: none; }
-        /* 既定は畳む。メニューを開いた時／部品を選んだ時に出す。
-           🔑 **自動では開閉しない**（2026-07-28 れいあ要望「大きな画面で直感的に配置したい人もいる」）
-              ＝部品を選んでもメニューは開いたまま。閉じるのは「閉じる」を押した時だけ。
-           ⚠️ だから両方が同時に出る。選択中の操作を `order` で**上**に置く
-              ＝メニューを経由せずに触れる（メニューを閉じないと操作できないのが元の不満）。 */
-        .side-head, .hint, .keyhelp-open, .when-idle, .when-sel { display: none; }
-        #side.menu-open .side-head { display: flex; }
-        #side.menu-open .hint-touch,
-        #side.menu-open .when-idle { display: block; }
-        #side.has-sel .when-sel { display: block; order: -1; }
+        /* 🔴 出し入れに `display` を使わない（2026-07-28 れいあ「閉じると最後に一瞬カクっとなる」）。
+             `display: none` にした瞬間に**パネルの実高さが先に縮む**ので、`max-height` の
+             伸縮が最後まで効かず、そこだけ飛んで見えていた。
+             中身は置いたまま、パネルの `max-height` でクリップする（上の `overflow: hidden` と対）。
+           ⚠️ `.when-sel`（選択中の操作）だけは `display` で消す＝選択が無い時は中身が本当に
+              要らない（置いたままだと空の見出しぶんの高さが残る）。
+           🔑 **自動では開閉しない**＝部品を選んでもメニューは開いたまま。閉じるのは
+              「閉じる」を押した時だけ（2026-07-28 れいあ要望）。
+           ⚠️ 選択中の操作は `order` で**上**に置く＝メニューを経由せずに触れる。 */
+        .hint-pc { display: none; }
+        .hint-touch { display: block; }
+        #side:not(.has-sel) .when-sel { display: none; }
+        .when-sel { order: -1; }
         .only-touch { display: block; }
-        /* 🔑 数値の欄は既定で畳む＝**部品を動かしている時こそ盤面が要る**（選択中にパネルが
-             画面の半分を占めていたのが「盤面が小さい」の実体・2026-07-28）。
+        /* 数値の欄。**既定は開く**（2026-07-28 れいあ「ビューが小さくならなくなったから、
+           見ながらじゃないと数字での調整は難しそう」＝パネルを重ねて盤面が縮まなくなったので、
+           数値を出しておいても盤面が犠牲にならない）。畳みたい時はボタンで閉じられる。
            🔴 `display: block` で出すと `hidden` 属性が**効かなくなる**（罠2）。
               仕切りを選んだ時にバー用の欄まで出てしまうので、`:not([hidden])` で守る。 */
         #bar-fields, #divider-fields { display: none; }
@@ -310,7 +314,9 @@
   <body>
     <div id="board"></div>
 
-    <aside id="side">
+    <!-- ⚠️ `nums-open` を最初から付けておく＝数値の欄を既定で出す（2026-07-28 れいあ要望）。
+         盤面にパネルを重ねる形にして、開いても盤面が縮まなくなったので出しっぱなしで困らない。 -->
+    <aside id="side" class="nums-open">
       <!-- 縦持ちで**いつも見えている1行**。ここだけ出しておくと盤面が画面いっぱいに使える。
            ⚠️ 追加ボタンは下の本体ボタンへ委譲する（同じ状態を2か所に持たない）。
            ⚠️ PCでは出さない（右パネルに全部並んでいる）。 -->
@@ -408,9 +414,9 @@
             <span id="sel-kind"></span>
           </div>
 
-          <!-- ⚠️ 指で作る時は数値を使わない（端の丸を動かすと値は指の上に出る）ので、
-               縦持ちでは数値の欄を既定で畳む＝**盤面を広く保つ**。開く口はこのボタン。 -->
-          <button id="nums-toggle" class="only-touch" type="button">数値で合わせる</button>
+          <!-- 数値の欄の開け閉め。⚠️ **既定は開いている**（盤面を重ねる形にして、開いても
+               盤面が縮まなくなったため・2026-07-28 れいあ要望）。文言も開いている状態から始める。 -->
+          <button id="nums-toggle" class="only-touch" type="button">数値を閉じる</button>
 
           <div id="bar-fields">
             <div class="field">

@@ -26,6 +26,14 @@ export class CanvasRenderer implements Renderer {
   private scale = 1;
   private offsetX = 0;
   private offsetY = 0;
+  /**
+   * 盤面を上端に寄せる（既定は上下中央）。
+   * ⚠️ **工房（editor.html）だけで使う**。工房は下パネルを盤面に**重ねて**いるので、
+   *    上下中央だと上にできる余白のぶん、下端がパネルの裏へ深く入る。
+   *    上に寄せれば「見せる必要のない上の余白」が消えて、その分だけ下が見える。
+   * ⚠️ ゲーム本体では使わない（上下中央のままバケツとHUDの位置が決まっている）。
+   */
+  alignTop = false;
   /** 最後に作り直した時の大きさ。⚠️ 同じ大きさで何度も焼き直さないため */
   private lastW = -1;
   private lastH = -1;
@@ -130,7 +138,7 @@ export class CanvasRenderer implements Renderer {
     this.canvas.style.height = `${h}px`;
     this.scale = Math.min(w / this.world.width, h / this.world.height);
     this.offsetX = (w - this.world.width * this.scale) / 2;
-    this.offsetY = (h - this.world.height * this.scale) / 2;
+    this.offsetY = this.alignTop ? 0 : (h - this.world.height * this.scale) / 2;
     this.sprites = null; // 拡大率が変わったので焼き直す
   }
 
