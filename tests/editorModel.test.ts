@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/core/config';
 import { DEFAULT_STAGE_DEF, normalizeStageDef } from '../src/core/stageDef';
-import { EditorModel } from '../src/editor/editorModel';
+import { EditorModel, handleRadius } from '../src/editor/editorModel';
 
 function model(): EditorModel {
   return new EditorModel(structuredClone(DEFAULT_STAGE_DEF));
@@ -60,6 +60,25 @@ describe('指で掴めるだけの当たり判定', () => {
     // 既定の型は最下段が「ジャンプ台(0〜80)｜ゲート(178〜360)」の横並び
     expect(m.pick(40, 520)).toEqual({ kind: 'jumper', index: 0 });
     expect(m.pick(250, 520)).toEqual({ kind: 'gate', index: 5 });
+  });
+});
+
+describe('端を伸ばすハンドルの大きさ', () => {
+  it('指の大きさは画面のpxで決まるので、拡大率で割った論理座標を返す', () => {
+    // 拡大率0.5（画面が小さい）ほど、論理座標では大きく取る必要がある
+    expect(handleRadius(300, 0.5)).toBeCloseTo(CONFIG.EDITOR_HANDLE_CSS);
+    expect(handleRadius(300, 1)).toBeCloseTo(CONFIG.EDITOR_HANDLE_CSS / 2);
+  });
+
+  it('⚠️ 部品の長さの1/3を超えない（細いバーで「真ん中を掴んで移動」が消えるのを防ぐ）', () => {
+    const w = CONFIG.EDITOR_MIN_WIDTH;
+    expect(handleRadius(w, 0.5)).toBeCloseTo(w / 3);
+    // 両端のハンドルを足しても幅を覆い切らないこと＝真ん中に移動できる帯が残る
+    expect(handleRadius(w, 0.5) * 2).toBeLessThan(w);
+  });
+
+  it('⚠️ 拡大率が0でも数値を返す（起動直後に拡大率が未確定でも落ちない）', () => {
+    expect(Number.isFinite(handleRadius(100, 0))).toBe(true);
   });
 });
 

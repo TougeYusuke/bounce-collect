@@ -37,6 +37,18 @@ const MAX_DIVIDERS = 16;
 type Bar = { x1: number; x2: number; y: number };
 type Divider = { x1: number; y1: number; x2: number; y2: number };
 
+/**
+ * 端を伸ばすハンドルの当たり半径（論理px）。`scale` は 論理px → 画面px の拡大率。
+ *
+ * 🔑 指の大きさは**画面px**で決まるので拡大率で割る（画面が小さいほど論理座標では大きい）。
+ * ⚠️ **部品の長さの1/3を超えさせないこと**。最小幅32pxのバーの両端に指サイズの丸を置くと
+ *    全面が伸縮になり「真ん中を掴んで移動」が消える。
+ * ⚠️ **描画側も必ずこの値を使う**（見た目の丸と当たり判定をズラさない）。
+ */
+export function handleRadius(length: number, scale: number): number {
+  return Math.min(CONFIG.EDITOR_HANDLE_CSS / 2 / scale, Math.abs(length) / 3);
+}
+
 function snap(v: number): number {
   return Math.round(v / CONFIG.EDITOR_GRID) * CONFIG.EDITOR_GRID;
 }

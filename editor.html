@@ -5,6 +5,12 @@
     <!-- ⚠️ これが無いとブラウザが /favicon.ico を探して404をコンソールに出す
          （本物のエラーが埋もれるので塞いでおく） -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- ⚠️ これが無いとスマホが幅980pxのページとして描く＝盤面もパネルも極小になる
+         （スマホで作れるようにする話の一丁目。2026-07-28）。
+         ⚠️ ゲーム本体（index.html）と違って `user-scalable=no` は**付けない**。
+            盤面の上でのピンチは canvas の `touch-action: none` が止めるので足りるし、
+            パネルの文字を指で拡大できる余地は残しておきたい。 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Marble Mill — ステージ工房</title>
     <style>
       :root {
@@ -27,7 +33,12 @@
 
       /* 盤面 */
       #board { flex: 1; position: relative; min-width: 0; }
-      #board canvas { cursor: crosshair; }
+      /* ⚠️ `touch-action: none` が無いと、指のドラッグをブラウザのスクロール／
+           引っぱって更新／ピンチに取られて **pointermove が途中で切れる**（iOS）。
+           盤面を指で編集するにはこれが必須。 */
+      #board canvas { cursor: crosshair; touch-action: none; }
+      /* ⚠️ ボタンの連打をダブルタップ拡大と取られないようにする（押しても反応しないに見える） */
+      button, input, select, label { touch-action: manipulation; }
 
       /* 右パネル */
       #side {

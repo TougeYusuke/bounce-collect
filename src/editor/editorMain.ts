@@ -9,7 +9,7 @@ import { loadArt } from '../render/art';
 import { CanvasRenderer } from '../render/canvasRenderer';
 import { MATERIALS } from '../render/theme';
 import { loadMineOnly, saveMineOnly } from '../ui/prefs';
-import { EditorModel, type GrabMode } from './editorModel';
+import { EditorModel, handleRadius, type GrabMode } from './editorModel';
 
 const boardEl = document.getElementById('board')!;
 const renderer = new CanvasRenderer();
@@ -74,16 +74,6 @@ function drawSelection(): void {
       ctx.moveTo(px(d.x1), py(d.y1));
       ctx.lineTo(px(d.x2), py(d.y2));
       ctx.stroke();
-      // 端の点＝つかむと長さと向きが変わる場所
-      ctx.setLineDash([]);
-      for (const [x, y] of [
-        [d.x1, d.y1],
-        [d.x2, d.y2],
-      ]) {
-        ctx.beginPath();
-        ctx.arc(px(x), py(y), 5 * dpr, 0, Math.PI * 2);
-        ctx.fill();
-      }
     }
   } else {
     const list = sel.kind === 'gate' ? model.def.gates : model.def.jumpers;
@@ -96,7 +86,76 @@ function drawSelection(): void {
       ctx.strokeRect(px(b.x1) - 3 * dpr, py(b.y) - h / 2, (b.x2 - b.x1) * s * dpr + 6 * dpr, h);
     }
   }
+
+  // ── 端を伸ばす丸（指で掴む口）──
+  // ⚠️ 破線を解いてから描く（解かないと丸まで点線になる）
+  ctx.setLineDash([]);
+  for (const h of handlePoints()) {
+    ctx.beginPath();
+    ctx.arc(px(h.x), py(h.y), h.r * s * dpr, 0, Math.PI * 2);
+    // 掴んでいる側を濃くする＝どちらを動かしているか、指で隠れていても分かる
+    ctx.globalAlpha = grab === h.mode ? 0.55 : 0.25;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 2 * dpr;
+    ctx.stroke();
+  }
+
+  if (grab && grab !== 'move') drawGrabValue(ctx, px, py, dpr, grab);
   ctx.restore();
+}
+
+/**
+ * 伸縮中の数値を**指の上**に浮かせる。
+ *
+ * ⚠️ 指の下に置いても見えない（端を掴むと指が数値を覆う）＝伸ばした結果が分からない。
+ * 🔑 バーは**幅も出す**。ジャンプ台の幅が型の成否をほぼ決める（狭いと玉が一度も乗らず、
+ *    R1の回収が約600個から16個まで落ちた実測がある）。
+ * ⚠️ 盤面の上端で切れる時は下へ回す。左右も画面の中へ収める。
+ */
+function drawGrabValue(
+  ctx: CanvasRenderingContext2D,
+  px: (x: number) => number,
+  py: (y: number) => number,
+  dpr: number,
+  mode: GrabMode,
+): void {
+  const sel = model.selected;
+  const h = handlePoints().find((q) => q.mode === mode);
+  if (!sel || !h) return;
+
+  let text: string;
+  if (sel.kind === 'divider') {
+    const d = model.def.dividers[sel.index];
+    if (!d) return;
+    const [x, y] = mode === 'resize-start' ? [d.x1, d.y1] : [d.x2, d.y2];
+    text = `${Math.round(x)}, ${Math.round(y)}`;
+  } else {
+    const list = sel.kind === 'gate' ? model.def.gates : model.def.jumpers;
+    const b = list[sel.index];
+    if (!b) return;
+    text = `${Math.round(mode === 'resize-start' ? b.x1 : b.x2)}　幅 ${Math.round(b.x2 - b.x1)}`;
+  }
+
+  ctx.font = `700 ${13 * dpr}px "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const boxW = ctx.measureText(text).width + 20 * dpr;
+  const boxH = 26 * dpr;
+  const gap = 34 * dpr; // 指の上へ逃がす距離
+  const cx = Math.min(Math.max(px(h.x), boxW / 2), ctx.canvas.width - boxW / 2);
+  const above = py(h.y) - gap;
+  const cy = above - boxH / 2 < 0 ? py(h.y) + gap : above;
+
+  ctx.fillStyle = 'rgba(18, 12, 7, 0.92)';
+  ctx.strokeStyle = '#e6b862';
+  ctx.lineWidth = 1.5 * dpr;
+  ctx.beginPath();
+  ctx.roundRect(cx - boxW / 2, cy - boxH / 2, boxW, boxH, 8 * dpr);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#fdf6ec';
+  ctx.fillText(text, cx, cy);
 }
 
 // ── 入力（画面座標 → 論理座標）──
@@ -110,6 +169,52 @@ function toLogical(e: PointerEvent): { x: number; y: number } {
   };
 }
 
+// ── 端を伸ばすハンドル（指で掴む口）──
+/**
+ * 選択中の部品の端に置く掴み口。⚠️ **選択中のものにしか出さない**。
+ *
+ * 🔑 指では端8px（`grabMode` の EDGE）を掴めないので**2段階**にしてある
+ *    ＝①部品をタップして選ぶ → ②端の丸を掴んで伸ばす。
+ *    マウスは今までどおり1動作で端を掴める（`grabMode`）ので、どちらの手でも操作できる。
+ * ⚠️ 位置は論理座標・半径は `handleRadius`（画面pxを拡大率で割った値）。
+ *    **描画と当たり判定で同じものを使う**こと（見た目より広い／狭いと必ず苦情になる）。
+ */
+function handlePoints(): { mode: GrabMode; x: number; y: number; r: number }[] {
+  const sel = model.selected;
+  if (!sel) return [];
+  const scale = renderer.boardRectCss().width / CONFIG.BOARD_WIDTH;
+
+  if (sel.kind === 'divider') {
+    const d = model.def.dividers[sel.index];
+    if (!d) return [];
+    const r = handleRadius(Math.hypot(d.x2 - d.x1, d.y2 - d.y1), scale);
+    return [
+      { mode: 'resize-start', x: d.x1, y: d.y1, r },
+      { mode: 'resize-end', x: d.x2, y: d.y2, r },
+    ];
+  }
+  const list = sel.kind === 'gate' ? model.def.gates : model.def.jumpers;
+  const b = list[sel.index];
+  if (!b) return [];
+  const r = handleRadius(b.x2 - b.x1, scale);
+  return [
+    { mode: 'resize-start', x: b.x1, y: b.y, r },
+    { mode: 'resize-end', x: b.x2, y: b.y, r },
+  ];
+}
+
+/**
+ * ハンドルに乗っているか。
+ * ⚠️ `pick` より**先に**見ること。ハンドルは端から外側へ張り出すので、後にすると
+ *    「端を伸ばそうとしたのに隣の部品を選び直す」になる。
+ */
+function grabHandle(p: { x: number; y: number }): GrabMode | null {
+  for (const h of handlePoints()) {
+    if (Math.hypot(p.x - h.x, p.y - h.y) <= h.r) return h.mode;
+  }
+  return null;
+}
+
 boardEl.addEventListener('pointerdown', (e) => {
   // 試遊中はゲーム本体と同じ操作＝つかんだ所へ玉の出口を動かし、触った時点で落ち始める
   if (session) {
@@ -119,6 +224,14 @@ boardEl.addEventListener('pointerdown', (e) => {
     return;
   }
   const p = toLogical(e);
+  // ⚠️ ハンドルを pick より先に見る。⚠️ ここでは**選択を変えない**
+  //    （いま掴んでいるものを伸ばす操作なので、選び直すと伸ばせない）
+  const onHandle = grabHandle(p);
+  if (onHandle) {
+    grab = onHandle;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    return;
+  }
   const hit = model.pick(p.x, p.y);
   model.select(hit);
   grab = hit ? model.grabMode(p.x, p.y, hit) : null;
@@ -149,6 +262,11 @@ function updateCursor(p: { x: number; y: number }): void {
   // 試遊中は「触った所に落ちる」操作なので狙いの十字のまま
   if (session) {
     setCursor('crosshair');
+    return;
+  }
+  // ⚠️ ハンドルの上は伸縮。判定と同じ順（ハンドル → pick）で見ないと絵と動きが食い違う
+  if (grabHandle(p)) {
+    setCursor(model.selected?.kind === 'divider' ? 'nwse-resize' : 'ew-resize');
     return;
   }
   const hit = model.pick(p.x, p.y);
