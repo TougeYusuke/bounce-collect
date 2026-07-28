@@ -490,6 +490,10 @@ function syncPanel(): void {
   const sel = model.selected;
   el<HTMLDivElement>('sel-none').hidden = !!sel;
   el<HTMLDivElement>('sel-panel').hidden = !sel;
+  // ⚠️ 縦持ちの下パネルでは、選択中に「保存・追加・中身・試し撃ち」の群を畳む
+  //    （狭い所で操作を探させない）。畳むのはCSS側（`#side.has-sel .when-idle`）で、
+  //    PCの右パネルには効かない＝どちらの形も同じ関数で回る。
+  el<HTMLElement>('side').classList.toggle('has-sel', !!sel);
   el<HTMLButtonElement>('add-gate').disabled = !model.canAddGate();
   el<HTMLButtonElement>('add-jumper').disabled = !model.canAddJumper();
   el<HTMLButtonElement>('add-divider').disabled = !model.canAddDivider();
@@ -622,6 +626,13 @@ el<HTMLButtonElement>('add-divider').addEventListener('click', () => {
 });
 el<HTMLButtonElement>('del').addEventListener('click', () => {
   model.deleteSelected();
+  rebuild();
+  syncPanel();
+});
+
+// 選択を外す（縦持ちで畳んだ群へ戻る口。⚠️ PCでは Esc があるのでボタンはCSSで隠してある）
+el<HTMLButtonElement>('deselect').addEventListener('click', () => {
+  model.select(null);
   rebuild();
   syncPanel();
 });

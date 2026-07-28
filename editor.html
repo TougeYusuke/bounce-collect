@@ -20,7 +20,40 @@
         --accent-ink: #2e1e05;
         --panel: #1d1610;
         --line: rgba(255, 238, 214, 0.14);
+
+        /* ── 質感の共通ルール（index.html と同じ値・2026-07-28 に工房へ持ち込み）──
+           🔑 **影の値をベタ書きで散らさない**。ここを直せば工房の質感が同時に動く。
+           使い分け:
+             主ボタン（保存・試遊）      = --brass-face + --lift / :active で --lift-down
+             副ボタン（それ以外）        = --dark-face  + --lift-dark / --lift-dark-down
+             パネル（押さない）          = --panel-lift
+           ⚠️ 厚み（`0 Npx 0`）と沈み量（translateY）は**必ずセット**で直す。
+              片方だけ変えるとボタンが床に埋まる／浮いて見える。
+           ⚠️ 値を工房側で書き換えないこと（index.html と食い違うと「ここだけ古い」が生まれる）。 */
+        --brass-face: linear-gradient(180deg, #f7d99b 0%, #e6b862 44%, #c8943d 100%);
+        --brass-edge: #8a6524;
+        --dark-face: linear-gradient(180deg, rgba(38, 26, 15, 0.72), rgba(20, 12, 6, 0.62));
+        --dark-edge: #2a1c0c;
+        --brass-line: rgba(230, 184, 98, 0.28);
+        --lift:
+          inset 0 2px 0 rgba(255, 255, 255, 0.6), inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+          0 6px 0 var(--brass-edge), 0 16px 30px rgba(0, 0, 0, 0.45);
+        --lift-down:
+          inset 0 2px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+          0 1px 0 var(--brass-edge), 0 5px 14px rgba(0, 0, 0, 0.4);
+        --lift-dark:
+          inset 0 1px 0 rgba(255, 238, 214, 0.14),
+          0 4px 0 var(--dark-edge), 0 12px 22px rgba(0, 0, 0, 0.4);
+        --lift-dark-down:
+          inset 0 1px 0 rgba(255, 238, 214, 0.12),
+          0 1px 0 var(--dark-edge), 0 5px 12px rgba(0, 0, 0, 0.36);
+        --panel-lift: inset 0 1px 0 rgba(255, 238, 214, 0.1), 0 10px 24px rgba(0, 0, 0, 0.35);
+        --press: transform 70ms ease, box-shadow 70ms ease;
       }
+      /* 🔴 `hidden` 属性は CSS の display に負ける。対で書いておく（spec の罠2）。
+           ⚠️ 出し入れをクラスで作る時も、この行があることを前提にしないこと
+              （クラスの方が詳細度が高いので勝つ）。 */
+      [hidden] { display: none; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { height: 100%; }
       body {
@@ -55,7 +88,7 @@
       .side-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
       .side-head h1 { margin: 0; }
       .side-head button {
-        flex: none; min-height: 40px; padding: 0 14px 0 10px;
+        flex: none; min-height: 44px; padding: 0 14px 0 10px;
         font-size: 13px; white-space: nowrap;
       }
       /* キー一覧。
@@ -66,7 +99,7 @@
             （2026-07-27 れいあ指摘）。だから浮いた窓にして掴んで動かせる形にした。 */
       .keyhelp-open { display: none; }
       @media (hover: hover) and (pointer: fine) {
-        .keyhelp-open { display: block; width: 100%; margin-bottom: 14px; min-height: 40px; }
+        .keyhelp-open { display: block; width: 100%; margin-bottom: 14px; min-height: 44px; }
       }
       .keyhelp-panel {
         position: fixed; z-index: 50; left: 26px; top: 26px; width: 306px;
@@ -85,8 +118,10 @@
         cursor: move; user-select: none;
         font: 800 13px/1 inherit; letter-spacing: 0.08em; color: var(--accent);
       }
+      /* ⚠️ `min-height: 0` を明示する。共通の button が min-height:44px を持っているので、
+           これが無いと 32×44 の縦長になる（閉じる×だけ形が崩れる）。 */
       .kh-head button {
-        flex: none; width: 32px; height: 32px; min-width: 0; padding: 0;
+        flex: none; width: 32px; height: 32px; min-width: 0; min-height: 0; padding: 0;
         font-size: 18px; line-height: 1;
       }
       .keyhelp-panel dl {
@@ -103,17 +138,26 @@
         font: 700 11px/1 inherit; letter-spacing: 0.2em; color: var(--sub); margin-bottom: 10px;
       }
       .row { display: flex; gap: 8px; flex-wrap: wrap; }
+      /* ⚠️ 高さ44pxは**指で押せる最小**（2026-07-28 に40pxから上げた）。
+           ⚠️ 影は :root の変数だけを使う（値をここに書くと index.html と食い違う）。 */
       button {
-        flex: 1; min-width: 84px; min-height: 40px;
-        border: 1px solid var(--line); border-radius: 10px;
-        background: #2a2016; color: var(--ink);
+        flex: 1; min-width: 84px; min-height: 44px;
+        border: 1px solid var(--brass-line); border-radius: 12px;
+        background: var(--dark-face); color: var(--ink);
         font: 700 13px/1 inherit; cursor: pointer;
+        box-shadow: var(--lift-dark); transition: var(--press);
       }
-      button:hover { background: #362818; }
-      button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+      button:active { transform: translateY(3px); box-shadow: var(--lift-dark-down); }
+      /* 主ボタン（保存・試遊中）。⚠️ 厚み6pxなので沈みは5px（厚みと沈みは必ずセット） */
+      button.primary, button.on {
+        background: var(--brass-face); color: var(--accent-ink);
+        border-color: transparent; box-shadow: var(--lift);
+      }
+      button.primary:active, button.on:active {
+        transform: translateY(5px); box-shadow: var(--lift-down);
+      }
       button.danger { color: #ff9d8a; }
-      button:disabled { opacity: 0.35; cursor: default; }
-      button.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+      button:disabled { opacity: 0.35; cursor: default; box-shadow: none; transform: none; }
 
       .field { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
       .field label { width: 62px; font-size: 12px; color: var(--sub); }
@@ -132,7 +176,7 @@
       /* 固定するかのチェック。⚠️ 指でも押せる高さにする */
       .fix-row {
         display: flex; align-items: center; gap: 9px;
-        min-height: 40px; margin-top: 6px; cursor: pointer;
+        min-height: 44px; margin-top: 6px; cursor: pointer;
         font-size: 13px; color: var(--ink);
       }
       .fix-row input {
@@ -146,6 +190,45 @@
       }
       #sel-none { font-size: 12px; color: var(--sub); }
       #status { margin-top: 12px; font-size: 12px; color: var(--accent); min-height: 1.6em; }
+      /* 操作の説明は「マウス＋キーボード」と「指」で別物なので出し分ける */
+      .hint-touch { display: none; }
+      .only-touch { display: none; }
+
+      /* ── 縦持ち＝盤面を上・操作パネルを下（2026-07-28「スマホだけで一から作れる」）──
+         🔑 **PCの右パネルは壊さない**。狭い画面か指の環境だけ下パネルへ組み替える。
+         ⚠️ `pointer: coarse` を条件に入れる＝画面幅だけで判定すると、広いタブレットが
+            右パネルのまま（＝端の8pxを指で掴めという形）になる。 */
+      @media (max-width: 900px), (pointer: coarse) {
+        body { flex-direction: column; }
+        /* ⚠️ `min-height: 0` が無いと盤面が中身の高さで押し出してパネルが画面外へ出る */
+        #board { flex: 1 1 auto; min-height: 0; }
+        #side {
+          width: 100%; flex: none;
+          /* ⚠️ 高さは**固定**にする。中身の量で伸縮させると盤面の大きさが変わり、
+               そのたび拡大率の焼き直し（`renderer.resize`）が走る。
+             ⚠️ `dvh` はアドレスバーを除いた実際の高さ。先に `vh` を書くのは古い環境の保険。 */
+          height: 40vh;
+          height: 40dvh;
+          border-left: none; border-top: 1px solid var(--brass-line);
+          box-shadow: var(--panel-lift);
+          /* ⚠️ iPhoneのホームバーに最後の行が潜るので下に余白を足す */
+          padding: 12px 12px calc(14px + env(safe-area-inset-bottom));
+        }
+        .hint-pc { display: none; }
+        .hint-touch { display: block; }
+        /* 🔑 選択中は「保存・追加・中身・試し撃ち」を畳む＝狭い所で操作を探させない。
+             ⚠️ 畳んだ側へ戻る口（選択を外す）を必ず出すこと。何もない所を叩いても戻れるが、
+                「戻り方が分からない」が一番きつい詰まり方。 */
+        #side.has-sel .when-idle { display: none; }
+        #side:not(.has-sel) .when-sel { display: none; }
+        .only-touch { display: block; }
+        /* 倍率5個を1行に収める（折り返すと下の「削除」が画面の外へ出る） */
+        #mults button, #caps button { min-width: 56px; }
+        /* ⚠️ 説明文は12pxだと手に持って読むには小さい。狭い画面ほど上げる */
+        .hint { font-size: 13px; }
+        .field { margin-bottom: 6px; }
+        .group { padding-top: 12px; margin-top: 12px; }
+      }
     </style>
   </head>
   <body>
@@ -157,16 +240,22 @@
         <button id="to-game" type="button">‹ ゲームに戻る</button>
         <h1>ステージ工房</h1>
       </div>
-      <div class="hint">
+      <div class="hint hint-pc">
         バーをドラッグで移動／端をつかむと長さ変更。5px刻みで吸着します。<br />
         選んだあとは<strong>十字キー</strong>でも動かせます（Shiftで5目盛りぶん）。
+      </div>
+      <!-- 指の操作は2手（選ぶ → 端の丸を掴む）。⚠️ PC向けの説明と混ぜない＝
+           十字キーの話をスマホで読ませると「動かせない」と受け取られる。 -->
+      <div class="hint hint-touch">
+        部品をタップして選ぶ → <strong>端の丸</strong>を指で動かすと長さが変わるよ。<br />
+        真ん中をなぞると移動。5px刻みで吸着します。
       </div>
       <!-- ⚠️ サイドバーの中に置くと、数値を触る場所（下）との往復が発生して読めない
            （2026-07-27 れいあ指摘）。だから**浮いた窓**にして、掴んで好きな所へ動かせる形にした。
            窓を出す口だけここに置く。 -->
       <button id="keyhelp-open" class="keyhelp-open" type="button">キー操作を見る</button>
 
-      <div class="group">
+      <div class="group when-idle">
         <div class="t">ステージ</div>
         <div class="field">
           <label for="name">名前</label>
@@ -199,7 +288,7 @@
         <div id="status"></div>
       </div>
 
-      <div class="group">
+      <div class="group when-idle">
         <div class="t">追加</div>
         <div class="row">
           <button id="add-gate">ゲート追加</button>
@@ -211,7 +300,7 @@
         </div>
       </div>
 
-      <div class="group">
+      <div class="group when-idle">
         <div class="t">中身</div>
         <div class="row">
           <button id="roll">中身を振り直す</button>
@@ -221,7 +310,8 @@
         </div>
       </div>
 
-      <div class="group">
+      <!-- ⚠️ 縦持ちでは**選択中だけ**この群を出す（他は畳む）。CSS の `.when-sel` を見ること -->
+      <div class="group when-sel">
         <div class="t">選択中</div>
         <div id="sel-none">盤面のバーをクリックしてね</div>
         <div id="sel-panel" hidden>
@@ -301,12 +391,15 @@
           </div>
 
           <div class="row" style="margin-top: 12px">
+            <!-- ⚠️ 縦持ちで畳んだ「保存・追加」へ戻る口。何もない所を叩いても戻れるが、
+                 それが分かるとは限らない（PCでは Esc があるのでこのボタンは出さない）。 -->
+            <button id="deselect" class="only-touch" type="button">選択を外す</button>
             <button id="del" class="danger">削除</button>
           </div>
         </div>
       </div>
 
-      <div class="group">
+      <div class="group when-idle">
         <div class="t">試し撃ち</div>
         <div class="row">
           <button id="play">試遊する</button>
