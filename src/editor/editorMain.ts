@@ -53,6 +53,26 @@ function rebuild(): void {
  */
 function followPanel(): void {
   renderer.setBottomInset(COMPACT.matches ? sideEl.offsetHeight : 0);
+  // 🔑 選んだ部品がパネルの裏に隠れないよう寄せる＝**見ながら数値で調整できる**
+  //    （2026-07-28 れいあ「上のビューを見ながら、数値で調整できるのが理想」）。
+  // ⚠️ ドラッグ中は寄せない（盤面が動くと指と部品がズレて掴み直しになる）。
+  // ⚠️ 既に見えている時は `scrollLogicalIntoView` 側が何もしない＝画面は動かない。
+  if (!grab) {
+    const y = selectionLogicalY();
+    if (y !== null) renderer.scrollLogicalIntoView(y);
+  }
+}
+
+/** 選択中の部品の論理Y（仕切りは中点）。選択が無ければ null */
+function selectionLogicalY(): number | null {
+  const sel = model.selected;
+  if (!sel) return null;
+  if (sel.kind === 'divider') {
+    const d = model.def.dividers[sel.index];
+    return d ? (d.y1 + d.y2) / 2 : null;
+  }
+  const list = sel.kind === 'gate' ? model.def.gates : model.def.jumpers;
+  return list[sel.index]?.y ?? null;
 }
 
 function draw(): void {

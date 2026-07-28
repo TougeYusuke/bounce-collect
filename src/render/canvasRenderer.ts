@@ -39,6 +39,11 @@ export class CanvasRenderer implements Renderer {
   stickToBottom = false;
   /** 下から覆われている高さ（CSSピクセル）。`setBottomInset` で伝える */
   private bottomInset = 0;
+  /**
+   * 下端合わせを基準にした追加のずらし量（正＝盤面を下へ動かす＝上の方が見える）。
+   * ⚠️ 直接いじらない。`scrollLogicalIntoView` から動かし、`layout` が範囲内へ丸める。
+   */
+  private viewShift = 0;
   /** 最後に作り直した時の大きさ。⚠️ 同じ大きさで何度も焼き直さないため */
   private lastW = -1;
   private lastH = -1;
@@ -156,9 +161,39 @@ export class CanvasRenderer implements Renderer {
     this.scale = Math.min(w / this.world.width, h / this.world.height);
     this.offsetX = (w - this.world.width * this.scale) / 2;
     const drawn = this.world.height * this.scale;
-    this.offsetY = this.stickToBottom
-      ? Math.min(0, h - this.bottomInset - drawn)
-      : (h - drawn) / 2;
+    if (!this.stickToBottom) {
+      this.offsetY = (h - drawn) / 2;
+      return;
+    }
+    // 基準＝覆われていない範囲の下端に盤面の下端を合わせる。そこから `viewShift` ぶん動かす。
+    // ⚠️ 盤面の外は見せない（上は 0 まで／下は下端合わせまで）。
+    const bottomAligned = Math.min(0, h - this.bottomInset - drawn);
+    this.offsetY = Math.min(0, Math.max(bottomAligned, bottomAligned + this.viewShift));
+    // ⚠️ 丸めた後の実効値へ戻す（範囲外のぶんを溜め込むと、戻る時に効かなくなる）
+    this.viewShift = this.offsetY - bottomAligned;
+  }
+
+  /**
+   * 指定の論理Yが「覆われていない範囲」に入るよう、足りないぶんだけ盤面を上下に寄せる。
+   *
+   * 🔑 **選んだ部品を見ながら数値で調整できる**ようにするためのもの（2026-07-28 れいあ要望）。
+   *    下端合わせのままだと、上の方の部品を選んだ時に画面の外へ出てしまう。
+   * ⚠️ **既に見えている時は動かさない**（数値をいじるたびに画面が動くと目が回る）。
+   * ⚠️ 呼ぶ側の責任＝**ドラッグ中は呼ばない**（盤面が動くと指と部品がズレる）。
+   */
+  scrollLogicalIntoView(logicalY: number, marginLogical = 80): void {
+    if (!this.stickToBottom) return;
+    const visible = this.lastH - this.bottomInset;
+    const drawn = this.world.height * this.scale;
+    if (drawn <= visible) return; // 丸ごと入っているなら寄せる必要がない
+    const m = marginLogical * this.scale;
+    const screenY = this.offsetY + logicalY * this.scale;
+    let dy = 0;
+    if (screenY < m) dy = m - screenY;
+    else if (screenY > visible - m) dy = visible - m - screenY;
+    if (dy === 0) return;
+    this.viewShift += dy;
+    this.layout();
   }
 
   /**
