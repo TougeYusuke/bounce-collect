@@ -2,7 +2,7 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { it } from 'vitest';
 import { CONFIG } from '../src/core/config';
 import { createRng } from '../src/core/rng';
-import { normalizeStageDef, type StageDef } from '../src/core/stageDef';
+import { MAX_GATES, normalizeStageDef, type StageDef } from '../src/core/stageDef';
 import { RUBRIC, judge, line } from './stageRubric';
 
 /**
@@ -132,16 +132,26 @@ function generate(seed: number, index: number): Made {
     }
   }
 
-  const gates: StageDef['gates'] = [];
+  // ⚠️ ゲートは `MAX_GATES`（9本）まで。**先に全段のブロックを出してから配る**＝
+  //    各ブロックに必ず1枚を確保し、余った枠だけ「2枚割り」に使う。
+  // 🔑 **後から間引いてはいけない**。splitSpans は各ブロックの端を壁（または隣のブロック）まで
+  //    いっぱいに伸ばしているので、1枚抜くとその段に穴が空き、貼り付いた玉がゲートを素通りする。
+  // ⚠️ ブロック数は構造上 最大9（3段 × レーンで3分割）なので、必ず1枚ずつは行き渡る。
+  const blocks: { y: number; depth: number; a: number; b: number }[] = [];
   ys.forEach((y, depth) => {
     const [a, b] = y === bottomY ? (side === 'left' ? [jx2 + GAP, W] : [0, jx1 - GAP]) : [0, W];
-    for (const [ba, bb] of splitAtLane(a, b, lane)) {
-      const want = 1 + Math.floor(rng() * 2); // ブロックごとに1〜2枚
-      for (const [x1, x2] of splitSpans(rng, ba, bb, want)) {
-        gates.push({ x1, x2, y, multiplier: pickMult(rng, depth, ys.length) });
-      }
-    }
+    for (const [ba, bb] of splitAtLane(a, b, lane)) blocks.push({ y, depth, a: ba, b: bb });
   });
+
+  const gates: StageDef['gates'] = [];
+  let spare = MAX_GATES - blocks.length; // 2枚割りに回せる残り枠
+  for (const blk of blocks) {
+    const want = rng() >= 0.5 && spare > 0 ? 2 : 1; // ブロックごとに1〜2枚
+    if (want === 2) spare--;
+    for (const [x1, x2] of splitSpans(rng, blk.a, blk.b, want)) {
+      gates.push({ x1, x2, y: blk.y, multiplier: pickMult(rng, blk.depth, ys.length) });
+    }
+  }
 
   const dividers: StageDef['dividers'] = lane
     ? [
@@ -161,13 +171,17 @@ function generate(seed: number, index: number): Made {
   });
   return {
     def,
-    label: `${ys.length}段・台${side === 'left' ? '左' : '右'}幅${jw}・${lane ? `レーン x${lane[0]}〜${lane[1]}` : 'レーン無し'}`,
+    // ⚠️ ゲート本数もレポートに出す（上限9本が効いているかを報告書だけで見られるように）
+    label: `${ys.length}段・ゲート${def.gates.length}本・台${side === 'left' ? '左' : '右'}幅${jw}・${lane ? `レーン x${lane[0]}〜${lane[1]}` : 'レーン無し'}`,
     bucket: `${side}-${lane ? 'lane' : 'open'}`,
   };
 }
 
 /** 下見の点数（本判定より粗く速い）。合格に近いほど高い。-1 は捨てる */
 function screen(def: StageDef): number {
+  // ⚠️ 番人。形の決まり（段・レーンの分割）をいじった時に9本超えが静かに混じるのを止める。
+  //    judge は1件でも重いので、いちばん手前で落とす。
+  if (def.gates.length > MAX_GATES) return -1;
   const r = judge(def, { drops: [10, 180, 350], seeds: 1 });
   if (r.best < 700) return -1; // そもそも増えない案
   if (r.bestSecs > RUBRIC.SECS_MAX) return -1; // 長すぎ（暴走の芽）

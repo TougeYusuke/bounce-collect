@@ -3,7 +3,7 @@ import { CONFIG } from '../core/config';
 import { MY_STAGE_MAX, loadMyStages, removeMyStage, saveMyStage } from '../core/myStages';
 import { Session } from '../core/session';
 import { stageToWorld } from '../core/stage';
-import { DEFAULT_STAGE_DEF, normalizeStageDef, type StageDef } from '../core/stageDef';
+import { DEFAULT_STAGE_DEF, MAX_GATES, normalizeStageDef, type StageDef } from '../core/stageDef';
 import { STAGES } from '../core/stages';
 import { loadArt } from '../render/art';
 import { CanvasRenderer } from '../render/canvasRenderer';
@@ -545,6 +545,11 @@ function syncPanel(): void {
   el<HTMLButtonElement>('add-gate').disabled = !model.canAddGate();
   el<HTMLButtonElement>('add-jumper').disabled = !model.canAddJumper();
   el<HTMLButtonElement>('add-divider').disabled = !model.canAddDivider();
+  // ⚠️ ゲートだけ本数を出す（上限9本）。数を出さないと**押せなくなった理由が画面に無い**
+  //    ＝「壊れた」に見える。9本を超えて保存された型を開いた時は `11/9` と出て、超過が一目で分かる。
+  const gateCount = `${model.def.gates.length}/${MAX_GATES}`;
+  el<HTMLButtonElement>('add-gate').textContent = `ゲート追加 (${gateCount})`;
+  el<HTMLButtonElement>('grip-gate').textContent = `＋ゲート ${gateCount}`;
   // つまみバー側も本体と同じ状態にする（押せないのに押せそうに見せない）
   el<HTMLButtonElement>('grip-gate').disabled = !model.canAddGate();
   el<HTMLButtonElement>('grip-jumper').disabled = !model.canAddJumper();

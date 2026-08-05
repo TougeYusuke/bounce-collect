@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/core/config';
-import { DEFAULT_STAGE_DEF, normalizeStageDef } from '../src/core/stageDef';
+import { DEFAULT_STAGE_DEF, MAX_GATES, normalizeStageDef } from '../src/core/stageDef';
 import { EditorModel, handleRadius } from '../src/editor/editorModel';
 
 function model(): EditorModel {
@@ -125,12 +125,29 @@ describe('エディタの追加・削除', () => {
     expect(m.selected).toEqual({ kind: 'gate', index: before });
   });
 
-  it('⚠️ 32個を超えては足せない（マスクが32bitのため）', () => {
+  it('⚠️ ゲートは9本を超えては足せない（2026-08-05 れいあ裁定）', () => {
     const m = model();
-    while (m.def.gates.length < 32) m.addGate();
+    while (m.canAddGate()) m.addGate();
+    expect(m.def.gates.length).toBe(MAX_GATES);
+    expect(MAX_GATES).toBe(9);
+    m.addGate();
+    expect(m.def.gates.length).toBe(MAX_GATES);
+  });
+
+  it('⚠️ すでに9本を超えて保存された型は開ける（足せなくなるだけ・減らせば足せる）', () => {
+    const def = structuredClone(DEFAULT_STAGE_DEF);
+    while (def.gates.length < MAX_GATES + 2) def.gates.push({ ...def.gates[0] });
+    const m = new EditorModel(def);
     expect(m.canAddGate()).toBe(false);
     m.addGate();
-    expect(m.def.gates.length).toBe(32);
+    expect(m.def.gates.length).toBe(MAX_GATES + 2);
+
+    // 減らして上限を下回れば、また足せるようになる
+    while (m.def.gates.length > MAX_GATES - 1) {
+      m.select({ kind: 'gate', index: 0 });
+      m.deleteSelected();
+    }
+    expect(m.canAddGate()).toBe(true);
   });
 
   it('選択中のものを消せる', () => {

@@ -2,7 +2,7 @@ import { CONFIG } from '../core/config';
 import { createRng } from '../core/rng';
 import type { Stage } from '../core/stage';
 import { rollStage } from '../core/stageRoll';
-import { buildStage, type StageDef } from '../core/stageDef';
+import { MAX_GATES, buildStage, type StageDef } from '../core/stageDef';
 
 /**
  * ステージ編集の「中身」。
@@ -29,8 +29,11 @@ export type GrabMode = 'move' | 'resize-start' | 'resize-end';
  *    ここを広げて兼用にしないこと＝最小幅32pxのバーが端2つで埋まって移動できなくなる。
  */
 const EDGE = 10;
-/** gateMask / jumperMask が32bit整数なので、それぞれ32個まで */
-const MAX_ELEMENTS = 32;
+/**
+ * ⚠️ ゲートの上限は **core が正本**（`MAX_GATES`）。エディタと生成ツールで同じ値を見る。
+ *    読み込みは止めない＝9本を超えて保存された型もそのまま開けて編集・保存できる
+ *    （縛るのは「これ以上足せない」だけ）。
+ */
 /** 仕切りはマスクを持たないので上限は要らないが、際限なく増えても扱えないので抑える */
 const MAX_DIVIDERS = 16;
 
@@ -227,8 +230,9 @@ export class EditorModel {
     }
   }
 
+  /** ⚠️ ゲートは `MAX_GATES` 本まで。超えて保存された型を開いた時は false のまま＝減らすまで足せない */
   canAddGate(): boolean {
-    return this.def.gates.length < MAX_ELEMENTS;
+    return this.def.gates.length < MAX_GATES;
   }
   /** ⚠️ ジャンプ台は最下段に**1台まで**（2026-07-24 れいあ裁定）。複数だとラウンドが終わらない */
   canAddJumper(): boolean {

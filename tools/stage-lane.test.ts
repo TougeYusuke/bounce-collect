@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { it } from 'vitest';
 import { CONFIG } from '../src/core/config';
-import { normalizeStageDef, type StageDef } from '../src/core/stageDef';
+import { MAX_GATES, normalizeStageDef, type StageDef } from '../src/core/stageDef';
 import { RUBRIC, judge, line, type StageReport } from './stageRubric';
 
 /**
@@ -182,7 +182,11 @@ it('形を揃えて、いちばん良い置き方を探す', () => {
     const before = judge(base);
 
     // 下見で粗く絞ってから、上位3件だけ本判定にかける（本判定は1件20秒かかる）
+    // ⚠️ 9本を超える案は先に捨てる（`MAX_GATES`）。`tidy` が最下段のゲートを台のぶんで切るので、
+    //    元が9本以内でも増えうる。全部落ちたら `short` が空 → best が null →
+    //    「置ける形が無かった（そのまま）」でファイルを書かずに終わる（壊さない側に倒す）。
     const short = candidates(base)
+      .filter((c) => c.def.gates.length <= MAX_GATES)
       .map((c) => ({ ...c, s: screen(c.def) }))
       .sort((a, b) => b.s - a.s)
       .slice(0, 3);
